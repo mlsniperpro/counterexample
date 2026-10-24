@@ -77,10 +77,12 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.9 s | 10.3 s | 2.3 s |
+| Median time to first counterexample | 4.8 s | 10.2 s | 2.2 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
-| Model cost, all 40 solutions | $0.0564 | $0.1088 | $0.0336 |
+| Model cost, all 40 solutions | $0.0567 | $0.1099 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
+
+Load per attack (routed): 2 to 4 (median 3) model calls and 1,454 to 3,365 (median 2,338.5) sandbox runs, which is 8 to 17 (median 12) Judge0 submissions at 200 inputs per submission (a lower bound: a timeout or crash splits a submission).
 <!-- bench:fixture:end -->
 
 How to read this honestly:
@@ -93,7 +95,7 @@ How to read this honestly:
 `pnpm soak --all --seeds 3 --readme` builds every single-point mutant of the 40 benchmark solutions (relational, arithmetic, logical and literal mutations, as in mutation testing) and attacks each one in replay mode. It then checks every claimed counterexample against the problem's reference solution. Every "no counterexample" verdict gets its own 3,000-input differential search, so a missed bug cannot hide.
 
 <!-- bench:soak-all:start -->
-Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 1023 s.
+Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 645 s.
 
 | Outcome | Count | Meaning |
 | --- | --- | --- |
@@ -131,7 +133,7 @@ Deployment: a Vercel preview works for the UI; set the env vars above.
 
 - **Per attack:** at most 8 model calls on the public endpoint (12 in the library), 60,000 sandbox runs and 50 s of wall clock. That works out to about 300 inputs per family, 2,000 shrink evaluations, 3 oracle attempts and 2 fix attempts. What the 40 benchmark solutions actually use is in the "Load per attack" line of the benchmark results above, written by `pnpm bench --readme`. A pasted statement adds one model call (understanding it), inside the same cap. Generated values are capped by the DSL (lengths up to 10,000; at most 200,000 values per input). The local executor caps process output at 32 MB, and a process pool sized to the CPU count bounds concurrent processes.
 - **Per server instance:** `MAX_CONCURRENT_ATTACKS` (default 4), `RATE_LIMIT_PER_HOUR` and `ATTACKS_PER_IP_PER_DAY` per IP, and `DAILY_SPEND_CAP_USD` across all live attacks. The IP table is capped at 10,000 entries. Client IPs come from `x-real-ip` / `x-forwarded-for` only on Vercel (`VERCEL=1`) or behind a proxy that sets them (`TRUST_PROXY_HEADERS=1`); anywhere else those headers could be spoofed, so all clients share one bucket. If the client disconnects, the attack stops at its next model call or sandbox run.
-- **Expected load and where it breaks first:** a hackathon demo, with tens of concurrent users at most. The first limit hit is the sandbox. Each attack sends a few dozen Judge0 submissions (see "Load per attack" above), so a shared Judge0 instance saturates first. Judge0 limits CPU time per submission, not per input (a submission of n inputs gets n times the per-input limit), so a slow input is caught as a timeout of its submission and then blamed on the right input by resubmitting the rest; the concurrency cap turns that into a fast 503 instead of a pile-up. Next come the guards: they live in memory, so with N serverless instances the effective limits are N times higher. A shared store (Redis or Vercel KV) is the fix, and it is the one change needed before a real launch. Token Factory cost is capped per day; Token Factory latency (not measured yet; see `BLOCKED.md`) sets the wall-clock floor.
+- **Expected load and where it breaks first:** a hackathon demo, with tens of concurrent users at most. The first limit hit is the sandbox. Each attack sends several Judge0 submissions (the measured count is in "Load per attack" above), so a shared Judge0 instance saturates first. Judge0 limits CPU time per submission, not per input (a submission of n inputs gets n times the per-input limit), so a slow input is caught as a timeout of its submission and then blamed on the right input by resubmitting the rest; the concurrency cap turns that into a fast 503 instead of a pile-up. Next come the guards: they live in memory, so with N serverless instances the effective limits are N times higher. A shared store (Redis or Vercel KV) is the fix, and it is the one change needed before a real launch. Token Factory cost is capped per day; Token Factory latency (not measured yet; see `BLOCKED.md`) sets the wall-clock floor.
 
 ## Layout
 

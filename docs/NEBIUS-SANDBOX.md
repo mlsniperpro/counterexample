@@ -67,7 +67,7 @@ Sources:
 
 A job provisions a VM per run, and the jobs API has no endpoint for reading a job's output back. The [REST API](https://docs.nebius.com/rest-api/ai/v1/jobs/create) creates jobs and reports state; logs go through the logging stack.
 
-An interactive attack makes a few dozen sandbox calls ("Load per attack" in the README, measured on the benchmark), each expected in well under a second. A warm endpoint fits that pattern; a VM per batch does not.
+An interactive attack makes several sandbox calls ("Load per attack" in the README, measured on the benchmark), each expected in well under a second. A warm endpoint fits that pattern; a VM per batch does not.
 
 ## Run it locally
 

@@ -1,4 +1,4 @@
-Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 1023 s.
+Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 645 s.
 
 | Outcome | Count | Meaning |
 | --- | --- | --- |
