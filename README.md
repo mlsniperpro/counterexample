@@ -77,7 +77,7 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.9 s | 10.3 s | 2.2 s |
+| Median time to first counterexample | 4.9 s | 10.3 s | 2.3 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
 | Model cost, all 40 solutions | $0.0564 | $0.1088 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
@@ -93,7 +93,7 @@ How to read this honestly:
 `pnpm soak --all --seeds 3 --readme` builds every single-point mutant of the 40 benchmark solutions (relational, arithmetic, logical and literal mutations, as in mutation testing) and attacks each one in replay mode. It then checks every claimed counterexample against the problem's reference solution. Every "no counterexample" verdict gets its own 3,000-input differential search, so a missed bug cannot hide.
 
 <!-- bench:soak-all:start -->
-Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 730 s.
+Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 1023 s.
 
 | Outcome | Count | Meaning |
 | --- | --- | --- |

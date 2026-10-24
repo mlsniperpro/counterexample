@@ -5,7 +5,7 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.9 s | 10.3 s | 2.2 s |
+| Median time to first counterexample | 4.9 s | 10.3 s | 2.3 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
 | Model cost, all 40 solutions | $0.0564 | $0.1088 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
