@@ -4,6 +4,17 @@
 
 **A coding agent that doesn't stop at "tests pass".** Give it a problem and a solution (your interview answer, or code an AI wrote). It does what a strong interviewer does: builds a slow but obviously-correct oracle, designs adversarial inputs, runs thousands of them in a sandbox, shrinks any mismatch to a **minimal counterexample**, explains the bug in two sentences, proposes a fix, and **re-attacks the fix** before calling it fixed.
 
+## Try it in 60 seconds (no keys needed)
+
+```bash
+pnpm install
+pnpm dev          # open http://localhost:3000 and press "Attack this solution"
+```
+
+Without keys the app runs in **replay mode**: model answers are recorded, while every program run is real. The five built-in problems each carry a subtly buggy solution. Each attack ends in a minimal counterexample, a two-sentence explanation, and a fix that has been re-attacked; "Share link" puts the whole report into a URL. With keys, the same UI runs live on Nebius Token Factory (see "Run it").
+
+What it found in the built-in solutions:
+
 ```
 solve([0], 0)          expected 0, got -1            binary search, loop exits at lo == hi
 solve(2147483647)      expected 46340, got 0         integer sqrt, (lo + hi + 1) >> 1 overflows
@@ -22,13 +33,27 @@ solve("baab")          expected 2, got 3             sliding window moves backwa
 
 All calls go through Token Factory's OpenAI-compatible endpoint (`NEBIUS_BASE_URL`, `NEBIUS_API_KEY`, `MODEL_REASONING`, `MODEL_FAST`). The report's **"Why Ultra here, Super there"** panel shows model, tokens, cost and latency for every step, and the benchmark compares this routing with an Ultra-only baseline.
 
-**Tavily** runs when the statement leans on external facts (for example "constraints follow LeetCode 704") or when the user ticks **Research the web**. Facts come back with URLs, are cited in the trace, and the trace shows which generator families they shaped.
+**Tavily** research runs when the statement leans on external facts or the user ticks **Research the web**. When it runs, it answers two kinds of question, and every answer becomes cited facts that steer the attack:
+
+- **The problem's sources.** For example "constraints follow LeetCode 704": Tavily fetches the official constraints.
+- **The documentation of risky APIs the code calls.** The agent reads the code for calls whose documented behaviour is a classic bug source:
+  - JavaScript's `sort()` without a comparator sorts numbers as strings;
+  - `>>`, `|` and `~~` truncate to 32 bits;
+  - `Math.round` rounds rather than floors;
+  - Python's `round()` sends halves to the even neighbour.
+
+  It then searches their docs, so MDN's sentence "numbers are converted to strings, '80' comes before '9'" turns into a generator family of two-digit intervals that breaks the merge.
+
+  When research is not requested, the trace suggests it whenever the code calls one of these APIs.
+
+Every fact carries its URL into the trace and the report. A generator family may cite only facts from this run's research, and the report lists which families the research shaped (`src/lib/research/plan.ts`).
 
 **Share a report by link.** "Share link" puts the report (without its trace) into the URL fragment, deflate-compressed and base64url-encoded with the browser's own Compression Streams API. Browsers never send the fragment to the server, so opening the link decodes the report in the reader's browser, after size caps and schema validation. The whole link (origin, path and fragment) is capped at 8,000 characters, the minimum URI length RFC 9110 asks software to support; a larger report is downloaded as JSON instead, with the same content a link would carry.
 
 ## Design choices that matter
 
 - **Generators, not test cases.** The fast model writes input *families* in a small JSON DSL (`src/lib/core/spec.ts`): ints with edge bias, arrays (sorted, distinct, duplicate pools), strings, tuples, DAGs as edge lists. Model output is interpreted, never executed, and every generated input is checked against the problem's declared constraints, so an over-eager generator cannot cause a false alarm.
+- **Small scope first.** Right after the examples, a bounded-exhaustive family runs every small input of the declared types. That means all integers near zero plus the bounds, all short strings and arrays over a few values, and all small graphs with up to two edges. This follows the small-scope hypothesis that most bugs have a small counterexample, and it catches bugs random sampling skips (a solution wrong only at `x = 5` out of 2^31).
 - **Mutation on top of generation.** After the model's families, type-aware mutants of the examples and of every input already tried (±1, negation, duplicated or dropped elements, swaps, repeated slices) run as their own family, after EvalPlus. They are filtered by the same validator.
 - **Delta debugging over structured inputs** (`src/lib/core/shrink.ts`): chunk removal, element simplification, binary search on integers, isolated-node removal with relabelling for graphs. A well-founded size measure guarantees termination; the problem's validator keeps every step legal.
 - **One harness, any sandbox.** Code is wrapped in the same JSON-lines harness for every executor (`src/lib/exec/program.ts`). If one input hangs or crashes, the next unreported input is blamed and the batch restarts after it, so one bad input never loses the rest.
@@ -52,9 +77,9 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.8 s | 10.2 s | 2.2 s |
+| Median time to first counterexample | 4.9 s | 10.3 s | 2.2 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
-| Model cost, all 40 solutions | $0.0561 | $0.1077 | $0.0336 |
+| Model cost, all 40 solutions | $0.0564 | $0.1088 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 <!-- bench:fixture:end -->
 
@@ -62,6 +87,22 @@ How to read this honestly:
 
 - In fixture mode the generator families and oracles are **recorded responses we wrote**, knowing the bug classes. These numbers measure the pipeline (oracle check, generation, sandbox runs, shrinking, re-attack), not Nemotron's judgement. Token counts are estimated from text length and model latency is simulated, so time-to-first-counterexample is dominated by simulated latency (Ultra is slower per token, which is why Ultra-only is slower).
 - The ablation row is the useful one: **uniform random inputs alone already find most of these bugs**. The ones they miss are exactly the ones that need targeted inputs: the int32 midpoint overflow (only `x = 2^31 - 1`), the `x = 0 / 1` bound in integer sqrt, and crossed brackets like `([)]`.
+
+### Soak: hundreds of buggy programs, every claim independently checked
+
+`pnpm soak --all --seeds 3 --readme` builds every single-point mutant of the 40 benchmark solutions (relational, arithmetic, logical and literal mutations, as in mutation testing) and attacks each one in replay mode. It then checks every claimed counterexample against the problem's reference solution. Every "no counterexample" verdict gets its own 3,000-input differential search, so a missed bug cannot hide.
+
+<!-- bench:soak-all:start -->
+Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 730 s.
+
+| Outcome | Count | Meaning |
+| --- | --- | --- |
+| killed | 1017 | counterexample reported **and independently confirmed** against the reference solution |
+| unsound | 0 | counterexample reported but not real (must be 0) |
+| survived | 54 | no counterexample, and a 3,000-input independent differential search found none either (likely equivalent mutant) |
+| missed | 0 | no counterexample, but the independent search found a difference (a real miss) |
+| error | 0 | the attack ended in error or budget exhaustion |
+<!-- bench:soak-all:end -->
 
 ### Live mode (Token Factory + Tavily)
 

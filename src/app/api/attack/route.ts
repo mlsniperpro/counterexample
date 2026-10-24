@@ -6,7 +6,8 @@ import type { TraceEvent } from "@/lib/agent/trace";
 import { understandProblem } from "@/lib/agent/understand";
 import { AppError, ConfigError, errorMessage } from "@/lib/errors";
 import { priceTable } from "@/lib/models/pricing";
-import { getProblem } from "@/lib/problems/catalog";
+import { editedKey } from "@/fixtures/replay";
+import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
 import type { Problem } from "@/lib/problems/types";
 
 export const maxDuration = 60;
@@ -48,8 +49,14 @@ export async function POST(req: Request) {
 
   let problem: Problem;
   let entry = "solve";
+  let solutionKey: string | undefined;
   if (builtIn) {
     problem = builtIn;
+    // Replay has explanations recorded for the demo code only; edited code gets an honest generic one.
+    const demo = BUILT_INS.find((b) => b.problem.id === builtIn.id)?.demo;
+    if (mode === "replay" && demo && (demo.code.trim() !== body.code.trim() || demo.language !== body.language)) {
+      solutionKey = editedKey(builtIn.id, demo.language === body.language);
+    }
   } else {
     try {
       const u = await understandProblem(body.statement ?? "", { code: body.code, language: body.language }, deps.provider, deps.models, req.signal);
@@ -77,7 +84,7 @@ export async function POST(req: Request) {
       try {
         send({ type: "mode", mode, executor: deps.executor.label, problem: { id: problem.id, title: problem.title } });
         const report = await attack(
-          { problem, solution: { language: body.language, code: body.code, entry }, research: body.research },
+          { problem, solution: { language: body.language, code: body.code, entry }, research: body.research, solutionKey },
           { ...deps, budgets: PUBLIC_BUDGETS, signal: req.signal, onEvent: (e: TraceEvent) => send({ type: "event", event: e }) },
         );
         spent.costUsd += report.stats.costUsd;

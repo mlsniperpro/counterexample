@@ -7,6 +7,7 @@
  */
 import type { ReplayFixtures } from "../lib/models/replay";
 import type { SearchResult } from "../lib/research/tavily";
+import { REFERENCES } from "../lib/problems/demos.generated";
 
 const py = (s: string) => "```python\n" + s.trim() + "\n```";
 const json = (o: unknown) => "```json\n" + JSON.stringify(o, null, 2) + "\n```";
@@ -16,9 +17,46 @@ export const BS_EDGE_DISCUSS = "https://en.wikipedia.org/wiki/Binary_search_algo
 export const ISQRT_WIKI = "https://en.wikipedia.org/wiki/Integer_square_root";
 export const CHANGE_MAKING_WIKI = "https://en.wikipedia.org/wiki/Change-making_problem";
 export const DIJKSTRA_WIKI = "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm";
+export const MDN_SORT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort";
+export const MDN_RIGHT_SHIFT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift";
+export const MDN_MATH_ROUND = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round";
+export const PY_ROUND = "https://docs.python.org/3/library/functions.html#round";
 export const LEETCODE_3 = "https://leetcode.com/problems/longest-substring-without-repeating-characters/description/";
 
 export const RESEARCH_RESULTS: Record<string, SearchResult[]> = {
+  // API documentation (questions asked because of what the code calls; see src/lib/research/plan.ts).
+  "JavaScript Array.prototype.sort default sort order without compareFn": [
+    {
+      title: "Array.prototype.sort() - JavaScript | MDN",
+      url: MDN_SORT,
+      content:
+        "If compareFn is not supplied, all non-undefined array elements are sorted by converting them to strings and comparing strings in UTF-16 code units order. In a numeric sort, 9 comes before 80, but because numbers are converted to strings, \"80\" comes before \"9\" in the Unicode order.",
+    },
+  ],
+  "JavaScript right shift operator converts operands to 32-bit integers": [
+    {
+      title: "Right shift (>>) - JavaScript | MDN",
+      url: MDN_RIGHT_SHIFT,
+      content:
+        "It performs BigInt right shift if both operands become BigInts; otherwise, it converts both operands to 32-bit integers and performs number right shift. If the left operand is a number with more than 32 bits, it will get the most significant bits discarded.",
+    },
+  ],
+  "JavaScript Math.round fractional part exactly 0.5": [
+    {
+      title: "Math.round() - JavaScript | MDN",
+      url: MDN_MATH_ROUND,
+      content:
+        "If the fractional portion is exactly 0.5, the argument is rounded to the next integer in the direction of +Infinity. This differs from many languages' round() functions, which often round half-increments away from zero.",
+    },
+  ],
+  "Python built-in round ties to even": [
+    {
+      title: "Built-in Functions - Python documentation",
+      url: PY_ROUND,
+      content:
+        "Values are rounded to the closest multiple of 10 to the power minus ndigits; if two multiples are equally close, rounding is done toward the even choice (so, for example, both round(0.5) and round(-0.5) are 0, and round(1.5) is 2).",
+    },
+  ],
   "LeetCode 704 Binary Search official constraints": [
     {
       title: "Binary Search - LeetCode",
@@ -74,6 +112,19 @@ export const RESEARCH_RESULTS: Record<string, SearchResult[]> = {
 };
 
 export const FIXTURES: ReplayFixtures = {
+  // Research summaries for API-documentation questions, shared by every problem ("api?q=<query>").
+  "api?q=JavaScript Array.prototype.sort default sort order without compareFn": {
+    research: json({ facts: [{ fact: "Without a comparator, sort() compares elements as strings, so 10 sorts before 9; numeric data with mixed digit counts is mis-ordered.", url: MDN_SORT }] }),
+  },
+  "api?q=JavaScript right shift operator converts operands to 32-bit integers": {
+    research: json({ facts: [{ fact: ">> converts its operands to 32-bit integers, so a sum at or above 2^31 wraps to a negative number before the shift.", url: MDN_RIGHT_SHIFT }] }),
+  },
+  "api?q=JavaScript Math.round fractional part exactly 0.5": {
+    research: json({ facts: [{ fact: "Math.round rounds to the nearest integer (halves toward +Infinity); it is not floor, so rounding a square root overshoots whenever its fraction is at least 0.5.", url: MDN_MATH_ROUND }] }),
+  },
+  "api?q=Python built-in round ties to even": {
+    research: json({ facts: [{ fact: "round() sends exact halves to the even neighbour: round(0.5) and round(-0.5) are 0, round(1.5) is 2.", url: PY_ROUND }] }),
+  },
   "binary-search": {
     research: json({
       facts: [
@@ -162,7 +213,7 @@ def solve(x):
       families: [
         {
           name: "int32-bounds",
-          citations: [ISQRT_WIKI, BS_EDGE_DISCUSS],
+          citations: [ISQRT_WIKI, BS_EDGE_DISCUSS, MDN_RIGHT_SHIFT],
           rationale: "Values at and near 2^31 - 1 overflow a 32-bit midpoint such as (lo + hi + 1) >> 1.",
           count: 200,
           args: [{ kind: "int", min: 2147395600, max: 2147483647, bias: "edges" }],
@@ -175,6 +226,7 @@ def solve(x):
         },
         {
           name: "perfect-squares-neighbourhood",
+          citations: [MDN_MATH_ROUND],
           rationale: "Values just below a perfect square catch rounding instead of flooring.",
           count: 300,
           args: [{ kind: "int", min: 0, max: 10000 }],
@@ -401,7 +453,7 @@ def solve(intervals):
       families: [
         { name: "touching", rationale: "Intervals that share an endpoint must merge.", count: 300, args: [{ kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: 0, max: 6 }, { kind: "int", min: 0, max: 6 }], nondecreasing: true }, len: { min: 2, max: 4 } }] },
         { name: "nested", rationale: "An interval inside another must not shrink the merged end.", count: 300, args: [{ kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: 0, max: 20 }, { kind: "int", min: 0, max: 20 }], nondecreasing: true }, len: { min: 2, max: 5 } }] },
-        { name: "two-digit-starts", rationale: "Starts of 10 and above break string-order sorting.", count: 300, args: [{ kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: 2, max: 20 }, { kind: "int", min: 2, max: 20 }], nondecreasing: true }, len: { min: 2, max: 6 } }] },
+        { name: "two-digit-starts", rationale: "Starts of 10 and above break string-order sorting.", citations: [MDN_SORT], count: 300, args: [{ kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: 2, max: 20 }, { kind: "int", min: 2, max: 20 }], nondecreasing: true }, len: { min: 2, max: 6 } }] },
       ],
     }),
   },
@@ -457,3 +509,25 @@ def solve(nums, target):
     }),
   },
 };
+
+/** Replay key for a built-in problem whose demo code the user edited (same language as the demo, or another one). */
+export const editedKey = (problemId: string, sameLanguage = true) => `${problemId}/${sameLanguage ? "edited" : "edited-other-language"}`;
+
+/**
+ * Edited code has no recorded explanation. Rather than replaying the demo's
+ * (now wrong) explanation, say so and offer the reference solution, which is
+ * still re-attacked like any proposed fix.
+ */
+for (const [id, code] of Object.entries(REFERENCES)) {
+  FIXTURES[editedKey(id)] = {
+    explain:
+      "EXPLANATION: Replay mode has no recorded explanation for edited code, so this is the problem's reference solution rather than a targeted fix of your code. The counterexample above is real: it was found and shrunk by running your code against the oracle.\n\n```\n" +
+      code +
+      "```",
+  };
+  // No reference exists in the other language: explain without a fix (nothing to re-attack).
+  FIXTURES[editedKey(id, false)] = {
+    explain:
+      "EXPLANATION: Replay mode has no recorded explanation or reference fix in this language for edited code. The counterexample above is real: it was found and shrunk by running your code against the oracle.",
+  };
+}

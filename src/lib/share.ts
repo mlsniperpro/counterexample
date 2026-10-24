@@ -46,7 +46,7 @@ const sharedReportSchema: z.ZodType<SharedReport> = z.object({
         name: str(60),
         rationale: str(400),
         citations: z.array(str(500)).max(10),
-        source: z.enum(["examples", "model", "mutation", "baseline"]),
+        source: z.enum(["examples", "exhaustive", "model", "mutation", "baseline"]),
         generated: count,
         dropped: count,
         tested: count,

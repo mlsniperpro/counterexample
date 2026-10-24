@@ -70,12 +70,3 @@ export class ReplayResearch implements ResearchClient {
     return { results: hit, dropped: 0 };
   }
 }
-
-const EXTERNAL = /\b(leetcode|codeforces|atcoder|hackerrank|spoj|usaco|kattis|official|per the docs|documentation|rfc ?\d+|https?:\/\/)/i;
-
-/** Research runs only when the statement leans on external facts, or when the user asks. */
-export function needsResearch(statement: string, references: string[] | undefined, mode: "auto" | "force" | "off"): boolean {
-  if (mode === "off") return false;
-  if (mode === "force") return true;
-  return (references?.length ?? 0) > 0 || EXTERNAL.test(statement);
-}

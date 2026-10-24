@@ -1,6 +1,7 @@
 # BUG: Dijkstra finalises a node when it is first popped, which is wrong once negative edges exist: a later negative edge can still shorten an already-final node.
 import heapq
 
+
 def solve(n, edges):
     adj = [[] for _ in range(n)]
     for u, v, w in edges:

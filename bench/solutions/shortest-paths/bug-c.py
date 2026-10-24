@@ -5,6 +5,5 @@ def solve(n, edges):
     d[0] = 0
     for _ in range(n):
         for u, v, w in edges:
-            if d[u] + w < d[v]:
-                d[v] = d[u] + w
+            d[v] = min(d[v], d[u] + w)
     return [None if x >= INF else x for x in d]

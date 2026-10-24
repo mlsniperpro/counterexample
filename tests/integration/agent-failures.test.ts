@@ -21,7 +21,7 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.research?.facts).toEqual([]);
     expect(r.verdict).toBe("counterexample");
     expect(r.research?.error).toMatch(/tavily: HTTP 503/);
-    expect(r.trace.some((e) => e.kind === "warn" && /Research failed/.test(e.msg))).toBe(true);
+    expect(r.trace.some((e) => e.kind === "warn" && /Research question failed, continuing/.test(e.msg))).toBe(true);
   });
 
   it("says so when research is needed but no client is configured", async () => {
@@ -76,7 +76,8 @@ describe("agent failure paths (replay mode)", () => {
       complete: (req) => new Promise((_, reject) => req.signal?.addEventListener("abort", () => reject(req.signal!.reason))),
     };
     const t0 = Date.now();
-    const r = await attack({ problem: getProblem("isqrt")!, solution: builtIn("isqrt").demo }, { ...deps(), provider: hanging, budgets: { wallClockMs: 200 } });
+    const b = builtIn("coin-change");
+    const r = await attack({ problem: b.problem, solution: b.demo }, { ...deps(), provider: hanging, budgets: { wallClockMs: 200 } });
     expect(r.verdict).toBe("budget_exhausted");
     expect(r.message).toMatch(/wallClock.*during oracle/);
     expect(Date.now() - t0).toBeLessThan(5000);
@@ -86,8 +87,16 @@ describe("agent failure paths (replay mode)", () => {
     const b = builtIn("isqrt");
     const r = await attack({ problem: b.problem, solution: b.demo }, deps());
     const names = r.families.map((f) => f.name);
-    expect(names).toEqual(["examples", "int32-bounds", "tiny", "perfect-squares-neighbourhood", "random-large", "mutations", "baseline-random"]);
+    expect(names).toEqual(["examples", "small-scope", "int32-bounds", "tiny", "perfect-squares-neighbourhood", "random-large", "mutations", "baseline-random"]);
     expect(r.families.filter((f) => f.tested > 0).length).toBeLessThan(names.length);
+  });
+
+  it("caps every family, small-scope included, at the per-family input budget", async () => {
+    const p = getProblem("binary-search")!;
+    const { code } = { code: "def solve(nums, target):\n    return nums.index(target) if target in nums else -1\n" };
+    const r = await attack({ problem: p, solution: { language: "python", code, entry: "solve" }, research: "off" }, { ...deps(), budgets: { inputsPerFamily: 50 } });
+    expect(r.verdict).toBe("no_counterexample");
+    for (const f of r.families.filter((x) => x.source !== "examples")) expect(f.tested, f.name).toBeLessThanOrEqual(50);
   });
 
   it("only calls it a compile error when every example failed to load", () => {

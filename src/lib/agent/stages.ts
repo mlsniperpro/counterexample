@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { outputsEqual } from "../core/compare";
 import { shrink } from "../core/shrink";
+import { smallScopeInputs } from "../core/smallscope";
 import { argsConform } from "../core/spec";
-import { AppError, BudgetExceeded, errorMessage } from "../errors";
+import { AppError, BudgetExceeded, errorMessage, ModelOutputError } from "../errors";
 import type { Solution } from "../problems/types";
-import { needsResearch, type ResearchFact, type SearchResult } from "../research/tavily";
+import { researchPlan } from "../research/plan";
+import type { ResearchFact } from "../research/tavily";
 import { startStage, type AttackContext } from "./context";
 import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
 import { showOutcome, type Judgement } from "./judge";
@@ -15,9 +17,9 @@ import type { Counterexample, Family, FamilyStats } from "./types";
 /** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
 export const RUN_CHUNK = 64;
 const MUTANTS = 300;
+const SMALL_SCOPE = 300;
 const BASELINE = 100;
 const BASELINE_ONLY = 1000;
-const MAX_QUERIES = 2;
 
 const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
 const call = (args: unknown[]) => `solve(${args.map((a) => JSON.stringify(a)).join(", ")})`;
@@ -36,15 +38,12 @@ const factsSchema = z.object({ facts: z.array(z.object({ fact: z.string().min(1)
  * continues without research; a budget overrun still stops the attack.
  */
 export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]> {
-  const { problem } = ctx.input;
-  if (!needsResearch(problem.statement, problem.references, ctx.input.research ?? "auto")) return [];
-  startStage(
-    ctx,
-    "research",
-    ctx.input.research === "force" ? "Research the web was requested: researching with Tavily" : "Statement references external facts: researching with Tavily",
-  );
-  const queries = (problem.references?.length ? problem.references : [`${problem.title} constraints edge cases`]).slice(0, MAX_QUERIES);
-  const research: NonNullable<typeof ctx.report.research> = { queries, facts: [], influencedFamilies: [] };
+  const { problem, solution } = ctx.input;
+  const plan = researchPlan(problem, solution, ctx.input.research ?? "auto");
+  if (plan.suggestion) ctx.tracer.emit("understand", "info", plan.suggestion, { suggestion: "research" });
+  if (plan.queries.length === 0) return [];
+  startStage(ctx, "research", `Researching with Tavily: ${plan.reasons.join("; ")}`);
+  const research: NonNullable<typeof ctx.report.research> = { queries: plan.queries.map((q) => q.query), facts: [], influencedFamilies: [] };
   ctx.report.research = research;
   const client = ctx.deps.research;
   if (!client) {
@@ -52,29 +51,31 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
     ctx.tracer.emit("research", "warn", `Research needed but skipped: ${research.error}`);
     return [];
   }
-  try {
-    const results: SearchResult[] = [];
-    for (const q of queries) {
-      const r = await client.search(q, ctx.signal);
-      results.push(...r.results);
-      ctx.tracer.emit("research", "research", `Tavily: "${q}" returned ${r.results.length} result(s)`, { query: q, urls: r.results.map((x) => x.url), client: client.name });
+  // One search and one fast-model summary per question, so every fact cites a page from its own search.
+  // A failed question is reported and skipped; the others still run.
+  const errors: string[] = [];
+  for (const q of plan.queries) {
+    try {
+      const r = await client.search(q.query, ctx.signal);
+      ctx.tracer.emit("research", "research", `Tavily: "${q.query}" returned ${r.results.length} result(s)`, { query: q.query, reason: q.reason, urls: r.results.map((x) => x.url), client: client.name });
       if (r.dropped) ctx.tracer.emit("research", "warn", `Dropped ${r.dropped} malformed search result(s) (non-http(s) URL or wrong shape)`);
+      if (r.results.length === 0) continue;
+      const focus = q.reason === "api" ? `the documented behaviour of ${q.label} that can make a solution wrong` : "official constraints and edge cases";
+      const text = await ctx.models.call("research", "fast", "research", researchPrompt(problem, r.results, focus), `${ctx.replayKey}?q=${q.query}`);
+      const urls = new Set(r.results.map((x) => x.url));
+      const answer = parseJsonAnswer(text, factsSchema, "research facts");
+      const uncited = answer.facts.filter((f) => !urls.has(f.url)).length;
+      if (uncited) ctx.tracer.emit("research", "warn", `Dropped ${uncited} fact(s) citing a URL that was not in the search results`);
+      research.facts.push(...answer.facts.filter((f) => urls.has(f.url)).slice(0, 5));
+    } catch (e) {
+      if (e instanceof BudgetExceeded || !(e instanceof AppError)) throw e;
+      errors.push(`"${q.query}": ${errorMessage(e)}`);
+      ctx.tracer.emit("research", "warn", `Research question failed, continuing: "${q.query}": ${errorMessage(e)}`);
     }
-    if (results.length === 0) return [];
-    const text = await ctx.models.call("research", "fast", "research", researchPrompt(problem, results), ctx.replayKey);
-    const urls = new Set(results.map((r) => r.url));
-    const answer = parseJsonAnswer(text, factsSchema, "research facts");
-    const uncited = answer.facts.filter((f) => !urls.has(f.url)).length;
-    if (uncited) ctx.tracer.emit("research", "warn", `Dropped ${uncited} fact(s) citing a URL that was not in the search results`);
-    research.facts = answer.facts.filter((f) => urls.has(f.url)).slice(0, 5);
-    ctx.tracer.emit("research", "research", `${research.facts.length} cited fact(s) extracted`, { facts: research.facts });
-    return research.facts;
-  } catch (e) {
-    if (e instanceof BudgetExceeded || !(e instanceof AppError)) throw e;
-    research.error = errorMessage(e);
-    ctx.tracer.emit("research", "warn", `Research failed, continuing without it: ${research.error}`);
-    return [];
   }
+  if (errors.length) research.error = errors.join("; ");
+  ctx.tracer.emit("research", "research", `${research.facts.length} cited fact(s) extracted`, { facts: research.facts });
+  return research.facts;
 }
 
 /** The reasoning model writes a brute-force oracle; it must match every example before it is trusted. */
@@ -112,6 +113,7 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
   const baselineOnly = ctx.input.generators === "baseline-only";
   const plan: Family[] = [{ name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" }];
   if (!baselineOnly) {
+    plan.push({ name: "small-scope", rationale: "Every small input of the declared types (bounded exhaustive testing: most bugs have a small counterexample).", citations: [], args: specs, count: Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily), source: "exhaustive" });
     const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
     const { families, rejected } = parseFamilies(text, specs, ctx.limits.inputsPerFamily);
     for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
@@ -125,7 +127,7 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
     }
     if (uncited) ctx.tracer.emit("attack", "info", `Removed ${uncited} citation(s) to sources that were not part of this run's research`);
     plan.push(...families);
-    plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: MUTANTS, source: "mutation" });
+    plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: Math.min(MUTANTS, ctx.limits.inputsPerFamily), source: "mutation" });
   }
   plan.push({
     name: "baseline-random",
@@ -158,6 +160,9 @@ function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: str
       return { inputs: ctx.input.problem.examples.map((e) => e.args), dropped: 0 };
     case "mutation":
       return mutationInputs(tested, specs, f.count, ctx.seed, salt);
+    case "exhaustive":
+      // Deterministic: the same small inputs on attack and re-attack.
+      return { inputs: smallScopeInputs(specs, f.count), dropped: 0 };
     default:
       return generateInputs(f, specs, ctx.seed, salt);
   }
@@ -266,9 +271,17 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
     startStage(ctx, "explain", a === 0 ? "Explaining the bug and proposing a fix" : "The fix failed: asking for another");
     const text = await ctx.models.call("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback), ctx.solutionKey, a);
-    const fix: Solution = { language: solution.language, code: extractCode(text, solution.language), entry: solution.entry };
     ctx.report.explanation = extractExplanation(text);
     ctx.tracer.emit("explain", "info", ctx.report.explanation, { attempt: a });
+    let fix: Solution;
+    try {
+      fix = { language: solution.language, code: extractCode(text, solution.language), entry: solution.entry };
+    } catch (e) {
+      if (!(e instanceof ModelOutputError)) throw e;
+      // An explanation without code is still useful; there is just nothing to re-attack.
+      ctx.tracer.emit("explain", "warn", "No fix was proposed (the answer had no code block); the counterexample and explanation stand on their own");
+      return;
+    }
 
     startStage(ctx, "reattack", `Re-attacking the fix on ${reattack.length} inputs (all previous families plus a fresh seed)`);
     const batch = reattack.slice(0, Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2)));

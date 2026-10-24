@@ -61,17 +61,39 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
       expect(r.research?.facts.length, b.problem.id).toBeGreaterThan(0);
       expect(r.research?.influencedFamilies.length, b.problem.id).toBeGreaterThan(0);
       expect(r.verdict, b.problem.id).toBe("counterexample");
-      expect(r.trace.some((e) => e.msg === "Research the web was requested: researching with Tavily"), b.problem.id).toBe(true);
+      expect(r.trace.some((e) => e.kind === "stage_start" && e.msg.startsWith("Researching with Tavily: Research the web was requested")), b.problem.id).toBe(true);
     }
   });
 
   it("drops family citations when the run did no research (a model may only cite what it was given)", async () => {
-    const b = builtIn("isqrt");
+    const b = builtIn("coin-change");
     const auto = await attack({ problem: b.problem, solution: b.demo }, deps());
-    expect(auto.families.find((f) => f.name === "int32-bounds")?.citations).toEqual([]);
-    expect(auto.trace.some((e) => /Removed 2 citation\(s\)/.test(e.msg))).toBe(true);
+    expect(auto.research).toBeUndefined();
+    expect(auto.families.find((f) => f.name === "non-canonical-systems")?.citations).toEqual([]);
+    expect(auto.trace.some((e) => /Removed 1 citation\(s\)/.test(e.msg))).toBe(true);
     const forced = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());
-    expect(forced.families.find((f) => f.name === "int32-bounds")?.citations.length).toBe(2);
+    expect(forced.families.find((f) => f.name === "non-canonical-systems")?.citations).toEqual(["https://en.wikipedia.org/wiki/Change-making_problem"]);
+  });
+
+  it("on request, researches the documentation of risky APIs the code calls, and the docs shape the attack", async () => {
+    const auto = await attack({ problem: builtIn("isqrt").problem, solution: builtIn("isqrt").demo }, deps());
+    expect(auto.research).toBeUndefined();
+    expect(auto.trace.some((e) => /^The code calls bitwise operators .*Tick "Research the web"/.test(e.msg))).toBe(true);
+
+    const isqrt = await attack({ problem: builtIn("isqrt").problem, solution: builtIn("isqrt").demo, research: "force" }, deps());
+    expect(isqrt.research?.queries).toEqual(["Integer square root constraints edge cases", "JavaScript right shift operator converts operands to 32-bit integers"]);
+    expect(isqrt.research?.facts.map((f) => f.url)).toContain("https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift");
+    expect(isqrt.research?.influencedFamilies).toContain("int32-bounds");
+    expect(isqrt.trace.some((e) => e.kind === "stage_start" && /the code calls bitwise operators/.test(e.msg))).toBe(true);
+    expect(isqrt.counterexample?.args).toEqual([2147483647]);
+
+    const sortBug = readFileSync("bench/solutions/merge-intervals/bug-b.js", "utf8");
+    const merge = await attack({ problem: getProblem("merge-intervals")!, solution: { language: "javascript", code: splitHeader(sortBug).code, entry: "solve" }, research: "force" }, deps());
+    // The problem question has no recorded results in replay mode (reported, not fatal); the API question does.
+    expect(merge.research?.facts.map((f) => f.url)).toEqual(["https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"]);
+    expect(merge.research?.error).toMatch(/Merge intervals constraints edge cases/);
+    expect(merge.research?.influencedFamilies).toEqual(["two-digit-starts"]);
+    expect(merge.verdict).toBe("counterexample");
   });
 
   it("raises no false alarm on a correct solution", async () => {

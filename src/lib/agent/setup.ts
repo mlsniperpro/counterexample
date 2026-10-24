@@ -27,8 +27,7 @@ export function makeProvider(mode: Mode, env: Env = process.env, fixtures: Repla
     if (!p) throw new Error("live mode needs NEBIUS_API_KEY");
     return p;
   }
-  // Solution-level keys look like "problem/solution": fall back to the problem's fixtures.
-  return new ReplayProvider(fixtures, (k) => (k.includes("/") ? [k.slice(0, k.indexOf("/"))] : []));
+  return new ReplayProvider(fixtures, replayFallbacks);
 }
 
 export function makeResearch(mode: Mode, env: Env = process.env): ResearchClient | null {
@@ -59,4 +58,16 @@ export function makeDeps(opts: { mode?: Mode; routing?: Routing; env?: Env; fixt
     research: makeResearch(mode, env),
     prices: priceTable(env),
   };
+}
+
+/**
+ * Replay lookup order. Solution keys ("problem/solution") fall back to the
+ * problem. Research keys ("problem?q=query") fall back to the shared API
+ * entry ("api?q=query"), then to the problem.
+ */
+export function replayFallbacks(key: string): string[] {
+  const q = key.indexOf("?q=");
+  if (q >= 0) return [`api${key.slice(q)}`, ...replayFallbacks(key.slice(0, q)), key.slice(0, q)].filter((k, i, a) => a.indexOf(k) === i);
+  const slash = key.indexOf("/");
+  return slash >= 0 ? [key.slice(0, slash)] : [];
 }

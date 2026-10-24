@@ -1,3 +1,7 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
 import { fmtArgs, ms, usd, VERDICT } from "./format";
 
@@ -14,7 +18,9 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
   return (
     <section className="card result">
       <div className="row between">
-        <h2 className={`verdict ${r.verdict}`}>{VERDICT[r.verdict]}</h2>
+        <h2 className={`verdict ${r.verdict}`} aria-live="polite">
+          {VERDICT[r.verdict]}
+        </h2>
         <div className="row">
           {onShare && (
             <button className="ghost" onClick={onShare}>
@@ -69,7 +75,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
               {r.fix.verified ? `re-attacked on ${r.fix.reattackInputs} inputs: 0 failures` : `still fails on ${r.fix.reattackMismatches} of ${r.fix.reattackInputs} inputs`}
             </span>
           </div>
-          <pre className="code-out">{r.fix.code}</pre>
+          <FixView before={r.solution.code} after={r.fix.code} />
         </>
       )}
 
@@ -176,5 +182,47 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
         </div>
       </div>
     </section>
+  );
+}
+
+/** The proposed fix as a diff against the submitted code (default), or in full. */
+function FixView({ before, after }: { before: string; after: string }) {
+  const [full, setFull] = useState(false);
+  // Quadratic in the number of lines: compute once per (before, after), not on every render.
+  const diff = useMemo(() => lineDiff(before, after), [before, after]);
+  const changed = diff ? diff.filter((l) => l.op !== "same").length : 0;
+  if (!diff || full) {
+    return (
+      <>
+        {diff && (
+          <button className="ghost small" onClick={() => setFull(false)}>
+            Show changes only
+          </button>
+        )}
+        <pre className="code-out">{after}</pre>
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="row between">
+        <span className="small muted">
+          {changed} changed line{changed === 1 ? "" : "s"} against your code
+        </span>
+        <button className="ghost small" onClick={() => setFull(true)}>
+          Show full fix
+        </button>
+      </div>
+      <pre className="code-out diff" aria-label="Diff of the proposed fix against your code">
+        {diff.map((l, i) => (
+          <div key={i} className={`dl ${l.op}`}>
+            <span className="sign" aria-hidden="true">
+              {l.op === "add" ? "+" : l.op === "del" ? "-" : " "}
+            </span>
+            {l.text || " "}
+          </div>
+        ))}
+      </pre>
+    </>
   );
 }

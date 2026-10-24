@@ -203,13 +203,13 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
 
       <section className="card">
         <h2>1. Problem</h2>
-        <div className="chips" role="tablist">
+        <div className="chips" role="group" aria-label="Problem">
           {problems.map((p) => (
-            <button key={p.id} className={`chip ${p.id === pid ? "on" : ""}`} onClick={() => pick(p.id)} role="tab" aria-selected={p.id === pid}>
+            <button key={p.id} className={`chip ${p.id === pid ? "on" : ""}`} onClick={() => pick(p.id)} aria-pressed={p.id === pid}>
               {p.title}
             </button>
           ))}
-          <button className={`chip ${pid === CUSTOM ? "on" : ""}`} onClick={() => pick(CUSTOM)} role="tab" aria-selected={pid === CUSTOM}>
+          <button className={`chip ${pid === CUSTOM ? "on" : ""}`} onClick={() => pick(CUSTOM)} aria-pressed={pid === CUSTOM}>
             Your own
           </button>
         </div>
@@ -244,7 +244,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           <label className="toggle">
             <input type="checkbox" checked={ultraOnly} onChange={(e) => setUltraOnly(e.target.checked)} /> Ultra for everything (baseline)
           </label>
-          <label className="toggle" title="Search the web with Tavily for official constraints and edge cases, even if the statement cites no sources">
+          <label className="toggle" title="Search the web with Tavily for the problem's official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources">
             <input type="checkbox" checked={researchWeb} onChange={(e) => setResearchWeb(e.target.checked)} /> Research the web (Tavily)
           </label>
         </div>

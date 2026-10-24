@@ -4,7 +4,7 @@ import { makeExecutor, makeProvider, makeResearch, resolveMode } from "@/lib/age
 import { ReplayMissError, UpstreamError } from "@/lib/errors";
 import { NebiusProvider } from "@/lib/models/nebius";
 import { RecordingProvider, ReplayProvider } from "@/lib/models/replay";
-import { needsResearch, ReplayResearch, TavilyClient } from "@/lib/research/tavily";
+import { ReplayResearch, TavilyClient } from "@/lib/research/tavily";
 
 const req = { model: "m", purpose: "oracle" as const, messages: [{ role: "user" as const, content: "hello" }], replayKey: "p" };
 const noSleep = async () => {};
@@ -111,15 +111,6 @@ describe("Tavily", () => {
     expect(await new TavilyClient("k", f.http).search("q")).toEqual({ results: [{ title: "", url: "https://ok.example/", content: "" }], dropped: 2 });
     await expect(new TavilyClient("k", fetchSequence([() => Response.json({ results: "nope" })]).http).search("q")).rejects.toThrow(/unexpected response shape/);
     await expect(new TavilyClient("k", fetchSequence([() => new Response("bad key", { status: 401 })]).http).search("q")).rejects.toThrow(/HTTP 401/);
-  });
-
-  it("research triggers only on external references or when forced", () => {
-    expect(needsResearch("Sum two numbers.", undefined, "auto")).toBe(false);
-    expect(needsResearch("Constraints as on LeetCode 1.", undefined, "auto")).toBe(true);
-    expect(needsResearch("See https://x", undefined, "auto")).toBe(true);
-    expect(needsResearch("x", ["ref"], "auto")).toBe(true);
-    expect(needsResearch("LeetCode", ["ref"], "off")).toBe(false);
-    expect(needsResearch("x", undefined, "force")).toBe(true);
   });
 
   it("replay research serves recorded results only", async () => {

@@ -10,11 +10,12 @@
  *
  *   pnpm soak                        # mutants of the 10 correct solutions, seed 1
  *   pnpm soak --all --seeds 3 -j 4   # mutants of all 40 solutions, seeds 1..3
+ *   add --readme to rewrite the README's soak section
  *
  * Writes bench/results/soak.{json,md}. Exits non-zero if any claim is unsound
  * or any run crashes.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { attack } from "../src/lib/agent/run";
 import { makeDeps } from "../src/lib/agent/setup";
@@ -26,7 +27,7 @@ import type { RunOutcome } from "../src/lib/exec/types";
 import { Semaphore } from "../src/lib/limit";
 import { getProblem } from "../src/lib/problems/catalog";
 import type { Problem, Solution } from "../src/lib/problems/types";
-import { benchFixtures, loadSubjects, type Subject } from "./lib";
+import { benchFixtures, loadSubjects, replaceSection, type Subject } from "./lib";
 import { mutants } from "./mutants";
 
 const ROOT = join(__dirname, "..");
@@ -146,6 +147,11 @@ async function main(args: string[]) {
   const name = all ? "soak-all" : "soak";
   writeFileSync(join(out, `${name}.json`), JSON.stringify({ summary, rows }, null, 2) + "\n");
   writeFileSync(join(out, `${name}.md`), md);
+  // Only a clean run may update the README.
+  if (args.includes("--readme") && !summary.unsound && !summary.errors) {
+    const readme = join(ROOT, "README.md");
+    writeFileSync(readme, replaceSection(readFileSync(readme, "utf8"), name, md));
+  }
   console.log("\n" + md);
   if (summary.unsound || summary.errors) process.exit(1);
 }

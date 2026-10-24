@@ -34,7 +34,7 @@ export type AgentDeps = {
   signal?: AbortSignal;
 };
 
-export type FamilySource = "examples" | "model" | "mutation" | "baseline";
+export type FamilySource = "examples" | "exhaustive" | "model" | "mutation" | "baseline";
 
 export type Family = {
   name: string;

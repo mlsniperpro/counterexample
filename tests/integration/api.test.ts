@@ -42,14 +42,37 @@ describe("POST /api/attack (replay mode)", () => {
     expect(last.report.trace).toBeUndefined();
   });
 
-  it("researches the web only when asked (research=force) or when the statement cites sources", async () => {
+  it("researches only when asked (research=force) or cited; otherwise suggests it for risky APIs", async () => {
     const body = { problemId: "isqrt", code: isqrt.demo.code, language: "javascript" };
-    const auto = (await lines(await post(body))).at(-1).report;
-    expect(auto.research).toBeUndefined();
+    const autoLines = await lines(await post(body));
+    expect(autoLines.at(-1).report.research).toBeUndefined();
+    expect(autoLines.some((m) => m.type === "event" && m.event.data?.suggestion === "research")).toBe(true);
     const forced = (await lines(await post({ ...body, research: "force" }, { ip: "5.5.5.5" }))).at(-1).report;
-    expect(forced.research.queries).toEqual(["Integer square root constraints edge cases"]);
+    expect(forced.research.queries).toEqual(["Integer square root constraints edge cases", "JavaScript right shift operator converts operands to 32-bit integers"]);
     expect(forced.research.facts.length).toBeGreaterThan(0);
     expect(forced.research.influencedFamilies).toContain("int32-bounds");
+  });
+
+  it("never replays the demo's explanation for edited code", async () => {
+    // A different bug: correct midpoint, wrong only at x = 5.
+    const edited = isqrt.demo.code.replace("const mid = (lo + hi + 1) >> 1;", "const mid = lo + Math.floor((hi - lo + 1) / 2);").replace("return lo;", "return x === 5 ? 3 : lo;");
+    expect(edited).not.toBe(isqrt.demo.code);
+    const r = (await lines(await post({ problemId: "isqrt", code: edited, language: "javascript" }, { ip: "6.6.6.6" }))).at(-1).report;
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample.args).toEqual([5]);
+    expect(r.explanation).toMatch(/^Replay mode has no recorded explanation for edited code/);
+    expect(r.explanation).not.toMatch(/32-bit/);
+    expect(r.fix.verified).toBe(true);
+    const demo = (await lines(await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "6.6.6.7" }))).at(-1).report;
+    expect(demo.explanation).toMatch(/32-bit signed arithmetic/);
+  });
+
+  it("edited code in another language gets an honest explanation and no wrong-language fix", async () => {
+    const js = "function solve(nums, target) { return nums.length === 1 ? -1 : nums.indexOf(target); }";
+    const r = (await lines(await post({ problemId: "binary-search", code: js, language: "javascript" }, { ip: "6.6.6.8" }))).at(-1).report;
+    expect(r.verdict).toBe("counterexample");
+    expect(r.explanation).toMatch(/no recorded explanation or reference fix in this language/);
+    expect(r.fix).toBeUndefined();
   });
 
   it("validates the body against the schema before doing any work", async () => {

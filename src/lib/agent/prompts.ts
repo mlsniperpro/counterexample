@@ -94,7 +94,7 @@ Then one ${s.language} code block with the complete fixed solution, keeping the 
   ];
 }
 
-export function researchPrompt(p: Problem, results: { title: string; url: string; content: string }[]): ChatMessage[] {
+export function researchPrompt(p: Problem, results: { title: string; url: string; content: string }[], focus = "official constraints and edge cases"): ChatMessage[] {
   return [
     { role: "system", content: SYSTEM },
     {
@@ -105,7 +105,7 @@ ${p.statement}
 Web search results:
 ${results.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.content.slice(0, 1200)}`).join("\n\n")}
 
-Extract only facts that matter for testing a solution (official constraints, edge cases, tricky inputs). Answer with JSON {"facts":[{"fact":"...","url":"source url"}]}, at most 5 facts, each citing one of the URLs above.`,
+Extract only facts that matter for testing a solution to this problem, about ${focus}. Answer with JSON {"facts":[{"fact":"...","url":"source url"}]}, at most 5 facts, each citing one of the URLs above.`,
     },
   ];
 }
