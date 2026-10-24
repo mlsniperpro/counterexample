@@ -18,6 +18,8 @@ export type AttackInput = {
   solution: Solution;
   research?: "auto" | "force" | "off";
   seed?: number;
+  /** "baseline-only" skips the model's generator families (ablation for the benchmark). */
+  generators?: "model" | "baseline-only";
   /** Replay keys: problem-level fixtures, optionally overridden per solution. */
   replayKey?: string;
   solutionKey?: string;
@@ -122,6 +124,7 @@ type Verdict1 = { status: "agree" | "mismatch" | "oracle_error"; expected?: unkn
 const show = (o: RunOutcome): string => (o.ok ? JSON.stringify(o.out) : `${o.error}: ${o.message}`);
 
 const ORACLE_LANGUAGE = "python" as const;
+const RUN_CHUNK = 64;
 
 export async function attack(input: AttackInput, deps: AgentDeps): Promise<Report> {
   const clock = deps.clock ?? Date.now;
@@ -323,7 +326,8 @@ export async function attack(input: AttackInput, deps: AgentDeps): Promise<Repor
     const plan: Family[] = [
       { name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" },
     ];
-    const genText = await callModel("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), replayKey);
+    const baselineOnly = input.generators === "baseline-only";
+    const genText = baselineOnly ? "{}" : await callModel("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), replayKey);
     const rawFamilies = ((extractJson(genText) as { families?: unknown[] }).families ?? []).slice(0, 8);
     for (const [i, raw] of rawFamilies.entries()) {
       const r = raw as Record<string, unknown>;
@@ -345,7 +349,7 @@ export async function attack(input: AttackInput, deps: AgentDeps): Promise<Repor
         tracer.emit("attack", "warn", `Discarded family ${String(r.name ?? i)}: ${(e as Error).message}`);
       }
     }
-    plan.push({ name: "baseline-random", rationale: "Uniform random inputs over the declared parameter types.", citations: [], args: specs, count: Math.min(100, limits.inputsPerFamily), source: "baseline" });
+    plan.push({ name: "baseline-random", rationale: "Uniform random inputs over the declared parameter types.", citations: [], args: specs, count: baselineOnly ? 1000 : Math.min(100, limits.inputsPerFamily), source: "baseline" });
     for (const f of plan) {
       tracer.emit("attack", "info", `Family ${f.name}: ${f.rationale}`, { name: f.name, count: f.count, citations: f.citations, source: f.source });
     }
@@ -376,23 +380,26 @@ export async function attack(input: AttackInput, deps: AgentDeps): Promise<Repor
       const batch = inputs.slice(0, Math.max(0, room));
       if (batch.length < inputs.length) truncated = true;
       if (batch.length === 0) continue;
-      const verdicts = await judge("run", solution, batch);
-      allInputs.push(...batch);
-      st.tested = batch.length;
-      inputsTested += batch.length;
-      st.oracleSkipped = verdicts.filter((v) => v.status === "oracle_error").length;
-      const hits = verdicts.map((v, i) => ({ args: batch[i], v, family: f.name })).filter((x) => x.v.status === "mismatch");
-      st.mismatches = hits.length;
-      if (f.source === "examples" && hits.length === batch.length && hits.every((h) => h.v.got.startsWith("compile"))) {
-        compileError = true;
-        report.message = hits[0].v.got;
-        break;
+      // Chunks, so a family that finds a bug early (or makes the solution hang) stops early.
+      for (let at = 0; at < batch.length && !found.length && !compileError; at += RUN_CHUNK) {
+        const chunk = batch.slice(at, at + RUN_CHUNK);
+        const verdicts = await judge("run", solution, chunk);
+        allInputs.push(...chunk);
+        st.tested += chunk.length;
+        inputsTested += chunk.length;
+        st.oracleSkipped += verdicts.filter((v) => v.status === "oracle_error").length;
+        const hits = verdicts.map((v, i) => ({ args: chunk[i], v, family: f.name })).filter((x) => x.v.status === "mismatch");
+        st.mismatches += hits.length;
+        if (f.source === "examples" && hits.length === chunk.length && hits.every((h) => h.v.got.startsWith("compile"))) {
+          compileError = true;
+          report.message = hits[0].v.got;
+        } else if (hits.length) {
+          found = hits;
+          ttfc = clock() - t0 + simulatedMs;
+        }
       }
-      tracer.emit("run", hits.length ? "counterexample" : "info", `${f.name}: ${batch.length} inputs, ${hits.length} mismatch(es)`, { family: f.name, tested: batch.length, mismatches: hits.length });
-      if (hits.length) {
-        found = hits;
-        ttfc = clock() - t0 + simulatedMs;
-      }
+      if (compileError) break;
+      tracer.emit("run", st.mismatches ? "counterexample" : "info", `${f.name}: ${st.tested} inputs, ${st.mismatches} mismatch(es)`, { family: f.name, tested: st.tested, mismatches: st.mismatches });
     }
     if (compileError) {
       report.verdict = "compile_error";
@@ -415,6 +422,9 @@ export async function attack(input: AttackInput, deps: AgentDeps): Promise<Repor
       isValid: (a) => argsConform(a, specs),
       stillFails: async (batch) => (await judge("shrink", solution, batch)).map((v) => v.status === "mismatch"),
       maxEvals: limits.maxShrinkEvals,
+      // Small batches: the driver needs only the first still-failing candidate, and
+      // candidates that time out cost a full time limit each.
+      batchSize: 16,
     });
     const [final] = await judge("shrink", solution, [shrunk.minimal]);
     report.counterexample = {

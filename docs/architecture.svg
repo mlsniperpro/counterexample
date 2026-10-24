@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13">
+  <title>Counterexample architecture</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5d6470"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#c9c9c2;stroke-width:1.2;rx:10}
+      .ultra{fill:#eef7dc;stroke:#76b900}
+      .fast{fill:#f2f6ff;stroke:#4a74d9}
+      .ext{fill:#fff7ea;stroke:#d99a2b}
+      .h{font-weight:700;font-size:14px}
+      .s{fill:#5d6470;font-size:12px}
+      .l{stroke:#5d6470;stroke-width:1.4;fill:none;marker-end:url(#a)}
+    </style>
+  </defs>
+  <rect width="960" height="540" fill="#f7f7f4"/>
+  <text x="24" y="36" class="h" font-size="20">Counterexample: typed, budgeted agent stages</text>
+  <text x="24" y="58" class="s">Every stage writes to trace.jsonl, streamed to the UI. Budgets: model calls, sandbox runs, wall clock.</text>
+
+  <rect x="24" y="84" width="150" height="70" class="box" rx="10"/>
+  <text x="38" y="110" class="h">1 Understand</text><text x="38" y="130" class="s">typed spec (input DSL)</text><text x="38" y="146" class="s">Super, custom problems</text>
+
+  <rect x="200" y="84" width="150" height="70" class="box ext" rx="10"/>
+  <text x="214" y="110" class="h">2 Research</text><text x="214" y="130" class="s">Tavily search, cited facts</text><text x="214" y="146" class="s">only if statement needs it</text>
+
+  <rect x="376" y="84" width="170" height="70" class="box ultra" rx="10"/>
+  <text x="390" y="110" class="h">3 Oracle</text><text x="390" y="130" class="s">Nemotron Ultra: brute force</text><text x="390" y="146" class="s">must pass the examples</text>
+
+  <rect x="572" y="84" width="170" height="70" class="box fast" rx="10"/>
+  <text x="586" y="110" class="h">4 Attack</text><text x="586" y="130" class="s">Nemotron Super: generator</text><text x="586" y="146" class="s">families as JSON DSL</text>
+
+  <rect x="768" y="84" width="170" height="70" class="box" rx="10"/>
+  <text x="782" y="110" class="h">5 Run</text><text x="782" y="130" class="s">solution vs oracle on</text><text x="782" y="146" class="s">thousands of inputs</text>
+
+  <path d="M174 119 H198" class="l"/><path d="M350 119 H374" class="l"/><path d="M546 119 H570" class="l"/><path d="M742 119 H766" class="l"/>
+
+  <rect x="768" y="200" width="170" height="70" class="box" rx="10"/>
+  <text x="782" y="226" class="h">6 Shrink</text><text x="782" y="246" class="s">delta debugging to a</text><text x="782" y="262" class="s">minimal counterexample</text>
+  <path d="M853 154 V198" class="l"/>
+
+  <rect x="572" y="200" width="170" height="70" class="box ultra" rx="10"/>
+  <text x="586" y="226" class="h">7 Explain + fix</text><text x="586" y="246" class="s">Nemotron Ultra: 2 sentences</text><text x="586" y="262" class="s">and a fixed solution</text>
+  <path d="M768 235 H744" class="l"/>
+
+  <rect x="376" y="200" width="170" height="70" class="box" rx="10"/>
+  <text x="390" y="226" class="h">8 Re-attack</text><text x="390" y="246" class="s">fix vs oracle on every input</text><text x="390" y="262" class="s">plus a fresh seed</text>
+  <path d="M572 235 H548" class="l"/>
+  <path d="M461 270 C461 300 657 300 657 272" class="l"/><text x="500" y="312" class="s">still failing: retry with feedback</text>
+
+  <rect x="200" y="200" width="150" height="70" class="box" rx="10"/>
+  <text x="214" y="226" class="h">9 Report</text><text x="214" y="246" class="s">trace, minimal input,</text><text x="214" y="262" class="s">fix, cost per step</text>
+  <path d="M376 235 H352" class="l"/>
+
+  <rect x="24" y="350" width="440" height="160" class="box" rx="10"/>
+  <text x="40" y="376" class="h">Model providers (OpenAI-compatible)</text>
+  <text x="40" y="400" class="s">NebiusProvider: Token Factory /v1/chat/completions</text>
+  <text x="40" y="420" class="s">  MODEL_REASONING = Nemotron 3 Ultra (oracle, explain)</text>
+  <text x="40" y="440" class="s">  MODEL_FAST = Nemotron 3 Super / Nano (research, generators, spec)</text>
+  <text x="40" y="460" class="s">ReplayProvider: recorded responses, deterministic, no key</text>
+  <text x="40" y="480" class="s">RecordingProvider: saves live runs as replay fixtures</text>
+  <text x="40" y="500" class="s">Routing "ultra-only" is the benchmark baseline</text>
+
+  <rect x="496" y="350" width="442" height="160" class="box" rx="10"/>
+  <text x="512" y="376" class="h">Executors (one interface)</text>
+  <text x="512" y="400" class="s">Judge0Executor: any Judge0-compatible API, chunked batches</text>
+  <text x="512" y="420" class="s">LocalExecutor: Python/JS subprocess, time + memory limits (dev only)</text>
+  <text x="512" y="440" class="s">Same harness everywhere: JSON in on stdin, one JSON line per input;</text>
+  <text x="512" y="460" class="s">a hang or crash blames the next input and the batch restarts after it</text>
+  <text x="512" y="480" class="s">Planned: Nebius Serverless Jobs executor for batch runs (see FRICTION.md)</text>
+</svg>

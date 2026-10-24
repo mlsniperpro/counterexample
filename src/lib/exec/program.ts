@@ -21,6 +21,7 @@ def __cx_main():
     __data = __cx_json.loads(__cx_sys.stdin.read())
     __f = ${entry}
     __out.write("\\x1eCR\\n")
+    __out.flush()
     for __args in __data["inputs"]:
         __t0 = __cx_time.perf_counter()
         try:

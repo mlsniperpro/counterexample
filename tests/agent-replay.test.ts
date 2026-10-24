@@ -45,11 +45,11 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
     expect(bs.stats.costUsd).toBeGreaterThan(0);
   });
 
-  it("longest substring: finds 'abba' and verifies the fix", async () => {
+  it("longest substring: finds a minimal 'abba'-shaped input and verifies the fix", async () => {
     const b = builtIn("longest-unique-substring");
     const r = await attack({ problem: b.problem, solution: b.demo }, deps());
     expect(r.verdict).toBe("counterexample");
-    expect(r.counterexample?.args).toEqual(["abba"]);
+    expect(r.counterexample?.args[0]).toMatch(/^(.)(?!\1)(.)\2\1$/);
     expect(r.fix?.verified).toBe(true);
     expect(r.research).toBeUndefined();
   });
