@@ -6,9 +6,10 @@ import type { ChunkResult, Executor, Language, RunRequest, RunResult } from "./t
 
 export type Judge0Config = {
   baseUrl: string;
-  /** Sent as X-Auth-Token (self-hosted) or X-RapidAPI-Key when rapidApiHost is set. */
+  /** Sent as X-Auth-Token (self-hosted), "Authorization: Bearer" (auth "bearer", e.g. a Nebius endpoint) or X-RapidAPI-Key when rapidApiHost is set. */
   token?: string;
   rapidApiHost?: string;
+  auth?: "x-auth-token" | "bearer";
   languageIds?: Partial<Record<Language, number>>;
   /** Inputs per submission. A whole chunk shares one CPU-time limit. */
   chunkSize?: number;
@@ -73,6 +74,7 @@ export class Judge0Executor implements Executor {
       baseUrl: env.JUDGE0_URL,
       token: env.JUDGE0_TOKEN,
       rapidApiHost: env.JUDGE0_RAPIDAPI_HOST,
+      auth: authFromEnv(env.JUDGE0_AUTH),
       languageIds: ids,
     });
   }
@@ -88,11 +90,14 @@ export class Judge0Executor implements Executor {
     return { outcomes, processes, wallMs: Date.now() - t0 };
   }
 
-  private headers(): Record<string, string> {
+  /** Auth headers for this Judge0 endpoint. */
+  headers(): Record<string, string> {
     const h: Record<string, string> = {};
     if (this.cfg.token && this.cfg.rapidApiHost) {
       h["X-RapidAPI-Key"] = this.cfg.token;
       h["X-RapidAPI-Host"] = this.cfg.rapidApiHost;
+    } else if (this.cfg.token && this.cfg.auth === "bearer") {
+      h.authorization = `Bearer ${this.cfg.token}`;
     } else if (this.cfg.token) {
       h["X-Auth-Token"] = this.cfg.token;
     }
@@ -135,4 +140,10 @@ export class Judge0Executor implements Executor {
     if (status >= 13) throw new UpstreamError("judge0", `internal error: ${j.status.description} ${stderr.slice(0, 300)}`, null, false);
     return { lines, end: "crash", message: `${j.status.description}: ${stderr.slice(-300)}` };
   }
+}
+
+function authFromEnv(v: string | undefined): Judge0Config["auth"] {
+  if (v === undefined || v === "" || v === "x-auth-token") return "x-auth-token";
+  if (v === "bearer") return "bearer";
+  throw new ConfigError(`JUDGE0_AUTH must be "x-auth-token" or "bearer", got "${v}"`);
 }

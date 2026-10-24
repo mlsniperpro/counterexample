@@ -7,3 +7,6 @@ export async function rejectionOf<E extends Error = Error>(p: Promise<unknown>):
     (e: unknown) => e as E,
   );
 }
+
+/** numRuns for a slow property: the given default, or FC_NUM_RUNS when set (deep runs). */
+export const runs = (n: number): number => Number(process.env.FC_NUM_RUNS ?? n);

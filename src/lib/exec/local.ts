@@ -49,7 +49,7 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
   const mb = Math.max(32, Math.floor(req.memoryLimitMb));
   const [cmd, args]: [string, string[]] =
     req.language === "python"
-      ? ["bash", ["-c", `ulimit -v ${mb * 1024}; exec python3 -I "$0"`, file]]
+      ? ["bash", ["--noprofile", "--norc", "-c", `ulimit -v ${mb * 1024}; exec python3 -I "$0"`, file]]
       : ["node", [`--max-old-space-size=${mb}`, `--stack-size=4000`, file]];
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {

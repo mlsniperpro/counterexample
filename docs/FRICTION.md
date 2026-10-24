@@ -35,3 +35,11 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
 
 - **Tool:** Judge0 (not a sponsor, logged for completeness).
 - **What happened:** Judge0 CE's default ids are Python 3.8.1 (71) and Node.js 12.14.0 (63). Node 12 lacks `??` and `?.`. We added `JUDGE0_LANG_PYTHON` / `JUDGE0_LANG_JAVASCRIPT` overrides for newer runtimes.
+
+## 2026-10-24: Serverless AI jobs have no REST endpoint for job output
+
+- **Tool:** Nebius AI Cloud, Serverless AI jobs.
+- **What happened:** `api.nebius.cloud` was reachable from the build session (`curl https://api.nebius.cloud/openapi.json` returned `200`, 1.5 MB), unlike the Token Factory hosts. The OpenAPI spec lists `/ai/v1/jobs` (create, list), `/ai/v1/jobs/{id}` (get, delete), `cancel`, `restart` and `get-by-name`. A job's status has state, timestamps and endpoints, but **no REST endpoint returns a job's stdout or logs**. Logs go through the logging stack (CLI `nebius ai job logs`, or Loki and logcli). Each job also provisions its own VM.
+- **Impact:** a "Serverless Jobs executor" that submits each batch of inputs as a job would need a second channel to read results back (a public port, object storage, or the logging API), and would pay VM provisioning time per batch. An interactive attack makes 17 to 47 sandbox calls.
+- **What we did:** we built the P1 as a **Serverless AI endpoint** running our own Judge0-compatible sandbox (`sandbox/`, `docs/NEBIUS-SANDBOX.md`). It is warm, takes token auth, and is reached through the existing `Judge0Executor`.
+- **Ask:** a `GET /ai/v1/jobs/{id}/logs` (or output) REST endpoint would make jobs usable as a batch code runner from serverless apps.

@@ -20,6 +20,8 @@ const tavilyResultSchema = z.object({
   content: z.string().nullish().transform((c) => c ?? ""),
 });
 
+export const TAVILY_BASE_URL = "https://api.tavily.com";
+
 export const TAVILY_RETRY: RetryPolicy = { ...DEFAULT_RETRY, timeoutMs: 30_000 };
 
 /** Tavily Search API (POST /search, bearer key). */
@@ -30,16 +32,17 @@ export class TavilyClient implements ResearchClient {
     private readonly apiKey: string,
     private readonly http: HttpDeps = {},
     private readonly retry: RetryPolicy = TAVILY_RETRY,
+    private readonly baseUrl: string = TAVILY_BASE_URL,
   ) {}
 
   static fromEnv(env: Record<string, string | undefined> = process.env): TavilyClient | null {
-    return env.TAVILY_API_KEY ? new TavilyClient(env.TAVILY_API_KEY) : null;
+    return env.TAVILY_API_KEY ? new TavilyClient(env.TAVILY_API_KEY, {}, TAVILY_RETRY, env.TAVILY_BASE_URL || TAVILY_BASE_URL) : null;
   }
 
   async search(query: string, signal?: AbortSignal): Promise<SearchResponse> {
     const raw = await postJson(
       "tavily",
-      "https://api.tavily.com/search",
+      `${this.baseUrl.replace(/\/+$/, "")}/search`,
       { query: query.slice(0, 400), max_results: 5, search_depth: "basic", include_answer: false },
       { authorization: `Bearer ${this.apiKey}` },
       this.retry,

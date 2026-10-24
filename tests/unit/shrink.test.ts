@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { runs } from "../helpers";
 import { argCandidates, measure, shrink, smaller } from "@/lib/core/shrink";
 import { argsConform, type TypeSpec } from "@/lib/core/spec";
 
@@ -94,7 +95,7 @@ describe("shrinker properties", () => {
             if (smaller(c, r.minimal) && isValid(c)) expect(fails(c)).toBe(false);
           }
         }),
-        { numRuns: 60 },
+        { numRuns: runs(60) },
       );
     });
   }
@@ -108,7 +109,7 @@ describe("shrinker properties", () => {
         const b = await shrink(start, { isValid: () => true, stillFails: pred(fails) });
         expect(a).toEqual(b);
       }),
-      { numRuns: 50 },
+      { numRuns: runs(50) },
     );
   });
 

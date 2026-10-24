@@ -80,7 +80,9 @@ pnpm bench                # fixture-mode benchmark (Python 3 and Node needed for
 
 Live mode: copy `.env.example` to `.env.local` and set `NEBIUS_API_KEY` (plus `TAVILY_API_KEY` for research). Confirm the model ids against Token Factory's model list first.
 
-Sandbox: set `JUDGE0_URL` (and `JUDGE0_TOKEN`, or `JUDGE0_RAPIDAPI_HOST` for RapidAPI) to run code on any Judge0-compatible API. Without it the **local executor** runs Python/JS as subprocesses with time and memory limits. **It is for development only: it is not a security sandbox**, and production refuses it unless `ALLOW_LOCAL_EXECUTOR=1`.
+Sandbox: set `JUDGE0_URL` (and `JUDGE0_TOKEN`, or `JUDGE0_RAPIDAPI_HOST` for RapidAPI) to run code on any Judge0-compatible API. The repo ships its own: **the Counterexample sandbox** (`sandbox/`, one small container) runs as a **Nebius Serverless AI endpoint**, so the models run on Token Factory and the attacked code runs on Nebius AI Cloud. See [docs/NEBIUS-SANDBOX.md](docs/NEBIUS-SANDBOX.md). Run it locally with `pnpm sandbox` (or Docker) and set `JUDGE0_URL=http://localhost:2358`. Without a sandbox, the **local executor** runs Python/JS as subprocesses with time and memory limits. **It is for development only: it is not a security sandbox**, and production refuses it unless `ALLOW_LOCAL_EXECUTOR=1`.
+
+Credentials check: once keys are set, `pnpm preflight` makes one real call to each service. It lists the Token Factory models and checks that both Nemotron ids are offered, sends a one-line prompt to each model, runs one Tavily search, and runs the harness once per language on the sandbox. A missing credential is reported as `skip`, never as a pass.
 
 Deployment: a Vercel preview works for the UI; set the env vars above.
 

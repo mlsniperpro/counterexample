@@ -11,7 +11,10 @@
     "test": "vitest run",
     "bench": "tsx bench/run.ts",
     "gen:demos": "tsx scripts/gen-demos.ts",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "soak": "tsx bench/soak.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "sandbox": "node sandbox/server.mjs"
   },
   "dependencies": {
     "next": "16.4.3",

@@ -64,6 +64,31 @@ export async function postJson(
   deps: HttpDeps = {},
   signal?: AbortSignal,
 ): Promise<unknown> {
+  return requestJson(service, "POST", url, body, headers, policy, deps, signal);
+}
+
+/** GET JSON with the same timeout, retry and abort behaviour as postJson. */
+export async function getJson(
+  service: Service,
+  url: string,
+  headers: Record<string, string>,
+  policy: RetryPolicy = DEFAULT_RETRY,
+  deps: HttpDeps = {},
+  signal?: AbortSignal,
+): Promise<unknown> {
+  return requestJson(service, "GET", url, undefined, headers, policy, deps, signal);
+}
+
+async function requestJson(
+  service: Service,
+  method: "GET" | "POST",
+  url: string,
+  body: unknown,
+  headers: Record<string, string>,
+  policy: RetryPolicy,
+  deps: HttpDeps,
+  signal: AbortSignal | undefined,
+): Promise<unknown> {
   const doFetch = deps.fetchImpl ?? fetch;
   const sleep = deps.sleep ?? defaultSleep;
   const random = deps.random ?? Math.random;
@@ -77,9 +102,9 @@ export async function postJson(
     let res: Response;
     try {
       res = await doFetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey, ...headers },
-        body: JSON.stringify(body),
+        method,
+        headers: method === "POST" ? { "content-type": "application/json", "idempotency-key": idempotencyKey, ...headers } : headers,
+        ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       });
     } catch (e) {

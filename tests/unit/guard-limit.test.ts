@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { runs } from "../helpers";
 import { Guard, guardConfig, LEASE_MS, MAX_TRACKED_IPS } from "@/lib/agent/guard";
 import { ConfigError } from "@/lib/errors";
 import { Semaphore } from "@/lib/limit";
@@ -101,7 +102,7 @@ describe("Semaphore", () => {
         expect(peak).toBeLessThanOrEqual(cap);
         expect(s.inUse).toBe(0);
       }),
-      { numRuns: 30 },
+      { numRuns: runs(30) },
     );
   });
 

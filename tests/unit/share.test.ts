@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { runs } from "../helpers";
 import { attack } from "@/lib/agent/run";
 import { mulberry32 } from "@/lib/core/rng";
 import { makeDeps } from "@/lib/agent/setup";
@@ -40,7 +41,7 @@ describe("share links (report in the URL fragment)", () => {
         if (!enc.ok) throw new Error("expected a link");
         expect((await decodeReport(enc.fragment)).message).toBe(message);
       }),
-      { numRuns: 50 },
+      { numRuns: runs(50) },
     );
   });
 
