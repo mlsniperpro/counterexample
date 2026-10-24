@@ -1,0 +1,288 @@
+import { z } from "zod";
+import { outputsEqual } from "../core/compare";
+import { shrink } from "../core/shrink";
+import { argsConform } from "../core/spec";
+import { AppError, BudgetExceeded, errorMessage } from "../errors";
+import type { Solution } from "../problems/types";
+import { needsResearch, type ResearchFact, type SearchResult } from "../research/tavily";
+import { startStage, type AttackContext } from "./context";
+import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
+import { showOutcome, type Judgement } from "./judge";
+import { extractCode, extractExplanation, parseJsonAnswer } from "./parse";
+import { explainPrompt, generatorsPrompt, oraclePrompt, researchPrompt } from "./prompts";
+import type { Counterexample, Family, FamilyStats } from "./types";
+
+/** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
+export const RUN_CHUNK = 64;
+const MUTANTS = 300;
+const BASELINE = 100;
+const BASELINE_ONLY = 1000;
+const MAX_QUERIES = 2;
+
+const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
+const call = (args: unknown[]) => `solve(${args.map((a) => JSON.stringify(a)).join(", ")})`;
+
+export function understandStage(ctx: AttackContext): void {
+  const { problem } = ctx.input;
+  startStage(ctx, "understand", `Problem "${problem.title}" with ${problem.params.length} typed parameter(s), ${problem.examples.length} example(s)`);
+  ctx.tracer.emit("understand", "info", `Parameters: ${problem.params.map((p) => `${p.name}: ${p.type.kind}`).join(", ")}`, { params: problem.params });
+}
+
+const factsSchema = z.object({ facts: z.array(z.object({ fact: z.string().min(1).max(500), url: z.string() })).max(10) });
+
+/**
+ * Tavily research, only when the statement leans on external facts. A failed
+ * search is reported in the trace and the report (never hidden) and the attack
+ * continues without research; a budget overrun still stops the attack.
+ */
+export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]> {
+  const { problem } = ctx.input;
+  if (!needsResearch(problem.statement, problem.references, ctx.input.research ?? "auto")) return [];
+  startStage(ctx, "research", "Statement references external facts: researching with Tavily");
+  const queries = (problem.references?.length ? problem.references : [`${problem.title} constraints edge cases`]).slice(0, MAX_QUERIES);
+  const research: NonNullable<typeof ctx.report.research> = { queries, facts: [], influencedFamilies: [] };
+  ctx.report.research = research;
+  const client = ctx.deps.research;
+  if (!client) {
+    research.error = "no research client configured (set TAVILY_API_KEY)";
+    ctx.tracer.emit("research", "warn", `Research needed but skipped: ${research.error}`);
+    return [];
+  }
+  try {
+    const results: SearchResult[] = [];
+    for (const q of queries) {
+      const r = await client.search(q, ctx.signal);
+      results.push(...r.results);
+      ctx.tracer.emit("research", "research", `Tavily: "${q}" returned ${r.results.length} result(s)`, { query: q, urls: r.results.map((x) => x.url), client: client.name });
+      if (r.dropped) ctx.tracer.emit("research", "warn", `Dropped ${r.dropped} malformed search result(s) (non-http(s) URL or wrong shape)`);
+    }
+    if (results.length === 0) return [];
+    const text = await ctx.models.call("research", "fast", "research", researchPrompt(problem, results), ctx.replayKey);
+    const urls = new Set(results.map((r) => r.url));
+    const answer = parseJsonAnswer(text, factsSchema, "research facts");
+    const uncited = answer.facts.filter((f) => !urls.has(f.url)).length;
+    if (uncited) ctx.tracer.emit("research", "warn", `Dropped ${uncited} fact(s) citing a URL that was not in the search results`);
+    research.facts = answer.facts.filter((f) => urls.has(f.url)).slice(0, 5);
+    ctx.tracer.emit("research", "research", `${research.facts.length} cited fact(s) extracted`, { facts: research.facts });
+    return research.facts;
+  } catch (e) {
+    if (e instanceof BudgetExceeded || !(e instanceof AppError)) throw e;
+    research.error = errorMessage(e);
+    ctx.tracer.emit("research", "warn", `Research failed, continuing without it: ${research.error}`);
+    return [];
+  }
+}
+
+/** The reasoning model writes a brute-force oracle; it must match every example before it is trusted. */
+export async function oracleStage(ctx: AttackContext): Promise<boolean> {
+  const { problem } = ctx.input;
+  startStage(ctx, "oracle", "Writing a slow but obviously-correct reference solution");
+  let feedback: string | undefined;
+  for (let a = 0; a < ctx.limits.maxOracleAttempts; a++) {
+    ctx.report.oracle = { code: ctx.judge.oracleCode, attempts: a + 1 };
+    const text = await ctx.models.call("oracle", "reasoning", "oracle", oraclePrompt(problem, feedback), ctx.replayKey, a);
+    ctx.judge.oracleCode = extractCode(text, "python");
+    ctx.report.oracle.code = ctx.judge.oracleCode;
+    const outs = await ctx.judge.exec("oracle", "oracle", ctx.judge.oracle(), problem.examples.map((e) => e.args));
+    const bad = problem.examples.flatMap((e, i) => {
+      const o = outs[i];
+      return o && o.ok && outputsEqual(o.out, e.output, problem.compare) ? [] : [`${call(e.args)} returned ${o ? showOutcome(o) : "nothing"}, expected ${JSON.stringify(e.output)}`];
+    });
+    if (bad.length === 0) {
+      ctx.tracer.emit("oracle", "info", `Oracle matches all ${problem.examples.length} examples (attempt ${a + 1})`);
+      return true;
+    }
+    feedback = bad.join("\n");
+    ctx.tracer.emit("oracle", "warn", `Oracle failed ${bad.length} example(s) on attempt ${a + 1}`, { feedback });
+  }
+  ctx.report.verdict = "oracle_unreliable";
+  ctx.report.message = "The oracle never matched the examples, so no mismatch could be trusted. No bug is claimed.";
+  return false;
+}
+
+/** The fast model designs generator families; examples first, mutations and a random baseline after. */
+export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Promise<Family[]> {
+  const { problem, solution } = ctx.input;
+  const specs = specsOf(ctx);
+  startStage(ctx, "attack", "Designing adversarial input generators");
+  const baselineOnly = ctx.input.generators === "baseline-only";
+  const plan: Family[] = [{ name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" }];
+  if (!baselineOnly) {
+    const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
+    const { families, rejected } = parseFamilies(text, specs, ctx.limits.inputsPerFamily);
+    for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
+    plan.push(...families);
+    plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: MUTANTS, source: "mutation" });
+  }
+  plan.push({
+    name: "baseline-random",
+    rationale: "Uniform random inputs over the declared parameter types.",
+    citations: [],
+    args: specs,
+    count: baselineOnly ? BASELINE_ONLY : Math.min(BASELINE, ctx.limits.inputsPerFamily),
+    source: "baseline",
+  });
+  for (const f of plan) ctx.tracer.emit("attack", "info", `Family ${f.name}: ${f.rationale}`, { name: f.name, count: f.count, citations: f.citations, source: f.source });
+  const research = ctx.report.research;
+  if (research) {
+    const factUrls = new Set(research.facts.map((f) => f.url));
+    research.influencedFamilies = plan.filter((f) => f.citations.some((c) => factUrls.has(c))).map((f) => f.name);
+    if (research.influencedFamilies.length) {
+      ctx.tracer.emit("attack", "research", `Research shaped ${research.influencedFamilies.length} family(ies): ${research.influencedFamilies.join(", ")}`, {
+        families: research.influencedFamilies,
+      });
+    }
+  }
+  return plan;
+}
+
+export type Hit = { args: unknown[]; j: Judgement; family: string };
+
+function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
+  const specs = specsOf(ctx);
+  switch (f.source) {
+    case "examples":
+      return { inputs: ctx.input.problem.examples.map((e) => e.args), dropped: 0 };
+    case "mutation":
+      return mutationInputs(tested, specs, f.count, ctx.seed, salt);
+    default:
+      return generateInputs(f, specs, ctx.seed, salt);
+  }
+}
+
+/**
+ * Solution vs oracle, family by family in chunks, stopping at the first
+ * chunk with a mismatch. Returns the hits and every input tested.
+ */
+export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hits: Hit[]; tested: unknown[][] }> {
+  const { solution } = ctx.input;
+  startStage(ctx, "run", `Running the solution and the oracle on generated inputs (${ctx.deps.executor.label})`);
+  const tested: unknown[][] = [];
+  let hits: Hit[] = [];
+  let truncated = false;
+  for (const f of plan) {
+    if (hits.length) {
+      // Recorded so the report shows the whole plan; these families still feed the re-attack of a fix.
+      ctx.families.push({ name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: 0, dropped: 0, tested: 0, mismatches: 0, oracleSkipped: 0 });
+      continue;
+    }
+    const { inputs, dropped } = inputsFor(ctx, f, tested, "attack");
+    const st: FamilyStats = { name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: inputs.length + dropped, dropped, tested: 0, mismatches: 0, oracleSkipped: 0 };
+    ctx.families.push(st);
+    if (dropped) ctx.tracer.emit("run", "warn", `${f.name}: dropped ${dropped} input(s) that violate the problem constraints`);
+    // Keep enough runs in reserve to shrink a hit (two programs per candidate).
+    const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals * 2);
+    const batch = inputs.slice(0, room);
+    if (batch.length < inputs.length) truncated = true;
+    for (let at = 0; at < batch.length && !hits.length; at += RUN_CHUNK) {
+      const chunk = batch.slice(at, at + RUN_CHUNK);
+      const judged = await ctx.judge.compare("run", solution, chunk);
+      tested.push(...chunk);
+      st.tested += chunk.length;
+      ctx.inputsTested += chunk.length;
+      st.oracleSkipped += judged.filter((j) => j.status === "oracle_error").length;
+      const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name }] : []));
+      st.mismatches += found.length;
+      if (found.length) {
+        hits = found;
+        ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
+      }
+    }
+    ctx.tracer.emit("run", st.mismatches ? "counterexample" : "info", `${f.name}: ${st.tested} inputs, ${st.mismatches} mismatch(es)`, {
+      family: f.name,
+      tested: st.tested,
+      mismatches: st.mismatches,
+      oracleSkipped: st.oracleSkipped,
+    });
+  }
+  if (!hits.length && truncated) throw new BudgetExceeded("runs", `only ${ctx.inputsTested} inputs fit in ${ctx.limits.maxRuns} runs`);
+  return { hits, tested };
+}
+
+/**
+ * True when the solution never loaded (syntax error, missing entry function).
+ * Judged on the examples family only: the examples run first, so a solution
+ * that does not load fails all of them the same way there.
+ */
+export function isCompileFailure(hits: Hit[], examples: number): boolean {
+  return examples > 0 && hits.length === examples && hits.every((h) => h.family === "examples" && h.j.got.startsWith("compile:"));
+}
+
+/** Delta-debug the smallest hit down to a minimal counterexample. */
+export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Counterexample> {
+  const first = [...hits].sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length)[0];
+  if (!first) throw new Error("shrinkStage needs at least one hit");
+  startStage(ctx, "shrink", `Shrinking a counterexample from ${first.family} (delta debugging)`);
+  const specs = specsOf(ctx);
+  const shrunk = await shrink(first.args, {
+    isValid: (a) => argsConform(a, specs),
+    stillFails: async (batch) => (await ctx.judge.compare("shrink", ctx.input.solution, batch)).map((j) => j.status === "mismatch"),
+    maxEvals: ctx.limits.maxShrinkEvals,
+    // Small batches: only the first still-failing candidate matters, and each hanging candidate costs a full time limit.
+    batchSize: 16,
+  });
+  // The last accepted candidate already failed; re-judge once to report expected vs got for it.
+  const [final] = await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]);
+  const cx: Counterexample = {
+    args: shrunk.minimal,
+    expected: final?.expected,
+    got: final?.got ?? "",
+    original: { args: first.args, family: first.family },
+    shrinkSteps: shrunk.steps,
+    shrinkEvals: shrunk.evals,
+  };
+  ctx.report.counterexample = cx;
+  ctx.report.verdict = "counterexample";
+  ctx.report.message = "Found a minimal counterexample.";
+  ctx.tracer.emit("shrink", "counterexample", `Minimal counterexample: ${call(cx.args)} expected ${JSON.stringify(cx.expected)}, got ${cx.got}`, {
+    args: cx.args,
+    expected: cx.expected,
+    got: cx.got,
+    steps: cx.shrinkSteps,
+    evals: cx.shrinkEvals,
+  });
+  return cx;
+}
+
+/** The reasoning model explains and fixes; every fix is re-attacked on all earlier inputs plus a fresh seed before it is called verified. */
+export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Family[], tested: unknown[][]): Promise<void> {
+  const { problem, solution } = ctx.input;
+  const fresh = plan.filter((f) => f.source !== "examples").flatMap((f) => inputsFor(ctx, f, tested, "reattack").inputs);
+  const reattack = dedupe([cx.args, cx.original.args, ...tested, ...fresh, ...problem.examples.map((e) => e.args)]);
+  let feedback: string | undefined;
+  for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
+    startStage(ctx, "explain", a === 0 ? "Explaining the bug and proposing a fix" : "The fix failed: asking for another");
+    const text = await ctx.models.call("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback), ctx.solutionKey, a);
+    const fix: Solution = { language: solution.language, code: extractCode(text, solution.language), entry: solution.entry };
+    ctx.report.explanation = extractExplanation(text);
+    ctx.tracer.emit("explain", "info", ctx.report.explanation, { attempt: a });
+
+    startStage(ctx, "reattack", `Re-attacking the fix on ${reattack.length} inputs (all previous families plus a fresh seed)`);
+    const batch = reattack.slice(0, Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2)));
+    const judged = await ctx.judge.compare("reattack", fix, batch, "fix");
+    const bad = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ j, args: batch[i] as unknown[] }] : []));
+    const verified = bad.length === 0 && batch.length === reattack.length;
+    ctx.report.fix = { code: fix.code, verified, attempts: a + 1, reattackInputs: batch.length, reattackMismatches: bad.length };
+    if (bad.length === 0 && !verified) {
+      ctx.tracer.emit("reattack", "warn", `Fix passed ${batch.length} of ${reattack.length} inputs; the run budget ran out before the rest, so it is not verified`);
+      return;
+    }
+    ctx.tracer.emit("reattack", bad.length ? "warn" : "result", bad.length ? `Fix still fails on ${bad.length} input(s)` : `Fix verified on ${batch.length} inputs`, {
+      mismatches: bad.length,
+      inputs: batch.length,
+    });
+    if (verified) return;
+    const worst = bad.sort((x, y) => JSON.stringify(x.args).length - JSON.stringify(y.args).length)[0];
+    if (worst) feedback = `${call(worst.args)} should return ${JSON.stringify(worst.j.expected)} but your fix returned ${worst.j.got}.`;
+  }
+}
+
+function dedupe(xs: unknown[][]): unknown[][] {
+  const seen = new Set<string>();
+  return xs.filter((x) => {
+    const k = JSON.stringify(x);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}

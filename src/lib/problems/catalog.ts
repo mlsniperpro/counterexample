@@ -65,7 +65,7 @@ export const PROBLEMS: Problem[] = [
     params: [{ name: "n, edges", type: { kind: "graph", n: { min: 1, max: 7 }, m: { min: 0, max: 14 }, weight: { min: -5, max: 10 }, dag: true } }],
     returns: "distances from node 0 (null if unreachable)",
     examples: [
-      { args: [3, [[0, 1, 4], [0, 2, 1], [2, 1, 2]]], output: [0, 3, 1] },
+      { args: [3, [[0, 1, 1], [0, 2, 4], [1, 2, 2]]], output: [0, 1, 3] },
       { args: [2, []], output: [0, null] },
     ],
     compare: "exact",
@@ -184,10 +184,12 @@ const DEMO_LANG: Record<string, "python" | "javascript"> = {
 };
 
 /** The 5 built-in demo problems, each with a subtly buggy solution. */
-export const BUILT_INS: BuiltIn[] = Object.entries(DEMO_LANG).map(([id, language]) => ({
-  problem: getProblem(id)!,
-  demo: { language, code: DEMOS[id].code, entry: "solve", bug: DEMOS[id].bug },
-}));
+export const BUILT_INS: BuiltIn[] = Object.entries(DEMO_LANG).map(([id, language]) => {
+  const problem = getProblem(id);
+  const demo = DEMOS[id];
+  if (!problem || !demo) throw new Error(`built-in ${id} is missing its problem or demo solution`);
+  return { problem, demo: { language, code: demo.code, entry: "solve", bug: demo.bug } };
+});
 
 export function getProblem(id: string): Problem | undefined {
   return PROBLEMS.find((p) => p.id === id);

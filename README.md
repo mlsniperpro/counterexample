@@ -27,9 +27,11 @@ All calls go through Token Factory's OpenAI-compatible endpoint (`NEBIUS_BASE_UR
 ## Design choices that matter
 
 - **Generators, not test cases.** The fast model writes input *families* in a small JSON DSL (`src/lib/core/spec.ts`): ints with edge bias, arrays (sorted, distinct, duplicate pools), strings, tuples, DAGs as edge lists. Model output is interpreted, never executed, and every generated input is checked against the problem's declared constraints, so an over-eager generator cannot cause a false alarm.
+- **Mutation on top of generation.** After the model's families, type-aware mutants of the examples and of every input already tried (±1, negation, duplicated or dropped elements, swaps, repeated slices) run as their own family, after EvalPlus. They are filtered by the same validator.
 - **Delta debugging over structured inputs** (`src/lib/core/shrink.ts`): chunk removal, element simplification, binary search on integers, isolated-node removal with relabelling for graphs. A well-founded size measure guarantees termination; the problem's validator keeps every step legal.
 - **One harness, any sandbox.** Code is wrapped in the same JSON-lines harness for every executor (`src/lib/exec/program.ts`). If one input hangs or crashes, the next unreported input is blamed and the batch restarts after it, so one bad input never loses the rest.
 - **Budgets and an honest verdict.** Model calls, sandbox runs and wall clock are budgeted per attack. If the oracle never matches the examples, the verdict is `oracle_unreliable` and **no bug is claimed**. If nothing breaks, the report says "evidence, not proof".
+- **Robust at the edges.** Every external input is schema-validated with zod: the API body, every model answer (generator families, research facts, problem specs), and every Token Factory, Tavily and Judge0 response. Network calls have per-attempt timeouts, bounded retries with full-jitter backoff (honouring `Retry-After`) and an idempotency key. Failures are typed errors (`src/lib/errors.ts`). Nothing falls back silently: a failed search, a rejected family, an unpriced model or an unverified fix each show up in the trace and the report.
 - **Deterministic replay.** `ReplayProvider` serves recorded responses, so the whole loop runs in tests and for judges without a key. `pnpm bench --live --record` turns a live run into new fixtures.
 
 ![Architecture](docs/architecture.svg)
@@ -48,9 +50,9 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.8 s | 10.1 s | 2.3 s |
-| Model cost per solution | $0.0014 | $0.0026 | $0.0008 |
-| Model cost, all 40 solutions | $0.0551 | $0.1045 | $0.0336 |
+| Median time to first counterexample | 4.9 s | 10.1 s | 2.2 s |
+| Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
+| Model cost, all 40 solutions | $0.0556 | $0.1062 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 <!-- bench:fixture:end -->
 
@@ -69,7 +71,7 @@ How to read this honestly:
 
 ```bash
 pnpm install
-pnpm test                 # shrinker, generators, executors, budgets, replay end to end
+pnpm test                 # unit (incl. fast-check properties), integration, replay end to end
 pnpm dev                  # http://localhost:3000, replay mode without keys
 pnpm bench                # fixture-mode benchmark (Python 3 and Node needed for the local executor)
 ```
@@ -78,7 +80,13 @@ Live mode: copy `.env.example` to `.env.local` and set `NEBIUS_API_KEY` (plus `T
 
 Sandbox: set `JUDGE0_URL` (and `JUDGE0_TOKEN`, or `JUDGE0_RAPIDAPI_HOST` for RapidAPI) to run code on any Judge0-compatible API. Without it the **local executor** runs Python/JS as subprocesses with time and memory limits. **It is for development only: it is not a security sandbox**, and production refuses it unless `ALLOW_LOCAL_EXECUTOR=1`.
 
-Deployment: a Vercel preview works for the UI; set the env vars above. `/api/attack` is rate-limited per IP (`RATE_LIMIT_PER_HOUR`) and stops calling models once `DAILY_SPEND_CAP_USD` is spent (both in-memory, per instance).
+Deployment: a Vercel preview works for the UI; set the env vars above.
+
+## Load and limits
+
+- **Per attack:** at most 8 model calls on the public endpoint (12 in the library), 60,000 sandbox runs and 50 s of wall clock. That works out to about 300 inputs per family, 2,000 shrink evaluations, 3 oracle attempts and 2 fix attempts. Measured on the 40 benchmark solutions (routed, replay): 2 to 4 model calls and 1,444 to 3,093 sandbox runs per attack (median 2,276). Generated values are capped by the DSL (lengths up to 10,000; at most 200,000 values per input). The local executor caps process output at 32 MB, and a process pool sized to the CPU count bounds concurrent processes.
+- **Per server instance:** `MAX_CONCURRENT_ATTACKS` (default 4), `RATE_LIMIT_PER_HOUR` and `ATTACKS_PER_IP_PER_DAY` per IP, and `DAILY_SPEND_CAP_USD` across all live attacks. The IP table is capped at 10,000 entries. If the client disconnects, the attack stops at its next model call or sandbox run.
+- **Expected load and where it breaks first:** a hackathon demo, with tens of concurrent users at most. The first limit hit is the sandbox. Each attack would send 17 to 47 Judge0 submissions (median 27, at 200 inputs per submission, measured on the benchmark), so a shared Judge0 instance saturates first; the concurrency cap turns that into a fast 503 instead of a pile-up. Next come the guards: they live in memory, so with N serverless instances the effective limits are N times higher. A shared store (Redis or Vercel KV) is the fix, and it is the one change needed before a real launch. Token Factory cost is capped per day; Token Factory latency (not measured yet; see `BLOCKED.md`) sets the wall-clock floor.
 
 ## Layout
 
@@ -86,9 +94,13 @@ Deployment: a Vercel preview works for the UI; set the env vars above. `/api/att
 src/lib/core      input DSL, seeded RNG, comparison, shrinker
 src/lib/exec      Executor interface, harness, Judge0Executor, LocalExecutor
 src/lib/models    Token Factory client, replay + recording providers, routing, pricing
-src/lib/agent     stages (run.ts), prompts, parsers, budgets, trace, setup, guards
+src/lib/agent     run.ts (orchestrator), stages, families, judge, model calls, prompts, parsers, budgets, trace, guards
+src/lib/net       postJson: timeouts, retries with backoff, idempotency key
 src/lib/research  Tavily client and research trigger
 src/fixtures      replay fixtures for the 10 problems
+tests/unit        pure functions, fast-check property tests (seeded; FC_SEED=n to explore)
+tests/integration executors, providers (mocked HTTP), API route, failure paths, fixtures vs sandbox
+tests/e2e         the whole loop in replay mode
 src/app           Next.js UI and /api/attack (NDJSON stream)
 bench/            solutions, benchmark script, results
 docs/             FEEDBACK, FRICTION, VIDEO shot list, architecture.svg

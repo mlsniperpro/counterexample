@@ -1,16 +1,26 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
+import { ExecutorError } from "../errors";
+import { Semaphore } from "../limit";
 import { buildProgram, parseLines, reachedReady, runWithRestarts } from "./program";
 import type { ChunkResult, Executor, RunRequest, RunResult } from "./types";
 
 const STARTUP_GRACE_MS = 3000;
+/** Output beyond this is not read: the process is killed and the chunk counts as a crash. */
+export const MAX_STDOUT_BYTES = 32 * 1024 * 1024;
+const MAX_STDERR_BYTES = 20_000;
+const RECORD = "\x1eCX";
+
+/** One pool for the whole process, so parallel attacks cannot fork without bound. */
+const processes = new Semaphore(Math.max(2, availableParallelism()));
 
 /**
  * DEV ONLY. Runs Python or JavaScript as a local subprocess with a per-input
- * time limit and a memory limit. It is NOT a security sandbox: no network or
- * filesystem isolation. Use Judge0Executor for anything user-facing.
+ * time limit, a memory limit and an output cap. It is NOT a security sandbox:
+ * no network or filesystem isolation. Use Judge0Executor for anything
+ * user-facing (production refuses this executor, see agent/setup.ts).
  */
 export class LocalExecutor implements Executor {
   readonly name = "local";
@@ -22,68 +32,105 @@ export class LocalExecutor implements Executor {
     try {
       const file = join(dir, req.language === "python" ? "main.py" : "main.js");
       await writeFile(file, buildProgram(req.language, req.code, req.entry));
-      const { outcomes, processes } = await runWithRestarts(req.inputs, (chunk) =>
-        this.runChunk(file, req, chunk),
+      const { outcomes, processes: n } = await runWithRestarts(req.inputs, (chunk) =>
+        processes.run(() => {
+          req.signal?.throwIfAborted();
+          return runChunk(file, req, chunk);
+        }),
       );
-      return { outcomes, processes, wallMs: Date.now() - t0 };
+      return { outcomes, processes: n, wallMs: Date.now() - t0 };
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   }
+}
 
-  private runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<ChunkResult> {
-    const mb = Math.max(32, Math.floor(req.memoryLimitMb));
-    const [cmd, args]: [string, string[]] =
-      req.language === "python"
-        ? ["bash", ["-c", `ulimit -v ${mb * 1024}; exec python3 -I "$0"`, file]]
-        : ["node", [`--max-old-space-size=${mb}`, `--stack-size=4000`, file]];
-    return new Promise((resolve) => {
-      const child = spawn(cmd, args, {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: { PATH: process.env.PATH ?? "/usr/bin:/bin", NODE_ENV: "production" },
-      });
-      let stdout = "";
-      let stderr = "";
-      let lines = 0;
-      let timedOut = false;
-      let timer: NodeJS.Timeout | undefined;
-      const arm = (ms: number) => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          timedOut = true;
-          child.kill("SIGKILL");
-        }, ms);
-      };
-      arm(STARTUP_GRACE_MS + req.timeLimitMs);
-      child.stdout.on("data", (d: Buffer) => {
-        stdout += d.toString();
-        const n = (stdout.match(/\x1eCX/g) ?? []).length;
-        if (n !== lines || (lines === 0 && reachedReady(stdout))) {
-          lines = n;
-          arm(req.timeLimitMs);
-        }
-      });
-      child.stderr.on("data", (d: Buffer) => {
-        if (stderr.length < 20000) stderr += d.toString();
-      });
-      child.stdin.on("error", () => {});
-      child.stdin.end(JSON.stringify({ inputs: chunk }));
-      child.on("close", (code: number | null) => {
-        if (timer) clearTimeout(timer);
-        const parsed = parseLines(stdout);
-        const tail = stderr.trim().split("\n").slice(-3).join("\n");
-        if (!reachedReady(stdout) && !timedOut) {
-          resolve({ lines: [], end: "compile", message: tail || `exit ${code}` });
-          return;
-        }
-        const end = timedOut ? "timeout" : code === 0 ? "ok" : "crash";
-        const message = timedOut
-          ? `time limit ${req.timeLimitMs}ms exceeded`
-          : /MemoryError|heap out of memory|Cannot allocate/i.test(stderr)
-            ? "memory limit exceeded"
-            : tail || `exit ${code}`;
-        resolve({ lines: parsed, end, message });
-      });
+function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<ChunkResult> {
+  const mb = Math.max(32, Math.floor(req.memoryLimitMb));
+  const [cmd, args]: [string, string[]] =
+    req.language === "python"
+      ? ["bash", ["-c", `ulimit -v ${mb * 1024}; exec python3 -I "$0"`, file]]
+      : ["node", [`--max-old-space-size=${mb}`, `--stack-size=4000`, file]];
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { PATH: process.env.PATH ?? "/usr/bin:/bin", NODE_ENV: "production" },
     });
-  }
+    const out: Buffer[] = [];
+    let outBytes = 0;
+    let stderr = "";
+    let records = 0;
+    let ready = false;
+    let tail = ""; // last few bytes of the previous chunk, so a marker split across chunks is still seen
+    let killedFor: "timeout" | "output" | null = null;
+    let timer: NodeJS.Timeout | undefined;
+    const arm = (ms: number) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        killedFor = "timeout";
+        child.kill("SIGKILL");
+      }, ms);
+    };
+    arm(STARTUP_GRACE_MS + req.timeLimitMs);
+    const onAbort = () => child.kill("SIGKILL");
+    req.signal?.addEventListener("abort", onAbort, { once: true });
+    child.stdout.on("data", (d: Buffer) => {
+      if (killedFor) return;
+      outBytes += d.length;
+      if (outBytes > MAX_STDOUT_BYTES) {
+        killedFor = "output";
+        child.kill("SIGKILL");
+        return;
+      }
+      out.push(d);
+      // Count new records in this chunk only (linear in total output).
+      const text = tail + d.toString("latin1");
+      const before = records;
+      records += text.split(RECORD).length - 1;
+      if (!ready && text.includes("\x1eCR")) ready = true;
+      tail = text.slice(-(RECORD.length - 1));
+      if (records !== before || (before === 0 && ready)) arm(req.timeLimitMs);
+    });
+    child.stderr.on("data", (d: Buffer) => {
+      if (stderr.length < MAX_STDERR_BYTES) stderr += d.toString();
+    });
+    child.stdin.on("error", () => {
+      // EPIPE when the child exits early (compile error); the close handler reports it.
+    });
+    child.on("error", (e) => {
+      // Spawn failed (e.g. python3 or node missing): not the user's fault, so not a runtime error.
+      if (timer) clearTimeout(timer);
+      reject(new ExecutorError(`could not start ${cmd}: ${e.message}`, { cause: e }));
+    });
+    child.stdin.end(JSON.stringify({ inputs: chunk }));
+    child.on("close", (code: number | null) => {
+      if (timer) clearTimeout(timer);
+      req.signal?.removeEventListener("abort", onAbort);
+      if (req.signal?.aborted) {
+        reject(req.signal.reason);
+        return;
+      }
+      const stdout = Buffer.concat(out).toString("utf8");
+      const lastLines = errorSummary(stderr);
+      if (!reachedReady(stdout) && !killedFor) {
+        resolve({ lines: [], end: "compile", message: lastLines || `exit ${code}` });
+        return;
+      }
+      const lines = parseLines(stdout);
+      if (killedFor === "timeout") resolve({ lines, end: "timeout", message: `time limit ${req.timeLimitMs}ms exceeded` });
+      else if (killedFor === "output") resolve({ lines, end: "crash", message: `output limit ${MAX_STDOUT_BYTES} bytes exceeded` });
+      else if (code === 0) resolve({ lines, end: "ok", message: "" });
+      else {
+        const memory = /MemoryError|heap out of memory|Cannot allocate/i.test(stderr);
+        resolve({ lines, end: "crash", message: memory ? "memory limit exceeded" : lastLines || `exit ${code}` });
+      }
+    });
+  });
+}
+
+/** The most useful line of an error dump: the last "SomethingError: ..." line, else the last three lines. */
+export function errorSummary(stderr: string): string {
+  const lines = stderr.trim().split("\n");
+  const named = lines.filter((l) => /^\s*[\w.]*(Error|Exception)\b.*:/.test(l)).at(-1);
+  return (named ?? lines.slice(-3).join("\n")).trim();
 }

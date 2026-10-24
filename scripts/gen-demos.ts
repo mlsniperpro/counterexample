@@ -16,10 +16,10 @@ export const DEMO_FILES: Record<string, string> = {
 
 /** Split the "# BUG: ..." / "// CORRECT: ..." header line from a solution file. */
 export function splitHeader(src: string): { kind: "bug" | "correct"; bug: string; code: string } {
-  const [first, ...rest] = src.split("\n");
+  const [first = "", ...rest] = src.split("\n");
   const m = /^(?:#|\/\/)\s*(BUG|CORRECT):\s*(.*)$/.exec(first);
   if (!m) throw new Error(`missing BUG/CORRECT header: ${first}`);
-  return { kind: m[1] === "BUG" ? "bug" : "correct", bug: m[2], code: rest.join("\n") };
+  return { kind: m[1] === "BUG" ? "bug" : "correct", bug: m[2] ?? "", code: rest.join("\n") };
 }
 
 export function renderDemos(root: string): string {

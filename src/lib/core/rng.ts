@@ -26,3 +26,9 @@ export function randInt(rng: Rng, min: number, max: number): number {
   if (max < min) return min;
   return min + Math.floor(rng() * (max - min + 1));
 }
+
+/** A uniformly random element of a non-empty list. */
+export function pick<T>(rng: Rng, xs: readonly T[]): T {
+  if (xs.length === 0) throw new RangeError("pick from an empty list");
+  return xs[randInt(rng, 0, xs.length - 1)] as T;
+}

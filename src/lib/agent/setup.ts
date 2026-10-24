@@ -3,6 +3,7 @@ import { Judge0Executor } from "../exec/judge0";
 import { LocalExecutor } from "../exec/local";
 import type { Executor } from "../exec/types";
 import { modelConfigFromEnv, type Routing } from "../models/config";
+import { priceTable } from "../models/pricing";
 import { NebiusProvider } from "../models/nebius";
 import { ReplayProvider, type ReplayFixtures } from "../models/replay";
 import type { ModelProvider } from "../models/types";
@@ -27,7 +28,7 @@ export function makeProvider(mode: Mode, env: Env = process.env, fixtures: Repla
     return p;
   }
   // Solution-level keys look like "problem/solution": fall back to the problem's fixtures.
-  return new ReplayProvider(fixtures, (k) => (k.includes("/") ? [k.split("/")[0]] : []));
+  return new ReplayProvider(fixtures, (k) => (k.includes("/") ? [k.slice(0, k.indexOf("/"))] : []));
 }
 
 export function makeResearch(mode: Mode, env: Env = process.env): ResearchClient | null {
@@ -56,5 +57,6 @@ export function makeDeps(opts: { mode?: Mode; routing?: Routing; env?: Env; fixt
     models: modelConfigFromEnv(env, opts.routing ?? "routed"),
     executor: makeExecutor(env),
     research: makeResearch(mode, env),
+    prices: priceTable(env),
   };
 }

@@ -1,3 +1,4 @@
+import { ReplayMissError } from "../errors";
 import type { ModelProvider, ModelRequest, ModelResponse, Purpose } from "./types";
 
 /**
@@ -40,13 +41,14 @@ export class ReplayProvider implements ModelProvider {
       if (entry !== undefined) break;
     }
     if (entry === undefined) {
-      throw new Error(
+      throw new ReplayMissError(
         `replay: no recorded "${req.purpose}" response for "${req.replayKey}". ` +
           `Replay mode only covers the built-in problems; set NEBIUS_API_KEY for live mode.`,
       );
     }
     const list = Array.isArray(entry) ? entry : [entry];
     const text = list[Math.min(req.attempt ?? 0, list.length - 1)];
+    if (text === undefined) throw new ReplayMissError(`replay: empty response list for "${req.purpose}" / "${req.replayKey}"`);
     const promptTokens = estimateTokens(req.messages.map((m) => m.content).join("\n"));
     const completionTokens = estimateTokens(text);
     return {

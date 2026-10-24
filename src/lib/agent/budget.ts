@@ -1,3 +1,5 @@
+import { AttackCancelled, BudgetExceeded } from "../errors";
+
 export type Budgets = {
   /** Max model calls for the whole attack. */
   maxModelCalls: number;
@@ -25,15 +27,6 @@ export const DEFAULT_BUDGETS: Budgets = {
   maxFixAttempts: 2,
 };
 
-export class BudgetExceeded extends Error {
-  constructor(
-    readonly budget: "modelCalls" | "runs" | "wallClock",
-    detail: string,
-  ) {
-    super(`budget exhausted: ${budget} (${detail})`);
-  }
-}
-
 export class Budget {
   modelCalls = 0;
   runs = 0;
@@ -41,13 +34,16 @@ export class Budget {
     readonly limits: Budgets,
     private readonly t0: number,
     private readonly clock: () => number,
+    private readonly signal?: AbortSignal,
   ) {}
 
   elapsed(): number {
     return this.clock() - this.t0;
   }
 
+  /** Called before every model call and sandbox run: stops on cancellation or wall-clock overrun. */
   checkTime(): void {
+    if (this.signal?.aborted) throw new AttackCancelled("attack cancelled by the caller");
     if (this.elapsed() > this.limits.wallClockMs) {
       throw new BudgetExceeded("wallClock", `${this.elapsed()}ms > ${this.limits.wallClockMs}ms`);
     }

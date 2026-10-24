@@ -5,7 +5,7 @@ import { Tracer, type TraceEvent } from "@/lib/agent/trace";
 import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
 import { DEFAULT_FAST_MODEL, DEFAULT_REASONING_MODEL } from "@/lib/models/config";
 import { readFileSync } from "node:fs";
-import { splitHeader } from "../scripts/gen-demos";
+import { splitHeader } from "../../scripts/gen-demos";
 
 const builtIn = (id: string) => BUILT_INS.find((b) => b.problem.id === id)!;
 const deps = (routing: "routed" | "ultra-only" = "routed") => makeDeps({ mode: "replay", routing, env: { NODE_ENV: "test" } });
@@ -72,7 +72,7 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
   });
 
   it("built-in demos are generated from the benchmark files", async () => {
-    const { renderDemos } = await import("../scripts/gen-demos");
+    const { renderDemos } = await import("../../scripts/gen-demos");
     expect(readFileSync("src/lib/problems/demos.generated.ts", "utf8")).toBe(renderDemos(process.cwd()));
   });
 });

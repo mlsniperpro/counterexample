@@ -9,6 +9,8 @@ export type RunRequest = {
   /** Per-input time limit. */
   timeLimitMs: number;
   memoryLimitMb: number;
+  /** Cancels the run: in-flight submissions are aborted and local processes killed. */
+  signal?: AbortSignal;
 };
 
 export type RunOutcome =

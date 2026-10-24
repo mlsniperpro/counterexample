@@ -1,9 +1,12 @@
+import type { z } from "zod";
+import { ModelOutputError } from "../errors";
+
 /** Parsers for model output. Shared by live and replay providers, so replay tests exercise them. */
 
+/** The first JSON object in the text: inside a ```json fence if there is one, else the outermost braces. */
 export function extractJson(text: string): unknown {
-  const fence = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text);
-  const candidates = [fence?.[1], text];
-  for (const c of candidates) {
+  const fence = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text)?.[1];
+  for (const c of [fence, text]) {
     if (!c) continue;
     const start = c.indexOf("{");
     const end = c.lastIndexOf("}");
@@ -14,17 +17,23 @@ export function extractJson(text: string): unknown {
       // try the next candidate
     }
   }
-  throw new Error("no JSON object found in model output");
+  throw new ModelOutputError("no JSON object found in model output");
+}
+
+/** Extract and validate a JSON answer against a schema. */
+export function parseJsonAnswer<T>(text: string, schema: z.ZodType<T>, what: string): T {
+  const r = schema.safeParse(extractJson(text));
+  if (!r.success) throw new ModelOutputError(`${what}: ${r.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
+  return r.data;
 }
 
 /** The first fenced code block, preferring one tagged with the language. */
 export function extractCode(text: string, language: "python" | "javascript"): string {
   const tags = language === "python" ? ["python", "py"] : ["javascript", "js"];
-  const blocks = [...text.matchAll(/```([\w+-]*)\s*\n([\s\S]*?)```/g)];
-  const tagged = blocks.find((b) => tags.includes(b[1].toLowerCase()));
-  const block = tagged ?? blocks[0];
-  if (!block) throw new Error("no code block found in model output");
-  return block[2].trimEnd() + "\n";
+  const blocks = [...text.matchAll(/```([\w+-]*)\s*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
+  const block = blocks.find((b) => tags.includes(b.tag)) ?? blocks[0];
+  if (!block || !block.body.trim()) throw new ModelOutputError("no code block found in model output");
+  return block.body.trimEnd() + "\n";
 }
 
 /** Strip reasoning traces some models emit before the answer. */

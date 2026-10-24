@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { ConfigError, UpstreamError } from "../errors";
+import { DEFAULT_RETRY, postJson, type HttpDeps, type RetryPolicy } from "../net/http";
 import { buildProgram, parseLines, reachedReady, runWithRestarts } from "./program";
 import type { ChunkResult, Executor, Language, RunRequest, RunResult } from "./types";
 
@@ -9,22 +12,26 @@ export type Judge0Config = {
   languageIds?: Partial<Record<Language, number>>;
   /** Inputs per submission. A whole chunk shares one CPU-time limit. */
   chunkSize?: number;
-  fetchImpl?: typeof fetch;
+  http?: HttpDeps;
+  retry?: RetryPolicy;
 };
 
 /** Judge0 CE defaults: 71 = Python 3.8.1, 63 = JavaScript (Node.js 12.14.0). */
 const DEFAULT_LANGS: Record<Language, number> = { python: 71, javascript: 63 };
 
-type Judge0Response = {
-  stdout: string | null;
-  stderr: string | null;
-  compile_output: string | null;
-  message: string | null;
-  status: { id: number; description: string };
-};
+const judge0ResponseSchema = z.object({
+  stdout: z.string().nullable().optional(),
+  stderr: z.string().nullable().optional(),
+  compile_output: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+  status: z.object({ id: z.number().int(), description: z.string() }),
+});
+
+/** wait=true holds the connection until the run finishes, so allow for the wall-time limit plus queueing. */
+export const JUDGE0_RETRY: RetryPolicy = { ...DEFAULT_RETRY, timeoutMs: 45_000 };
 
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
-const unb64 = (s: string | null) => (s ? Buffer.from(s, "base64").toString("utf8") : "");
+const unb64 = (s: string | null | undefined) => (s ? Buffer.from(s, "base64").toString("utf8") : "");
 
 /**
  * Runs code on any Judge0-compatible API (self-hosted Judge0 CE, or RapidAPI).
@@ -39,14 +46,29 @@ export class Judge0Executor implements Executor {
 
   constructor(cfg: Judge0Config) {
     this.cfg = { chunkSize: 200, ...cfg, baseUrl: cfg.baseUrl.replace(/\/+$/, "") };
-    this.label = `Judge0 (${new URL(this.cfg.baseUrl).host})`;
+    let url: URL;
+    try {
+      url = new URL(this.cfg.baseUrl);
+    } catch (e) {
+      throw new ConfigError(`JUDGE0_URL is not a valid URL: "${cfg.baseUrl}"`, { cause: e });
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") throw new ConfigError(`JUDGE0_URL must be http(s), got ${url.protocol}`);
+    this.label = `Judge0 (${url.host})`;
   }
 
   static fromEnv(env: Record<string, string | undefined> = process.env): Judge0Executor | null {
     if (!env.JUDGE0_URL) return null;
     const ids: Partial<Record<Language, number>> = {};
-    if (env.JUDGE0_LANG_PYTHON) ids.python = Number(env.JUDGE0_LANG_PYTHON);
-    if (env.JUDGE0_LANG_JAVASCRIPT) ids.javascript = Number(env.JUDGE0_LANG_JAVASCRIPT);
+    const langId = (name: string, v: string | undefined) => {
+      if (v === undefined || v === "") return undefined;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n <= 0) throw new ConfigError(`${name} must be a positive integer, got "${v}"`);
+      return n;
+    };
+    const py = langId("JUDGE0_LANG_PYTHON", env.JUDGE0_LANG_PYTHON);
+    const js = langId("JUDGE0_LANG_JAVASCRIPT", env.JUDGE0_LANG_JAVASCRIPT);
+    if (py) ids.python = py;
+    if (js) ids.javascript = js;
     return new Judge0Executor({
       baseUrl: env.JUDGE0_URL,
       token: env.JUDGE0_TOKEN,
@@ -67,7 +89,7 @@ export class Judge0Executor implements Executor {
   }
 
   private headers(): Record<string, string> {
-    const h: Record<string, string> = { "content-type": "application/json" };
+    const h: Record<string, string> = {};
     if (this.cfg.token && this.cfg.rapidApiHost) {
       h["X-RapidAPI-Key"] = this.cfg.token;
       h["X-RapidAPI-Host"] = this.cfg.rapidApiHost;
@@ -88,28 +110,29 @@ export class Judge0Executor implements Executor {
       wall_time_limit: Math.min(20, cpuSeconds * 2),
       memory_limit: Math.max(32, req.memoryLimitMb) * 1024,
     };
-    const doFetch = this.cfg.fetchImpl ?? fetch;
-    const res = await doFetch(`${this.cfg.baseUrl}/submissions?base64_encoded=true&wait=true`, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Judge0 HTTP ${res.status}: ${text.slice(0, 300)}`);
-    }
-    const j = (await res.json()) as Judge0Response;
+    const raw = await postJson(
+      "judge0",
+      `${this.cfg.baseUrl}/submissions?base64_encoded=true&wait=true`,
+      body,
+      this.headers(),
+      this.cfg.retry ?? JUDGE0_RETRY,
+      this.cfg.http,
+      req.signal,
+    );
+    const parsed = judge0ResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new UpstreamError("judge0", `unexpected response shape: ${parsed.error.issues[0]?.message ?? "invalid"}`, null, false);
+    const j = parsed.data;
     const stdout = unb64(j.stdout);
     const stderr = unb64(j.stderr) || unb64(j.compile_output) || unb64(j.message);
     const lines = parseLines(stdout);
-    const status = j.status?.id ?? 13;
+    const status = j.status.id;
     // 3 Accepted, 5 Time Limit Exceeded, 6 Compilation Error, 7-12 Runtime Error, 13 Internal, 14 Exec Format
     if (status === 6 || (!reachedReady(stdout) && status !== 5)) {
       return { lines: [], end: "compile", message: stderr.slice(-500) || j.status.description };
     }
     if (status === 3) return { lines, end: "ok", message: "" };
     if (status === 5) return { lines, end: "timeout", message: "time limit exceeded" };
-    if (status >= 13) throw new Error(`Judge0 internal error: ${j.status.description} ${stderr.slice(0, 300)}`);
+    if (status >= 13) throw new UpstreamError("judge0", `internal error: ${j.status.description} ${stderr.slice(0, 300)}`, null, false);
     return { lines, end: "crash", message: `${j.status.description}: ${stderr.slice(-300)}` };
   }
 }

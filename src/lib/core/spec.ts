@@ -1,4 +1,6 @@
-import { randInt, type Rng } from "./rng";
+import { z } from "zod";
+import { ModelOutputError } from "../errors";
+import { pick, randInt, type Rng } from "./rng";
 
 /**
  * A small, safe DSL for input types. Problems declare their parameters with it,
@@ -59,14 +61,15 @@ export function genValue(spec: Exclude<TypeSpec, GraphSpec>, rng: Rng): unknown 
     case "const":
       return structuredClone(spec.value);
     case "oneOf": {
-      const opt = spec.options[randInt(rng, 0, spec.options.length - 1)];
+      const opt = pick(rng, spec.options);
       if (opt.kind === "graph") throw new Error("graph is not allowed inside oneOf");
       return genValue(opt, rng);
     }
     case "string": {
       const n = randInt(rng, spec.len.min, spec.len.max);
       let s = "";
-      for (let i = 0; i < n; i++) s += spec.alphabet[randInt(rng, 0, spec.alphabet.length - 1)];
+      const chars = [...spec.alphabet];
+      for (let i = 0; i < n; i++) s += pick(rng, chars);
       return s;
     }
     case "tuple": {
@@ -86,7 +89,7 @@ function genInt(spec: IntSpec, rng: Rng): number {
   const { min, max } = spec;
   if (spec.bias === "edges" && rng() < 0.6) {
     const picks = [min, max, min + 1, max - 1, 0, 1, -1].filter((v) => v >= min && v <= max);
-    return picks[randInt(rng, 0, picks.length - 1)];
+    return pick(rng, picks);
   }
   if (spec.bias === "small" && rng() < 0.7) {
     const lo = Math.max(min, -10);
@@ -107,7 +110,7 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   let attempts = 0;
   while (out.length < n && attempts < n * 20 + 50) {
     attempts++;
-    const v = pool ? pool[randInt(rng, 0, pool.length - 1)] : genValue(of, rng);
+    const v = pool ? pick(rng, pool) : genValue(of, rng);
     if (spec.distinct) {
       const key = JSON.stringify(v);
       if (seen.has(key)) continue;
@@ -126,16 +129,16 @@ function genGraph(spec: GraphSpec, rng: Rng): [number, number[][]] {
   const n = randInt(rng, spec.n.min, spec.n.max);
   const m = randInt(rng, spec.m.min, spec.m.max);
   const edges: number[][] = [];
-  if (n >= 1) {
-    for (let i = 0; i < m; i++) {
-      let u = randInt(rng, 0, n - 1);
-      let v = randInt(rng, 0, n - 1);
-      if (spec.dag) {
-        if (u === v) continue;
-        if (u > v) [u, v] = [v, u];
-      }
-      edges.push([u, v, randInt(rng, spec.weight.min, spec.weight.max)]);
+  // A DAG needs two distinct nodes per edge; with n = 1 it can have no edges (conforms then rejects m.min > 0).
+  if (n < 1 || (spec.dag && n < 2)) return [n, edges];
+  while (edges.length < m) {
+    let u = randInt(rng, 0, n - 1);
+    let v = randInt(rng, 0, n - 1);
+    if (spec.dag) {
+      if (u === v) v = (u + 1 + randInt(rng, 0, n - 2)) % n;
+      if (u > v) [u, v] = [v, u];
     }
+    edges.push([u, v, randInt(rng, spec.weight.min, spec.weight.max)]);
   }
   return [n, edges];
 }
@@ -200,18 +203,11 @@ export function conforms(v: unknown, spec: Exclude<TypeSpec, GraphSpec>): boolea
 function graphConforms(n: unknown, edges: unknown, spec: GraphSpec): boolean {
   if (!isInt(n) || !inRange(n, spec.n)) return false;
   if (!Array.isArray(edges) || !inRange(edges.length, spec.m)) return false;
-  return edges.every(
-    (e) =>
-      Array.isArray(e) &&
-      e.length === 3 &&
-      e.every(isInt) &&
-      e[0] >= 0 &&
-      e[0] < n &&
-      e[1] >= 0 &&
-      e[1] < n &&
-      inRange(e[2], spec.weight) &&
-      (!spec.dag || e[0] < e[1]),
-  );
+  return edges.every((e: unknown) => {
+    if (!Array.isArray(e) || e.length !== 3 || !e.every(isInt)) return false;
+    const [u, v, w] = e as [number, number, number];
+    return u >= 0 && u < n && v >= 0 && v < n && inRange(w, spec.weight) && (!spec.dag || u < v);
+  });
 }
 
 /** Check a full argument list against parameter specs. */
@@ -229,57 +225,103 @@ export function argsConform(args: unknown[], specs: TypeSpec[]): boolean {
   return i === args.length;
 }
 
-const KINDS = new Set(["int", "array", "string", "tuple", "const", "oneOf", "graph"]);
+/** Hard caps on what a (model-written) spec may ask for, so generation stays bounded in memory and time. */
+export const SPEC_LIMITS = { maxLen: 10_000, maxNodes: 1_000, maxEdges: 10_000, maxOptions: 16, maxDepth: 4, maxValuesPerInput: 200_000 } as const;
 
-/** Parse untrusted (model-written) JSON into a TypeSpec, or throw with a reason. */
-export function parseTypeSpec(raw: unknown, path = "spec"): TypeSpec {
-  if (!raw || typeof raw !== "object") throw new Error(`${path}: expected an object`);
-  const o = raw as Record<string, unknown>;
-  if (typeof o.kind !== "string" || !KINDS.has(o.kind)) throw new Error(`${path}: unknown kind ${String(o.kind)}`);
-  const range = (r: unknown, p: string): Range => {
-    const rr = r as Range | undefined;
-    if (!rr || !isInt(rr.min) || !isInt(rr.max) || rr.min > rr.max) throw new Error(`${p}: bad range`);
-    return { min: rr.min, max: rr.max };
-  };
-  switch (o.kind) {
-    case "int": {
-      const r = range(o, path);
-      const bias = o.bias === "edges" || o.bias === "small" ? o.bias : "uniform";
-      return { kind: "int", ...r, bias };
-    }
-    case "const":
-      return { kind: "const", value: o.value };
-    case "oneOf":
-      if (!Array.isArray(o.options) || o.options.length === 0) throw new Error(`${path}: oneOf needs options`);
-      return { kind: "oneOf", options: o.options.map((x, i) => parseTypeSpec(x, `${path}.options[${i}]`)) };
-    case "string": {
-      if (typeof o.alphabet !== "string" || o.alphabet.length === 0) throw new Error(`${path}: alphabet`);
-      return { kind: "string", alphabet: o.alphabet, len: range(o.len, `${path}.len`) };
-    }
-    case "tuple":
-      if (!Array.isArray(o.items)) throw new Error(`${path}: tuple needs items`);
-      return {
-        kind: "tuple",
-        items: o.items.map((x, i) => parseTypeSpec(x, `${path}.items[${i}]`)),
-        nondecreasing: o.nondecreasing === true,
-      };
+/** Optional field where JSON null means "not set" (models often write null). */
+const opt = <T extends z.ZodType>(t: T) => t.nullish().transform((v) => v ?? undefined);
+const safeInt = z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER);
+const range = (cap: number) =>
+  z
+    .object({ min: z.number().int().min(0), max: z.number().int().max(cap) })
+    .refine((r) => r.min <= r.max, { message: "bad range: min > max" });
+const intRange = z
+  .object({ min: safeInt, max: safeInt })
+  .refine((r) => r.min <= r.max, { message: "bad range: min > max" });
+
+const typeSpecSchema: z.ZodType<TypeSpec> = z.lazy(() =>
+  z.discriminatedUnion("kind", [
+    z
+      .object({ kind: z.literal("int"), min: safeInt, max: safeInt, bias: opt(z.enum(["uniform", "edges", "small"])) })
+      .refine((r) => r.min <= r.max, { message: "bad range: min > max" }),
+    z.object({
+      kind: z.literal("array"),
+      of: typeSpecSchema,
+      len: range(SPEC_LIMITS.maxLen),
+      sorted: opt(z.enum(["asc", "desc"])),
+      distinct: opt(z.boolean()),
+      pool: opt(z.number().int().min(1).max(SPEC_LIMITS.maxLen)),
+    }),
+    z.object({ kind: z.literal("string"), alphabet: z.string().min(1).max(256), len: range(SPEC_LIMITS.maxLen) }),
+    z.object({ kind: z.literal("tuple"), items: z.array(typeSpecSchema).min(1).max(SPEC_LIMITS.maxOptions), nondecreasing: opt(z.boolean()) }),
+    z.object({ kind: z.literal("const"), value: z.json() }),
+    z.object({ kind: z.literal("oneOf"), options: z.array(typeSpecSchema).min(1).max(SPEC_LIMITS.maxOptions) }),
+    z.object({
+      kind: z.literal("graph"),
+      n: range(SPEC_LIMITS.maxNodes),
+      m: range(SPEC_LIMITS.maxEdges),
+      weight: intRange,
+      dag: opt(z.boolean()),
+    }),
+  ]),
+);
+
+function depth(spec: TypeSpec): number {
+  switch (spec.kind) {
     case "array":
-      return {
-        kind: "array",
-        of: parseTypeSpec(o.of, `${path}.of`),
-        len: range(o.len, `${path}.len`),
-        sorted: o.sorted === "asc" || o.sorted === "desc" ? o.sorted : undefined,
-        distinct: o.distinct === true,
-        pool: isInt(o.pool) && o.pool > 0 ? o.pool : undefined,
-      };
-    case "graph":
-      return {
-        kind: "graph",
-        n: range(o.n, `${path}.n`),
-        m: range(o.m, `${path}.m`),
-        weight: range(o.weight, `${path}.weight`),
-        dag: o.dag === true,
-      };
+      return 1 + depth(spec.of);
+    case "tuple":
+      return 1 + Math.max(...spec.items.map(depth));
+    case "oneOf":
+      return 1 + Math.max(...spec.options.map(depth));
+    default:
+      return 1;
   }
-  throw new Error(`${path}: unreachable`);
+}
+
+/** Upper bound on the number of scalar values one generated input can contain. */
+export function maxValues(spec: TypeSpec): number {
+  switch (spec.kind) {
+    case "int":
+    case "const":
+      return 1;
+    case "string":
+      return spec.len.max;
+    case "array":
+      return spec.len.max * maxValues(spec.of);
+    case "tuple":
+      return spec.items.reduce((a, x) => a + maxValues(x), 0);
+    case "oneOf":
+      return Math.max(...spec.options.map(maxValues));
+    case "graph":
+      return 1 + 3 * spec.m.max;
+  }
+}
+
+/** Nested graphs make no sense (a graph expands to two top-level arguments). */
+function hasNestedGraph(spec: TypeSpec, top: boolean): boolean {
+  switch (spec.kind) {
+    case "graph":
+      return !top;
+    case "array":
+      return hasNestedGraph(spec.of, false);
+    case "tuple":
+      return spec.items.some((x) => hasNestedGraph(x, false));
+    case "oneOf":
+      return spec.options.some((x) => hasNestedGraph(x, false));
+    default:
+      return false;
+  }
+}
+
+/** Parse untrusted (model-written) JSON into a TypeSpec, or throw ModelOutputError with the reason. */
+export function parseTypeSpec(raw: unknown, path = "spec"): TypeSpec {
+  const r = typeSpecSchema.safeParse(raw);
+  if (!r.success) throw new ModelOutputError(`${path}: ${z.prettifyError(r.error)}`);
+  if (depth(r.data) > SPEC_LIMITS.maxDepth) throw new ModelOutputError(`${path}: nested deeper than ${SPEC_LIMITS.maxDepth}`);
+  if (maxValues(r.data) > SPEC_LIMITS.maxValuesPerInput) {
+    throw new ModelOutputError(`${path}: one input could hold ${maxValues(r.data)} values (limit ${SPEC_LIMITS.maxValuesPerInput})`);
+  }
+  if (hasNestedGraph(r.data, true)) throw new ModelOutputError(`${path}: graph is only allowed as a top-level argument`);
+  return r.data;
 }

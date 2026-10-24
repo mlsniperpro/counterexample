@@ -1,7 +1,5 @@
 export type Stage = "understand" | "research" | "oracle" | "attack" | "run" | "shrink" | "explain" | "reattack" | "report";
 
-export const STAGES: Stage[] = ["understand", "research", "oracle", "attack", "run", "shrink", "explain", "reattack", "report"];
-
 export type TraceEvent = {
   seq: number;
   /** ms since the attack started (wall clock). */

@@ -1,45 +1,74 @@
+import { z } from "zod";
 import { parseTypeSpec } from "../core/spec";
-import type { CompareMode } from "../core/compare";
+import { ModelOutputError } from "../errors";
 import { modelFor, type ModelConfig } from "../models/config";
-import type { ModelProvider } from "../models/types";
+import type { ModelProvider, ModelResponse } from "../models/types";
 import type { Problem, Solution } from "../problems/types";
-import { extractJson, stripThinking } from "./parse";
+import { parseJsonAnswer, stripThinking } from "./parse";
 import { understandPrompt } from "./prompts";
+
+const MAX_PARAMS = 6;
+const MAX_EXAMPLES = 10;
+
+const IDENT = /^[A-Za-z_$][\w$]*$/;
+
+// Cosmetic fields are normalised (trimmed, shortened); anything that changes behaviour must be valid as given.
+const specAnswerSchema = z.object({
+  title: z.string().min(1).transform((t) => t.slice(0, 80)),
+  entry: z.string().regex(IDENT, "entry must be an identifier").nullish(),
+  params: z.array(z.object({ name: z.string().min(1).max(40), type: z.unknown() })).min(1).max(MAX_PARAMS),
+  returns: z.string().nullish().transform((r) => (r ?? "").slice(0, 200)),
+  examples: z.array(z.object({ args: z.array(z.json()), output: z.json() })).max(MAX_EXAMPLES).default([]),
+  compare: z.enum(["exact", "unordered", "float"]).default("exact"),
+  references: z.array(z.string().max(200)).nullish().transform((r) => r?.slice(0, 2)),
+});
+
+/** The first top-level function the code defines, used when the model does not name the entry point. */
+export function firstFunctionName(code: string, language: Solution["language"]): string | undefined {
+  const re = language === "python" ? /^def\s+([A-Za-z_]\w*)\s*\(/m : /^(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=)/m;
+  const m = re.exec(code);
+  return m?.[1] ?? m?.[2];
+}
 
 /**
  * Live mode only: turn a pasted statement into a typed Problem with the fast
- * model. The returned spec is validated like any other model output.
+ * model. The answer is schema-validated: cosmetic fields are normalised,
+ * anything that affects the attack (types, examples, entry) must be valid or
+ * it is a ModelOutputError.
  */
 export async function understandProblem(
   statement: string,
   solution: Pick<Solution, "code" | "language">,
   provider: ModelProvider,
   models: ModelConfig,
-): Promise<{ problem: Problem; entry: string }> {
+  signal?: AbortSignal,
+): Promise<{ problem: Problem; entry: string; response: ModelResponse }> {
   const res = await provider.complete({
     model: modelFor(models, "fast"),
     purpose: "understand",
     messages: understandPrompt(statement, solution.code, solution.language),
     replayKey: "custom",
+    signal,
   });
-  const j = extractJson(stripThinking(res.text)) as Record<string, unknown>;
-  const params = (j.params as { name: string; type: unknown }[]).map((p, i) => ({ name: String(p.name), type: parseTypeSpec(p.type, `params[${i}]`) }));
-  const examples = Array.isArray(j.examples) ? (j.examples as { args: unknown[]; output: unknown }[]).filter((e) => Array.isArray(e.args)) : [];
-  const compare: CompareMode = j.compare === "unordered" || j.compare === "float" ? j.compare : "exact";
-  const entry = typeof j.entry === "string" && /^[A-Za-z_$][\w$]*$/.test(j.entry) ? j.entry : "solve";
+  const a = parseJsonAnswer(stripThinking(res.text), specAnswerSchema, "problem spec");
+  const entry = a.entry ?? firstFunctionName(solution.code, solution.language);
+  if (!entry) throw new ModelOutputError("problem spec: no entry function named, and none found in the code");
+  const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(p.type, `params[${i}].type`) }));
+  if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
   return {
     entry,
+    response: res,
     problem: {
       id: "custom",
-      title: String(j.title ?? "Custom problem").slice(0, 80),
+      title: a.title,
       statement,
       params,
-      returns: String(j.returns ?? ""),
-      examples,
-      compare,
+      returns: a.returns,
+      examples: a.examples,
+      compare: a.compare,
       timeLimitMs: 1000,
       memoryLimitMb: 256,
-      references: Array.isArray(j.references) ? j.references.filter((r): r is string => typeof r === "string").slice(0, 2) : undefined,
+      references: a.references,
     },
   };
 }

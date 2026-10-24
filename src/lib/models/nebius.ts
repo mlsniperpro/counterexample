@@ -1,11 +1,19 @@
+import { z } from "zod";
+import { UpstreamError } from "../errors";
+import { DEFAULT_RETRY, postJson, type HttpDeps, type RetryPolicy } from "../net/http";
 import { DEFAULT_BASE_URL } from "./config";
 import type { ModelProvider, ModelRequest, ModelResponse } from "./types";
 
-type ChatCompletion = {
-  choices?: { message?: { content?: string | null; reasoning_content?: string | null } }[];
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
-  model?: string;
-};
+const chatCompletionSchema = z.object({
+  model: z.string().optional(),
+  choices: z
+    .array(z.object({ message: z.object({ content: z.string().nullable().optional() }) }))
+    .min(1),
+  usage: z.object({ prompt_tokens: z.number().int().min(0), completion_tokens: z.number().int().min(0) }).partial().optional(),
+});
+
+/** Model calls are slow (long reasoning outputs), so the per-attempt timeout is generous. */
+export const NEBIUS_RETRY: RetryPolicy = { ...DEFAULT_RETRY, attempts: 3, timeoutMs: 120_000 };
 
 /** Nebius Token Factory through its OpenAI-compatible chat completions endpoint. */
 export class NebiusProvider implements ModelProvider {
@@ -14,8 +22,8 @@ export class NebiusProvider implements ModelProvider {
   constructor(
     private readonly apiKey: string,
     private readonly baseUrl: string = DEFAULT_BASE_URL,
-    private readonly fetchImpl: typeof fetch = fetch,
-    private readonly timeoutMs = 120_000,
+    private readonly http: HttpDeps = {},
+    private readonly retry: RetryPolicy = NEBIUS_RETRY,
   ) {}
 
   static fromEnv(env: Record<string, string | undefined> = process.env): NebiusProvider | null {
@@ -25,25 +33,22 @@ export class NebiusProvider implements ModelProvider {
 
   async complete(req: ModelRequest): Promise<ModelResponse> {
     const t0 = Date.now();
-    const res = await this.fetchImpl(`${this.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({
-        model: req.model,
-        messages: req.messages,
-        max_tokens: req.maxTokens ?? 4096,
-        temperature: req.temperature ?? 0.2,
-      }),
-      signal: AbortSignal.timeout(this.timeoutMs),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`Token Factory HTTP ${res.status} for ${req.model}: ${body.slice(0, 300)}`);
+    const raw = await postJson(
+      "token-factory",
+      `${this.baseUrl.replace(/\/+$/, "")}/chat/completions`,
+      { model: req.model, messages: req.messages, max_tokens: req.maxTokens ?? 4096, temperature: req.temperature ?? 0.2 },
+      { authorization: `Bearer ${this.apiKey}` },
+      this.retry,
+      this.http,
+      req.signal,
+    );
+    const parsed = chatCompletionSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new UpstreamError("token-factory", `unexpected response shape for ${req.model}: ${parsed.error.issues[0]?.message ?? "invalid"}`, null, false);
     }
-    const j = (await res.json()) as ChatCompletion;
-    const text = j.choices?.[0]?.message?.content ?? "";
+    const j = parsed.data;
     return {
-      text,
+      text: j.choices[0]?.message.content ?? "",
       model: j.model ?? req.model,
       promptTokens: j.usage?.prompt_tokens ?? 0,
       completionTokens: j.usage?.completion_tokens ?? 0,

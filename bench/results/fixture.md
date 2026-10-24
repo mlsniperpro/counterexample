@@ -5,9 +5,9 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.8 s | 10.1 s | 2.3 s |
-| Model cost per solution | $0.0014 | $0.0026 | $0.0008 |
-| Model cost, all 40 solutions | $0.0551 | $0.1045 | $0.0336 |
+| Median time to first counterexample | 4.9 s | 10.1 s | 2.2 s |
+| Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
+| Model cost, all 40 solutions | $0.0556 | $0.1062 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 
 | Solution | Expected | Verdict (routed) | Minimal counterexample | Fix verified |
@@ -40,7 +40,7 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | `merge-intervals/bug-b` | bug | counterexample | `[[[2,2],[10,10]]]` | yes |
 | `merge-intervals/bug-c` | bug | counterexample | `[[[0,2],[1,1]]]` | yes |
 | `merge-intervals/correct` | correct | no_counterexample |  |  |
-| `shortest-paths/bug-a` | bug | counterexample | `[3,[[1,2,-2],[0,1,-1],[0,2,-2]]]` | yes |
+| `shortest-paths/bug-a` | bug | counterexample | `[3,[[0,1,1],[1,2,-2],[0,2,0]]]` | yes |
 | `shortest-paths/bug-b` | bug | counterexample | `[3,[[1,2,0],[0,1,0]]]` | yes |
 | `shortest-paths/bug-c` | bug | counterexample | `[3,[[1,2,-1]]]` | yes |
 | `shortest-paths/correct` | correct | no_counterexample |  |  |

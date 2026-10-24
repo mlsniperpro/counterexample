@@ -90,11 +90,11 @@ const isEdgeList = (v: unknown): v is number[][] =>
  * the source).
  */
 function* dropIsolatedNodes(n: number, edges: number[][]): Generator<[number, number[][]]> {
-  const used = new Set(edges.flatMap((e) => [e[0], e[1]]));
+  const used = new Set(edges.flatMap((e) => e.slice(0, 2)));
   for (let k = n - 1; k >= 1; k--) {
     if (used.has(k)) continue;
     const relabel = (x: number) => (x > k ? x - 1 : x);
-    yield [n - 1, edges.map((e) => [relabel(e[0]), relabel(e[1]), ...e.slice(2)])];
+    yield [n - 1, edges.map((e) => [...e.slice(0, 2).map(relabel), ...e.slice(2)])];
   }
 }
 

@@ -17,6 +17,8 @@ export type ModelRequest = {
   replayKey: string;
   /** Attempt number, so a retried call can replay a different response. */
   attempt?: number;
+  /** Cancels the call (client gone, or the attack's wall-clock deadline). */
+  signal?: AbortSignal;
 };
 
 export type ModelResponse = {

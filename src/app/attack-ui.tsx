@@ -1,39 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Report } from "@/lib/agent/run";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { Example } from "@/lib/problems/types";
+import { fmtArgs, ms, toMarkdown, type ReportNoTrace } from "./format";
+import ReportView from "./report-view";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
-type ReportNoTrace = Omit<Report, "trace">;
 
 const CUSTOM = "custom";
-const fmtArgs = (a: unknown[]) => a.map((x) => JSON.stringify(x)).join(", ");
-const ms = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
-const usd = (x: number) => `$${x < 0.01 ? x.toFixed(5) : x.toFixed(3)}`;
-
-const VERDICT: Record<Report["verdict"], string> = {
-  counterexample: "Broken: minimal counterexample found",
-  no_counterexample: "Survived the attack",
-  oracle_unreliable: "Oracle unreliable: no bug claimed",
-  compile_error: "Solution does not compile",
-  budget_exhausted: "Budget exhausted",
-  error: "Error",
-};
+const MODE_LABEL = {
+  live: "Live: Nebius Token Factory",
+  replay: "Replay mode: recorded model responses, real execution",
+  unknown: "Server mode unknown (status check failed)",
+} as const;
 
 export default function AttackUI({ problems }: { problems: UIProblem[] }) {
-  const [mode, setMode] = useState<"live" | "replay" | null>(null);
+  const first = problems[0];
+  const [mode, setMode] = useState<"live" | "replay" | "unknown" | null>(null);
   useEffect(() => {
     fetch("/api/problems")
-      .then((r) => r.json())
-      .then((j) => setMode(j.mode))
-      .catch(() => setMode(null));
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((j: { mode: "live" | "replay" }) => setMode(j.mode))
+      .catch(() => setMode("unknown"));
   }, []);
-  const [pid, setPid] = useState(problems[0].id);
+  const [pid, setPid] = useState(first?.id ?? CUSTOM);
   const current = problems.find((p) => p.id === pid);
-  const [code, setCode] = useState(problems[0].code);
-  const [language, setLanguage] = useState<"python" | "javascript">(problems[0].language);
+  const [code, setCode] = useState(first?.code ?? "");
+  const [language, setLanguage] = useState<"python" | "javascript">(first?.language ?? "python");
   const [statement, setStatement] = useState("");
   const [routing, setRouting] = useState<"routed" | "ultra-only">("routed");
   const [events, setEvents] = useState<TraceEvent[]>([]);
@@ -97,6 +91,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           if (msg.type === "event") setEvents((xs) => [...xs, msg.event]);
           else if (msg.type === "report") setReport(msg.report);
           else if (msg.type === "mode") setExecutor(msg.executor);
+          else if (msg.type === "error") setError(msg.error);
         }
       }
     } catch (e) {
@@ -131,7 +126,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           mismatch is shrunk to a minimal counterexample. Ultra explains it and proposes a fix, which is re-attacked before it is called fixed.
         </p>
         <div className="badges">
-          {mode && <span className={`badge ${mode}`}>{mode === "live" ? "Live: Nebius Token Factory" : "Replay mode: recorded model responses, real execution"}</span>}
+          {mode && <span className={`badge ${mode}`}>{MODE_LABEL[mode]}</span>}
           {executor && <span className="badge">{executor}</span>}
         </div>
       </header>
@@ -229,173 +224,4 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       </footer>
     </main>
   );
-}
-
-function ReportView({ r, onCopy }: { r: ReportNoTrace; onCopy: () => void }) {
-  return (
-    <section className="card result">
-      <div className="row between">
-        <h2 className={`verdict ${r.verdict}`}>{VERDICT[r.verdict]}</h2>
-        <button className="ghost" onClick={onCopy}>
-          Copy report
-        </button>
-      </div>
-      <p className="muted">{r.message}</p>
-
-      {r.counterexample && (
-        <div className="cx">
-          <div className="label">Minimal counterexample</div>
-          <code className="big">solve({fmtArgs(r.counterexample.args)})</code>
-          <div className="cmp">
-            <div>
-              <span className="label">expected</span>
-              <code>{JSON.stringify(r.counterexample.expected)}</code>
-            </div>
-            <div>
-              <span className="label">got</span>
-              <code className="bad">{r.counterexample.got}</code>
-            </div>
-          </div>
-          <p className="muted small">
-            Shrunk from <code>{fmtArgs(r.counterexample.original.args).slice(0, 120)}</code> (family {r.counterexample.original.family}) in {r.counterexample.shrinkSteps} steps,{" "}
-            {r.counterexample.shrinkEvals} candidate runs.
-          </p>
-        </div>
-      )}
-
-      {r.explanation && (
-        <>
-          <div className="label">Why it fails</div>
-          <p>{r.explanation}</p>
-        </>
-      )}
-      {r.fix && (
-        <>
-          <div className="label">
-            Proposed fix ·{" "}
-            <span className={r.fix.verified ? "good" : "bad"}>
-              {r.fix.verified ? `re-attacked on ${r.fix.reattackInputs} inputs: 0 failures` : `still fails on ${r.fix.reattackMismatches} of ${r.fix.reattackInputs} inputs`}
-            </span>
-          </div>
-          <pre className="code-out">{r.fix.code}</pre>
-        </>
-      )}
-
-      {r.research && (
-        <>
-          <div className="label">Research (Tavily)</div>
-          <ul className="facts">
-            {r.research.facts.map((f, i) => (
-              <li key={i}>
-                {f.fact}{" "}
-                <a href={f.url} target="_blank" rel="noreferrer">
-                  source
-                </a>
-              </li>
-            ))}
-          </ul>
-          {r.research.influencedFamilies.length > 0 && <p className="muted small">Shaped generator families: {r.research.influencedFamilies.join(", ")}</p>}
-        </>
-      )}
-
-      <div className="label">Attack families</div>
-      <div className="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>family</th>
-              <th>tested</th>
-              <th>mismatches</th>
-              <th>why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.families.map((f) => (
-              <tr key={f.name}>
-                <td>
-                  <code>{f.name}</code>
-                </td>
-                <td>{f.tested}</td>
-                <td className={f.mismatches ? "bad" : ""}>{f.mismatches}</td>
-                <td className="small">{f.rationale}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="label">Why Ultra here, Super there</div>
-      <div className="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>step</th>
-              <th>model</th>
-              <th>calls</th>
-              <th>tokens</th>
-              <th>cost</th>
-              <th>latency</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.stages.map((s) => (
-              <tr key={s.purpose}>
-                <td>
-                  {s.purpose}
-                  <div className="small muted">{s.why}</div>
-                </td>
-                <td>
-                  <code>{s.model.split("/").pop()}</code>
-                </td>
-                <td>{s.calls}</td>
-                <td>{s.promptTokens + s.completionTokens}</td>
-                <td>{usd(s.costUsd)}</td>
-                <td>
-                  {ms(s.latencyMs)}
-                  {s.simulated ? "*" : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: token counts estimated from text length, latency simulated.</p>}
-
-      <div className="stats">
-        <div>
-          <b>{r.stats.inputsTested.toLocaleString()}</b>
-          <span>inputs attacked</span>
-        </div>
-        <div>
-          <b>{r.stats.runs.toLocaleString()}</b>
-          <span>sandbox runs</span>
-        </div>
-        <div>
-          <b>{r.stats.modelCalls}</b>
-          <span>model calls</span>
-        </div>
-        <div>
-          <b>{usd(r.stats.costUsd)}</b>
-          <span>model cost</span>
-        </div>
-        <div>
-          <b>{r.stats.timeToFirstCounterexampleMs === null ? "–" : ms(r.stats.timeToFirstCounterexampleMs)}</b>
-          <span>to first counterexample</span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function toMarkdown(r: ReportNoTrace): string {
-  const lines = [`# Counterexample report: ${r.problem.title}`, "", `**Verdict:** ${VERDICT[r.verdict]}. ${r.message}`, ""];
-  if (r.counterexample) {
-    lines.push("## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${JSON.stringify(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
-  }
-  if (r.explanation) lines.push("## Why", "", r.explanation, "");
-  if (r.fix) lines.push(`## Fix (${r.fix.verified ? "verified" : "NOT verified"} on ${r.fix.reattackInputs} inputs)`, "", "```" + r.solution.language, r.fix.code.trim(), "```", "");
-  lines.push("## Model routing", "", "| step | model | calls | cost | latency |", "| --- | --- | --- | --- | --- |");
-  for (const s of r.stages) lines.push(`| ${s.purpose} | ${s.model} | ${s.calls} | ${usd(s.costUsd)} | ${ms(s.latencyMs)}${s.simulated ? " (simulated)" : ""} |`);
-  lines.push("", `${r.stats.inputsTested} inputs, ${r.stats.runs} sandbox runs, ${r.stats.modelCalls} model calls, ${usd(r.stats.costUsd)}. Provider: ${r.setup.provider}; executor: ${r.setup.executor}.`);
-  return lines.join("\n");
 }
