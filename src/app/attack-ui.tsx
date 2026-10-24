@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { Example } from "@/lib/problems/types";
+import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared, type SharedReport } from "@/lib/share";
 import { fmtArgs, ms, toMarkdown, type ReportNoTrace } from "./format";
 import ReportView from "./report-view";
+import { buildAttackBody } from "./request";
+import { saveFile } from "./save-file";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
@@ -29,7 +32,28 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [code, setCode] = useState(first?.code ?? "");
   const [language, setLanguage] = useState<"python" | "javascript">(first?.language ?? "python");
   const [statement, setStatement] = useState("");
-  const [routing, setRouting] = useState<"routed" | "ultra-only">("routed");
+  const [ultraOnly, setUltraOnly] = useState(false);
+  const [researchWeb, setResearchWeb] = useState(false);
+  const [shared, setShared] = useState<SharedReport | null>(null);
+  const [shareNote, setShareNote] = useState("");
+  const [shareLink, setShareLink] = useState("");
+  // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
+  // Also on hashchange: pasting a link into a tab that already shows the app only changes the hash.
+  useEffect(() => {
+    const open = () => {
+      const hash = window.location.hash;
+      if (!isShareFragment(hash)) return;
+      decodeReport(hash)
+        .then((r) => {
+          setShared(r);
+          setError("");
+        })
+        .catch((e: Error) => setError(`Could not open the shared report: ${e.message}`));
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, []);
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [report, setReport] = useState<ReportNoTrace | null>(null);
   const [executor, setExecutor] = useState("");
@@ -42,7 +66,13 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [events]);
 
+  /** Drop a share fragment from the address bar once the page shows something else. */
+  function clearShareHash() {
+    if (isShareFragment(window.location.hash)) window.history.replaceState(null, "", window.location.pathname);
+  }
+
   function pick(id: string) {
+    clearShareHash();
     setPid(id);
     const p = problems.find((x) => x.id === id);
     if (p) {
@@ -63,12 +93,16 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     setRunning(true);
     setEvents([]);
     setReport(null);
+    setShareNote("");
+    setShareLink("");
     setError("");
+    setShared(null);
+    clearShareHash();
     try {
       const res = await fetch("/api/attack", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ problemId: pid === CUSTOM ? undefined : pid, statement, code, language, routing }),
+        body: JSON.stringify(buildAttackBody({ problemId: pid === CUSTOM ? null : pid, statement, code, language, ultraOnly, researchWeb })),
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
@@ -102,16 +136,38 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }
 
   const jsonl = useMemo(() => events.map((e) => JSON.stringify(e)).join("\n") + "\n", [events]);
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([jsonl], { type: "application/jsonl" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `trace-${pid}.jsonl`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const download = () => saveFile(`trace-${pid}.jsonl`, jsonl, "application/jsonl");
   const copyReport = async () => {
     if (report) await navigator.clipboard.writeText(toMarkdown(report));
+  };
+  const shareReport = async () => {
+    if (!report) return;
+    const enc = await encodeReport(report, fragmentBudget(window.location.origin, window.location.pathname));
+    if (!enc.ok) {
+      setShareLink("");
+      // Same content a link would carry (no trace, no oracle code), as a file instead.
+      saveFile(`report-${report.problem.id}.json`, JSON.stringify(toShared(report), null, 2), "application/json");
+      setShareNote(
+        enc.reason === "too_large"
+          ? `This report is too large for a link (${enc.length.toLocaleString()} characters), so it was downloaded as JSON instead.`
+          : `This report could not be put in a link (${enc.detail}), so it was downloaded as JSON instead.`,
+      );
+      return;
+    }
+    const link = `${window.location.origin}${window.location.pathname}${enc.fragment}`;
+    setShareLink(link);
+    try {
+      await navigator.clipboard.writeText(link);
+      setShareNote("Link copied. The report is inside the link itself; nothing is stored on the server.");
+    } catch {
+      setShareNote("Copy this link (the report is inside it; nothing is stored on the server):");
+    }
+    window.history.replaceState(null, "", enc.fragment);
+  };
+  const closeShared = () => {
+    setShared(null);
+    setError("");
+    clearShareHash();
   };
 
   return (
@@ -130,6 +186,20 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           {executor && <span className="badge">{executor}</span>}
         </div>
       </header>
+
+      {shared && (
+        <div className="shared">
+          <div className="row between">
+            <p className="small muted" role="status">
+              Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server.
+            </p>
+            <button className="ghost" onClick={closeShared}>
+              Close
+            </button>
+          </div>
+          <ReportView r={shared} onCopy={() => navigator.clipboard.writeText(toMarkdown(shared))} />
+        </div>
+      )}
 
       <section className="card">
         <h2>1. Problem</h2>
@@ -172,7 +242,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             <option value="javascript">JavaScript</option>
           </select>
           <label className="toggle">
-            <input type="checkbox" checked={routing === "ultra-only"} onChange={(e) => setRouting(e.target.checked ? "ultra-only" : "routed")} /> Ultra for everything (baseline)
+            <input type="checkbox" checked={ultraOnly} onChange={(e) => setUltraOnly(e.target.checked)} /> Ultra for everything (baseline)
+          </label>
+          <label className="toggle" title="Search the web with Tavily for official constraints and edge cases, even if the statement cites no sources">
+            <input type="checkbox" checked={researchWeb} onChange={(e) => setResearchWeb(e.target.checked)} /> Research the web (Tavily)
           </label>
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
@@ -215,7 +288,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             </ol>
           </section>
 
-          {report && <ReportView r={report} onCopy={copyReport} />}
+          {report && <ReportView r={report} onCopy={copyReport} onShare={shareReport} shareNote={shareNote} shareLink={shareLink} />}
         </div>
       )}
 

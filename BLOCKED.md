@@ -2,10 +2,7 @@
 
 Everything below already has a working path behind replay fixtures or a stub; each item turns on the moment the input arrives.
 
-- [ ] **`NEBIUS_API_KEY`** (Token Factory, credit code `NEBIUS-DEVPOST-GLOBAL26` plus Builders Program credit) set in `.env.local` and in Vercel env. Unlocks live mode in the UI and `pnpm bench --live --readme`.
-- [ ] **Token Factory billing for a Kenyan account** confirmed (account sign-up and payment method).
-- [ ] **Model ids confirmed** from Token Factory's model list (`GET https://api.tokenfactory.nebius.com/v1/models` with the key). Current defaults: `MODEL_REASONING=nvidia/Nemotron-3-Ultra-550b-a55b`, `MODEL_FAST=nvidia/nemotron-3-super-120b-a12b`. If a Nemotron 3 Nano id exists, set it as `MODEL_FAST` and rerun the benchmark.
-- [ ] **Prices confirmed** from the Token Factory console; set `MODEL_PRICES` if they differ from the defaults in `src/lib/models/pricing.ts`.
+- [ ] **`NEBIUS_API_KEY`** (Token Factory, credit code `NEBIUS-DEVPOST-GLOBAL26` plus Builders Program credit; account sign-up and billing for a Kenyan account) set in `.env.local` and in Vercel env. Unlocks live mode in the UI and `pnpm bench --live --readme`. Model ids and prices are already decided defaults (`nvidia/Nemotron-3-Ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`, prices in `src/lib/models/pricing.ts`); with the key in hand, one check finishes this item: `GET https://api.tokenfactory.nebius.com/v1/models` lists both ids, and the console's prices match. Override only on a mismatch (`MODEL_REASONING`, `MODEL_FAST`, `MODEL_PRICES`); a call to an unpriced model is flagged in the report and charged at `UNPRICED_CALL_USD` against the spend cap, so nothing is silently miscounted meanwhile.
 - [ ] **`TAVILY_API_KEY`** set (enables the research stage in live mode).
 - [ ] **Judge0 endpoint**: `JUDGE0_URL` plus `JUDGE0_TOKEN` (self-hosted Judge0 CE, or a RapidAPI subscription with `JUDGE0_RAPIDAPI_HOST`). Required for the public preview: production refuses the local executor.
 - [ ] **Vercel project** linked to the repo, env vars above set, preview URL pasted into `SUBMISSION.md`.

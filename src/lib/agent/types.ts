@@ -76,7 +76,8 @@ export type Verdict = "counterexample" | "no_counterexample" | "oracle_unreliabl
 
 export type Counterexample = {
   args: unknown[];
-  expected: unknown;
+  /** The oracle's answer; absent when the oracle could not judge the minimal input. */
+  expected?: unknown;
   got: string;
   original: { args: unknown[]; family: string };
   shrinkSteps: number;

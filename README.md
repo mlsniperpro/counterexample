@@ -22,7 +22,9 @@ solve("baab")          expected 2, got 3             sliding window moves backwa
 
 All calls go through Token Factory's OpenAI-compatible endpoint (`NEBIUS_BASE_URL`, `NEBIUS_API_KEY`, `MODEL_REASONING`, `MODEL_FAST`). The report's **"Why Ultra here, Super there"** panel shows model, tokens, cost and latency for every step, and the benchmark compares this routing with an Ultra-only baseline.
 
-**Tavily** runs only when the statement leans on external facts (for example "constraints follow LeetCode 704"). Facts come back with URLs, are cited in the trace, and the trace shows which generator families they shaped.
+**Tavily** runs when the statement leans on external facts (for example "constraints follow LeetCode 704") or when the user ticks **Research the web**. Facts come back with URLs, are cited in the trace, and the trace shows which generator families they shaped.
+
+**Share a report by link.** "Share link" puts the report (without its trace) into the URL fragment, deflate-compressed and base64url-encoded with the browser's own Compression Streams API. Browsers never send the fragment to the server, so opening the link decodes the report in the reader's browser, after size caps and schema validation. The whole link (origin, path and fragment) is capped at 8,000 characters, the minimum URI length RFC 9110 asks software to support; a larger report is downloaded as JSON instead, with the same content a link would carry.
 
 ## Design choices that matter
 
@@ -50,9 +52,9 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.9 s | 10.1 s | 2.2 s |
+| Median time to first counterexample | 4.8 s | 10.2 s | 2.2 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
-| Model cost, all 40 solutions | $0.0556 | $0.1062 | $0.0336 |
+| Model cost, all 40 solutions | $0.0561 | $0.1077 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 <!-- bench:fixture:end -->
 

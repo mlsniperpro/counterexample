@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "bench": "tsx bench/run.ts",
-    "gen:demos": "tsx scripts/gen-demos.ts"
+    "gen:demos": "tsx scripts/gen-demos.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "next": "16.4.3",
@@ -25,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "fast-check": "^4.10.2",
+    "playwright": "1.63.0",
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^3.2.7"

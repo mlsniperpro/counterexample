@@ -38,7 +38,11 @@ const factsSchema = z.object({ facts: z.array(z.object({ fact: z.string().min(1)
 export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]> {
   const { problem } = ctx.input;
   if (!needsResearch(problem.statement, problem.references, ctx.input.research ?? "auto")) return [];
-  startStage(ctx, "research", "Statement references external facts: researching with Tavily");
+  startStage(
+    ctx,
+    "research",
+    ctx.input.research === "force" ? "Research the web was requested: researching with Tavily" : "Statement references external facts: researching with Tavily",
+  );
   const queries = (problem.references?.length ? problem.references : [`${problem.title} constraints edge cases`]).slice(0, MAX_QUERIES);
   const research: NonNullable<typeof ctx.report.research> = { queries, facts: [], influencedFamilies: [] };
   ctx.report.research = research;
@@ -111,6 +115,15 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
     const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
     const { families, rejected } = parseFamilies(text, specs, ctx.limits.inputsPerFamily);
     for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
+    // A family may only cite sources this run's research actually gave the model.
+    const given = new Set(facts.map((f) => f.url));
+    let uncited = 0;
+    for (const f of families) {
+      const kept = f.citations.filter((c) => given.has(c));
+      uncited += f.citations.length - kept.length;
+      f.citations = kept;
+    }
+    if (uncited) ctx.tracer.emit("attack", "info", `Removed ${uncited} citation(s) to sources that were not part of this run's research`);
     plan.push(...families);
     plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: MUTANTS, source: "mutation" });
   }

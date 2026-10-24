@@ -1,4 +1,5 @@
 import type { Report } from "@/lib/agent/types";
+import type { SharedReport } from "@/lib/share";
 
 /** Pure formatting helpers shared by the UI components (unit-tested). */
 
@@ -21,7 +22,7 @@ export const VERDICT: Record<Report["verdict"], string> = {
 };
 
 /** The report as Markdown, for "Copy report". */
-export function toMarkdown(r: ReportNoTrace): string {
+export function toMarkdown(r: SharedReport): string {
   const lines = [`# Counterexample report: ${r.problem.title}`, "", `**Verdict:** ${VERDICT[r.verdict]}. ${r.message}`, ""];
   if (r.counterexample) {
     lines.push("## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${JSON.stringify(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");

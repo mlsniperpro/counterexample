@@ -54,6 +54,26 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
     expect(r.research).toBeUndefined();
   });
 
+  it("every built-in can research the web on request, with cited facts that shape a family", async () => {
+    for (const b of BUILT_INS) {
+      const r = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());
+      expect(r.research?.error, b.problem.id).toBeUndefined();
+      expect(r.research?.facts.length, b.problem.id).toBeGreaterThan(0);
+      expect(r.research?.influencedFamilies.length, b.problem.id).toBeGreaterThan(0);
+      expect(r.verdict, b.problem.id).toBe("counterexample");
+      expect(r.trace.some((e) => e.msg === "Research the web was requested: researching with Tavily"), b.problem.id).toBe(true);
+    }
+  });
+
+  it("drops family citations when the run did no research (a model may only cite what it was given)", async () => {
+    const b = builtIn("isqrt");
+    const auto = await attack({ problem: b.problem, solution: b.demo }, deps());
+    expect(auto.families.find((f) => f.name === "int32-bounds")?.citations).toEqual([]);
+    expect(auto.trace.some((e) => /Removed 2 citation\(s\)/.test(e.msg))).toBe(true);
+    const forced = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());
+    expect(forced.families.find((f) => f.name === "int32-bounds")?.citations.length).toBe(2);
+  });
+
   it("raises no false alarm on a correct solution", async () => {
     const p = getProblem("binary-search")!;
     const { code } = splitHeader(readFileSync("bench/solutions/binary-search/correct.py", "utf8"));

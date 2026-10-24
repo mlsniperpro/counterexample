@@ -42,6 +42,16 @@ describe("POST /api/attack (replay mode)", () => {
     expect(last.report.trace).toBeUndefined();
   });
 
+  it("researches the web only when asked (research=force) or when the statement cites sources", async () => {
+    const body = { problemId: "isqrt", code: isqrt.demo.code, language: "javascript" };
+    const auto = (await lines(await post(body))).at(-1).report;
+    expect(auto.research).toBeUndefined();
+    const forced = (await lines(await post({ ...body, research: "force" }, { ip: "5.5.5.5" }))).at(-1).report;
+    expect(forced.research.queries).toEqual(["Integer square root constraints edge cases"]);
+    expect(forced.research.facts.length).toBeGreaterThan(0);
+    expect(forced.research.influencedFamilies).toContain("int32-bounds");
+  });
+
   it("validates the body against the schema before doing any work", async () => {
     const cases: [unknown, RegExp][] = [
       ["{not json", /expected object/i],

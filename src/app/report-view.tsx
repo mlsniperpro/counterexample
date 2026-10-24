@@ -1,14 +1,37 @@
-import { fmtArgs, ms, usd, VERDICT, type ReportNoTrace } from "./format";
+import type { SharedReport } from "@/lib/share";
+import { fmtArgs, ms, usd, VERDICT } from "./format";
 
-export default function ReportView({ r, onCopy }: { r: ReportNoTrace; onCopy: () => void }) {
+type Props = {
+  r: SharedReport;
+  onCopy: () => void;
+  /** Absent for a report opened from a link. */
+  onShare?: () => void;
+  shareNote?: string;
+  shareLink?: string;
+};
+
+export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }: Props) {
   return (
     <section className="card result">
       <div className="row between">
         <h2 className={`verdict ${r.verdict}`}>{VERDICT[r.verdict]}</h2>
-        <button className="ghost" onClick={onCopy}>
-          Copy report
-        </button>
+        <div className="row">
+          {onShare && (
+            <button className="ghost" onClick={onShare}>
+              Share link
+            </button>
+          )}
+          <button className="ghost" onClick={onCopy}>
+            Copy report
+          </button>
+        </div>
       </div>
+      {shareNote && (
+        <p className="small muted" role="status">
+          {shareNote}
+        </p>
+      )}
+      {shareLink && <input className="share-link" readOnly value={shareLink} aria-label="Shareable report link" onFocus={(e) => e.currentTarget.select()} />}
       <p className="muted">{r.message}</p>
 
       {r.counterexample && (

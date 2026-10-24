@@ -2,6 +2,8 @@
  * Deterministic replay fixtures: hand-written responses in the shape the
  * models are prompted to produce (fenced code, JSON), so the real parsers run.
  * Replace or extend them with real recordings from `pnpm bench --live --record`.
+ * Recorded search results quote or closely paraphrase the cited pages (checked
+ * on 2026-10-24); they stand in for Tavily output in replay mode.
  */
 import type { ReplayFixtures } from "../lib/models/replay";
 import type { SearchResult } from "../lib/research/tavily";
@@ -11,6 +13,10 @@ const json = (o: unknown) => "```json\n" + JSON.stringify(o, null, 2) + "\n```";
 
 export const LEETCODE_704 = "https://leetcode.com/problems/binary-search/description/";
 export const BS_EDGE_DISCUSS = "https://en.wikipedia.org/wiki/Binary_search_algorithm#Implementation_issues";
+export const ISQRT_WIKI = "https://en.wikipedia.org/wiki/Integer_square_root";
+export const CHANGE_MAKING_WIKI = "https://en.wikipedia.org/wiki/Change-making_problem";
+export const DIJKSTRA_WIKI = "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm";
+export const LEETCODE_3 = "https://leetcode.com/problems/longest-substring-without-repeating-characters/description/";
 
 export const RESEARCH_RESULTS: Record<string, SearchResult[]> = {
   "LeetCode 704 Binary Search official constraints": [
@@ -24,7 +30,45 @@ export const RESEARCH_RESULTS: Record<string, SearchResult[]> = {
       title: "Binary search algorithm - Implementation issues",
       url: BS_EDGE_DISCUSS,
       content:
-        "Although the basic idea of binary search is comparatively straightforward, the details can be surprisingly tricky... off-by-one errors in the loop condition and the update of the bounds are common; when the remaining range has one element the loop must still compare it.",
+        "An infinite loop may occur if the exit conditions for the loop are not defined correctly. Once L exceeds R, the search has failed and must convey the failure of the search. Bentley found that most of the programmers who incorrectly implemented binary search made an error in defining the exit conditions.",
+    },
+  ],
+  "Integer square root constraints edge cases": [
+    {
+      title: "Integer square root - Wikipedia",
+      url: ISQRT_WIKI,
+      content:
+        "The integer square root of a non-negative integer n is the non-negative integer m which is the greatest integer less than or equal to the square root of n. A speed-up is achieved by using binary search instead.",
+    },
+    {
+      title: "Binary search - Implementation issues",
+      url: BS_EDGE_DISCUSS,
+      content:
+        "This can result in an arithmetic overflow for very large arrays: the value of L + R may exceed the range of integers of the data type used to store the midpoint, even if L and R are within the range. If L and R are nonnegative, this can be avoided by calculating the midpoint as L + (R - L) / 2.",
+    },
+  ],
+  "Coin change (fewest coins) constraints edge cases": [
+    {
+      title: "Change-making problem - Wikipedia",
+      url: CHANGE_MAKING_WIKI,
+      content:
+        "A coin system is called canonical if the greedy algorithm always solves its change-making problem optimally. For many real-world coin systems, such as those used in the US, the greedy approach will produce the optimal result. With coins of 25, 10 and 1 (no 5), making 40 greedily uses seven coins, while four 10-cent coins is optimal.",
+    },
+  ],
+  "Shortest paths with negative edges constraints edge cases": [
+    {
+      title: "Dijkstra's algorithm - Wikipedia",
+      url: DIJKSTRA_WIKI,
+      content:
+        "Negative weights are not allowed. Unlike Dijkstra's algorithm, the Bellman-Ford algorithm can be used on graphs with negative edge weights, as long as the graph contains no negative cycle reachable from the source vertex.",
+    },
+  ],
+  "Longest substring without repeats constraints edge cases": [
+    {
+      title: "Longest Substring Without Repeating Characters - LeetCode",
+      url: LEETCODE_3,
+      content:
+        "Given a string s, find the length of the longest substring without duplicate characters. Example: s = \"pwwkew\" gives 3; the answer must be a substring, \"pwke\" is a subsequence and not a substring. Constraints: 0 <= s.length <= 5 * 10^4.",
     },
   ],
 };
@@ -35,7 +79,7 @@ export const FIXTURES: ReplayFixtures = {
       facts: [
         { fact: "nums has at least 1 element (1 <= nums.length <= 10^4), so one-element arrays are legal and important.", url: LEETCODE_704 },
         { fact: "All integers in nums are unique and sorted ascending; values and target lie strictly inside (-10^4, 10^4).", url: LEETCODE_704 },
-        { fact: "Off-by-one errors in the loop condition skip the last remaining element; test targets at both ends and in one-element ranges.", url: BS_EDGE_DISCUSS },
+        { fact: "Most incorrect binary searches get the loop's exit condition wrong; test targets at both ends and in one-element ranges.", url: BS_EDGE_DISCUSS },
       ],
     }),
     oracle: "A linear scan is trivially correct.\n\n" + py(`
@@ -103,6 +147,12 @@ def solve(nums, target):
   },
 
   isqrt: {
+    research: json({
+      facts: [
+        { fact: "isqrt(n) is the greatest integer m with m * m <= n; check perfect squares and their neighbours.", url: ISQRT_WIKI },
+        { fact: "Computing the midpoint as L + R can overflow the integer type even when L and R are in range; test the largest allowed n.", url: BS_EDGE_DISCUSS },
+      ],
+    }),
     oracle: "math.isqrt is exact for arbitrary-precision integers.\n\n" + py(`
 import math
 
@@ -112,6 +162,7 @@ def solve(x):
       families: [
         {
           name: "int32-bounds",
+          citations: [ISQRT_WIKI, BS_EDGE_DISCUSS],
           rationale: "Values at and near 2^31 - 1 overflow a 32-bit midpoint such as (lo + hi + 1) >> 1.",
           count: 200,
           args: [{ kind: "int", min: 2147395600, max: 2147483647, bias: "edges" }],
@@ -142,6 +193,11 @@ def solve(x):
   },
 
   "coin-change": {
+    research: json({
+      facts: [
+        { fact: "Greedy is optimal only for canonical coin systems; with coins 25, 10, 1, greedy uses 7 coins for 40 where 4 suffice.", url: CHANGE_MAKING_WIKI },
+      ],
+    }),
     oracle: "Exhaustive recursion with memoisation over the remaining amount.\n\n" + py(`
 from functools import lru_cache
 
@@ -161,6 +217,7 @@ def solve(coins, amount):
       families: [
         {
           name: "non-canonical-systems",
+          citations: [CHANGE_MAKING_WIKI],
           rationale: "Small coin sets without the greedy-choice property, e.g. [1, 3, 4].",
           count: 300,
           args: [
@@ -208,6 +265,11 @@ def solve(coins, amount):
   },
 
   "shortest-paths": {
+    research: json({
+      facts: [
+        { fact: "Dijkstra's algorithm does not allow negative weights; Bellman-Ford handles them when no negative cycle is reachable.", url: DIJKSTRA_WIKI },
+      ],
+    }),
     oracle: "Bellman-Ford with n rounds; there are no cycles, so this is exact even with negative weights.\n\n" + py(`
 def solve(n, edges):
     INF = float("inf")
@@ -222,6 +284,7 @@ def solve(n, edges):
       families: [
         {
           name: "negative-shortcut",
+          citations: [DIJKSTRA_WIKI],
           rationale: "A detour through a negative edge beats a direct edge that a greedy algorithm finalises first.",
           count: 300,
           args: [{ kind: "graph", n: { min: 3, max: 5 }, m: { min: 3, max: 8 }, weight: { min: -5, max: 6 }, dag: true }],
@@ -254,6 +317,11 @@ def solve(n, edges):
   },
 
   "longest-unique-substring": {
+    research: json({
+      facts: [
+        { fact: "The empty string is allowed (0 <= s.length), and the answer must be a contiguous substring, not a subsequence.", url: LEETCODE_3 },
+      ],
+    }),
     oracle: "Check every substring.\n\n" + py(`
 def solve(s):
     best = 0
@@ -267,6 +335,7 @@ def solve(s):
       families: [
         {
           name: "two-letter-alphabet",
+          citations: [LEETCODE_3],
           rationale: "Patterns like 'abba' revisit a character whose last index is behind the window.",
           count: 300,
           args: [{ kind: "string", alphabet: "ab", len: { min: 0, max: 8 } }],
