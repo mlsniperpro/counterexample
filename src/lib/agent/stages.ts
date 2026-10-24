@@ -9,10 +9,11 @@ import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
 import { startStage, type AttackContext } from "./context";
 import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
-import { showOutcome, type Judgement } from "./judge";
+import { Judge, showOutcome, type Judgement } from "./judge";
 import { extractCode, extractExplanation, parseJsonAnswer } from "./parse";
-import { explainPrompt, generatorsPrompt, oraclePrompt, researchPrompt } from "./prompts";
+import { explainPrompt, generatorsPrompt, oraclePrompt, researchPrompt, understandPrompt } from "./prompts";
 import type { Counterexample, Family, FamilyStats } from "./types";
+import { parseUnderstanding } from "./understand";
 
 /** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
 export const RUN_CHUNK = 64;
@@ -24,7 +25,22 @@ const BASELINE_ONLY = 1000;
 const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
 const call = (args: unknown[]) => `solve(${args.map((a) => JSON.stringify(a)).join(", ")})`;
 
-export function understandStage(ctx: AttackContext): void {
+/**
+ * For a pasted statement, the fast model types it first (one traced, budgeted
+ * call); then the problem's parameters are announced.
+ */
+export async function understandStage(ctx: AttackContext): Promise<void> {
+  if (ctx.statement !== undefined) {
+    startStage(ctx, "understand", "Turning the pasted statement into a typed spec");
+    const { solution } = ctx.input;
+    const text = await ctx.models.call("understand", "fast", "understand", understandPrompt(ctx.statement, solution.code, solution.language), ctx.replayKey);
+    const { problem, entry } = parseUnderstanding(text, ctx.statement, solution);
+    ctx.input = { ...ctx.input, problem, solution: { ...solution, entry } };
+    ctx.judge = new Judge(problem, ctx.deps.executor, ctx.budget, ctx.tracer, ctx.signal);
+    ctx.report.problem = { id: problem.id, title: problem.title };
+    ctx.report.solution = ctx.input.solution;
+    ctx.statement = undefined;
+  }
   const { problem } = ctx.input;
   startStage(ctx, "understand", `Problem "${problem.title}" with ${problem.params.length} typed parameter(s), ${problem.examples.length} example(s)`);
   ctx.tracer.emit("understand", "info", `Parameters: ${problem.params.map((p) => `${p.name}: ${p.type.kind}`).join(", ")}`, { params: problem.params });
@@ -154,6 +170,8 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
 export type Hit = { args: unknown[]; j: Judgement; family: string };
 
 function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
+  // Generation is synchronous: check the deadline between families.
+  ctx.signal.throwIfAborted();
   const specs = specsOf(ctx);
   switch (f.source) {
     case "examples":

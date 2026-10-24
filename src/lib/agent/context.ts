@@ -2,13 +2,16 @@ import { DEFAULT_BUDGETS, Budget, type Budgets } from "./budget";
 import { Judge } from "./judge";
 import { ModelCaller } from "./model-call";
 import { Tracer, type Stage } from "./trace";
-import type { AgentDeps, AttackInput, FamilyStats, Report } from "./types";
+import type { AgentDeps, AttackInput, FamilyStats, Report, StatementInput } from "./types";
 import { AttackCancelled, BudgetExceeded } from "../errors";
 import { priceTable } from "../models/pricing";
 
 /** Everything one attack shares across its stages. */
 export type AttackContext = {
+  /** For a StatementInput, `problem` is a placeholder until the understand stage replaces it. */
   input: AttackInput;
+  /** Set while a pasted statement still has to be turned into a typed problem. */
+  statement?: string;
   deps: AgentDeps;
   limits: Budgets;
   clock: () => number;
@@ -31,7 +34,14 @@ export type AttackContext = {
   deadline: AbortSignal;
 };
 
-export function createContext(input: AttackInput, deps: AgentDeps): AttackContext {
+/** Stands in for a pasted statement's problem until the understand stage has typed it. */
+function pendingProblem(statement: string): AttackInput["problem"] {
+  return { id: "custom", title: "Custom problem", statement, params: [], returns: "", examples: [], compare: "exact", timeLimitMs: 1000, memoryLimitMb: 256 };
+}
+
+export function createContext(given: AttackInput | StatementInput, deps: AgentDeps): AttackContext {
+  const statement = "statement" in given ? given.statement : undefined;
+  const input: AttackInput = "problem" in given ? given : { ...given, problem: pendingProblem(given.statement), solution: { ...given.solution, entry: "" } };
   const clock = deps.clock ?? Date.now;
   const t0 = clock();
   const limits: Budgets = { ...DEFAULT_BUDGETS, ...deps.budgets };
@@ -64,6 +74,7 @@ export function createContext(input: AttackInput, deps: AgentDeps): AttackContex
   const replayKey = input.replayKey ?? input.problem.id;
   return {
     input,
+    statement,
     deps,
     limits,
     clock,

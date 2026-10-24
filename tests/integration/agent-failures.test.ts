@@ -99,6 +99,19 @@ describe("agent failure paths (replay mode)", () => {
     for (const f of r.families.filter((x) => x.source !== "examples")) expect(f.tested, f.name).toBeLessThanOrEqual(50);
   });
 
+  it("counts only inputs the oracle could judge as evidence of no bug", async () => {
+    const p = getProblem("binary-search")!;
+    const oracle = "```python\ndef solve(nums, target):\n    if len(nums) > 6:\n        raise ValueError('too big for me')\n    return nums.index(target) if target in nums else -1\n```";
+    const fx: ReplayFixtures = { ...FIXTURES, "binary-search": { ...FIXTURES["binary-search"], oracle } };
+    const code = "def solve(nums, target):\n    return nums.index(target) if target in nums else -1\n";
+    const r = await attack({ problem: p, solution: { language: "python", code, entry: "solve" }, research: "off" }, deps(fx));
+    const skipped = r.families.reduce((n, f) => n + f.oracleSkipped, 0);
+    expect(r.verdict).toBe("no_counterexample");
+    expect(skipped).toBeGreaterThan(0);
+    expect(r.message).toContain(`No mismatch on ${r.stats.inputsTested - skipped} judged inputs`);
+    expect(r.message).toContain(`could not judge ${skipped} more`);
+  });
+
   it("only calls it a compile error when every example failed to load", () => {
     const hit = (family: string, got: string) => ({ args: [], family, j: { status: "mismatch" as const, got } });
     expect(isCompileFailure([hit("examples", "compile: SyntaxError"), hit("examples", "compile: SyntaxError")], 2)).toBe(true);
@@ -113,7 +126,25 @@ describe("agent failure paths (replay mode)", () => {
     const r = await attack({ problem: b.problem, solution: b.demo }, d);
     expect(r.stats.unpricedCalls).toBe(1);
     expect(r.stages.find((s) => s.purpose === "generators")?.costUsd).toBeNull();
-    expect(r.trace.some((e) => /No price known for some\/unknown-model/.test(e.msg))).toBe(true);
+    expect(r.trace.some((e) => /some\/unknown-model call reported as unpriced: no price is known/.test(e.msg))).toBe(true);
+  });
+
+  it("charges unmetered and failed live calls as unpriced, so the daily spend cap still sees them", async () => {
+    const b = builtIn("binary-search");
+    const replay = deps().provider;
+    // A live provider whose first answer has no usage, then fails outright.
+    let n = 0;
+    const provider = {
+      name: "nebius" as const,
+      complete: async (req: Parameters<typeof replay.complete>[0]) => {
+        if (n++ === 0) return { ...(await replay.complete(req)), simulated: false, unmetered: true };
+        throw new UpstreamError("token-factory", "HTTP 503: overloaded", 503, true);
+      },
+    };
+    const r = await attack({ problem: b.problem, solution: b.demo, research: "off" }, { ...deps(), provider });
+    expect(r.verdict).toBe("error");
+    expect(r.stats.unpricedCalls).toBe(2);
+    expect(r.trace.some((e) => /reported as unpriced: the response reported no token usage/.test(e.msg))).toBe(true);
   });
 
   it("marks a fix as not verified when the run budget ends mid re-attack", async () => {

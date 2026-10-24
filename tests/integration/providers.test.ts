@@ -27,14 +27,15 @@ describe("Nebius Token Factory provider", () => {
     expect(f.seen[0]!.url).toBe("https://api.tokenfactory.nebius.com/v1/chat/completions");
     expect((f.seen[0]!.init.headers as Record<string, string>).authorization).toBe("Bearer sk-test");
     expect(JSON.parse(String(f.seen[0]!.init.body))).toMatchObject({ model: "m", messages: req.messages, max_tokens: 4096 });
-    expect(r).toMatchObject({ text: "hi", model: "nvidia/x", promptTokens: 12, completionTokens: 3, simulated: false });
+    expect(r).toMatchObject({ text: "hi", model: "nvidia/x", promptTokens: 12, completionTokens: 3, simulated: false, unmetered: false });
   });
 
   it("retries rate limits, then succeeds", async () => {
     const f = fetchSequence([() => new Response("rate limited", { status: 429 }), () => Response.json({ choices: [{ message: { content: "ok" } }] })]);
     const r = await new NebiusProvider("k", undefined, f.http).complete(req);
     expect(r.text).toBe("ok");
-    expect(r.promptTokens).toBe(0); // usage missing: reported as 0, not invented
+    expect(r.promptTokens).toBe(0); // usage missing: reported as 0, not invented...
+    expect(r.unmetered).toBe(true); // ...and flagged, so the call is charged as unpriced rather than free
     expect(f.seen).toHaveLength(2);
   });
 

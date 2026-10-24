@@ -12,13 +12,18 @@
  * Each submission runs in a fresh temp directory as a child process with a
  * CPU-time limit (ulimit -t), a memory limit (ulimit -v for Python,
  * --max-old-space-size for Node), a wall-clock limit, a 32 MB output cap and
- * an empty environment. Isolation between submissions and from the network
- * comes from the container (run it as an unprivileged user, see Dockerfile).
+ * an empty environment. When the server runs as root (the container image),
+ * every run slot has its own unprivileged uid: the run's directory is private
+ * to it, it may own at most MAX_PROCS processes, it cannot read the server's
+ * environment, and every process it owns is killed when the run ends, so a
+ * forked child cannot outlive the run or touch another submission. Without
+ * root (a local `pnpm sandbox`) runs share the server's uid and only the
+ * process group is killed: that mode is for development, and says so at start.
  * Auth: when SANDBOX_TOKEN is set, requests need "X-Auth-Token: <token>" or
  * "Authorization: Bearer <token>" (the header Nebius endpoint auth uses).
  */
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, chown, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +37,13 @@ export const LANGUAGES = [
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 256 * 1024;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
+/** Processes one run uid may own (ulimit -u): stops fork bombs. */
+const MAX_PROCS = 64;
+/** First uid of the per-slot run users; slot i runs as RUN_UID_BASE + i. */
+export const RUN_UID_BASE = 20000;
+/** After the program exits and its processes are killed, how long to wait for its pipes to close. */
+const DRAIN_MS = 1000;
+const isRoot = () => process.getuid?.() === 0;
 const STATUS = {
   accepted: { id: 3, description: "Accepted" },
   tle: { id: 5, description: "Time Limit Exceeded" },
@@ -45,8 +57,31 @@ const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
 
 /**
+ * Kill every process of a run: all processes owned by its uid (kill -1 as that
+ * uid reaches each of them, including ones that left the process group), or
+ * the process group when runs share the server's uid.
+ * Resolves once the uid sweep has finished, so the slot's uid is clean before the next run gets it.
+ * @param {import("node:child_process").ChildProcess} child @param {number | undefined} uid
+ * @returns {Promise<void>}
+ */
+function killRun(child, uid) {
+  try {
+    if (child.pid) process.kill(-child.pid, "SIGKILL");
+  } catch {
+    // The group is already gone.
+  }
+  if (uid === undefined) return Promise.resolve();
+  return new Promise((resolve) => {
+    const sweep = spawn("bash", ["--noprofile", "--norc", "-c", "kill -KILL -1"], { uid, gid: uid, stdio: "ignore", env: { PATH: process.env.PATH ?? "/usr/bin:/bin", NODE_ENV: "production" } });
+    sweep.on("error", () => resolve());
+    sweep.on("exit", () => resolve());
+  });
+}
+
+/**
  * Run one program. Limits are clamped to sane bounds whatever the caller asks.
- * @param {{ language_id: number; source: string; stdin: string; cpuSeconds: number; wallSeconds: number; memoryKb: number }} job
+ * `uid` (root only) is the run slot's unprivileged user.
+ * @param {{ language_id: number; source: string; stdin: string; cpuSeconds: number; wallSeconds: number; memoryKb: number; uid?: number }} job
  */
 export async function runSubmission(job) {
   const lang = LANGUAGES.find((l) => l.id === job.language_id);
@@ -54,15 +89,29 @@ export async function runSubmission(job) {
   const cpu = Math.ceil(clamp(job.cpuSeconds, 1, 30));
   const wallMs = clamp(job.wallSeconds, 1, 60) * 1000;
   const memMb = Math.floor(clamp(job.memoryKb / 1024, 32, 2048));
+  const uid = job.uid;
   const dir = await mkdtemp(join(tmpdir(), "cx-sandbox-"));
   try {
     const file = join(dir, lang.file);
     await writeFile(file, job.source);
+    if (uid !== undefined) {
+      await chown(dir, uid, uid);
+      await chown(file, uid, uid);
+      await chmod(dir, 0o700);
+    }
+    const limits = `ulimit -t ${cpu}; ${uid !== undefined ? `ulimit -u ${MAX_PROCS}; ` : ""}`;
     const cmd =
       lang.id === 71
-        ? `ulimit -t ${cpu}; ulimit -v ${memMb * 1024}; exec python3 -I "$0"`
-        : `ulimit -t ${cpu}; exec node --max-old-space-size=${memMb} --stack-size=4000 "$0"`;
-    const child = spawn("bash", ["--noprofile", "--norc", "-c", cmd, file], { cwd: dir, env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: dir, NODE_ENV: "production" }, stdio: ["pipe", "pipe", "pipe"] });
+        ? `${limits}ulimit -v ${memMb * 1024}; exec python3 -I "$0"`
+        : `${limits}exec node --max-old-space-size=${memMb} --stack-size=4000 "$0"`;
+    const child = spawn("bash", ["--noprofile", "--norc", "-c", cmd, file], {
+      cwd: dir,
+      env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: dir, NODE_ENV: "production" },
+      stdio: ["pipe", "pipe", "pipe"],
+      detached: true,
+      ...(uid !== undefined ? { uid, gid: uid } : {}),
+    });
+    const closed = new Promise((resolve) => child.on("close", resolve));
     /** @type {Buffer[]} */
     const out = [];
     let outBytes = 0;
@@ -71,13 +120,13 @@ export async function runSubmission(job) {
     let killed = null;
     const timer = setTimeout(() => {
       killed = "wall";
-      child.kill("SIGKILL");
+      void killRun(child, uid);
     }, wallMs);
     child.stdout.on("data", (/** @type {Buffer} */ d) => {
       outBytes += d.length;
       if (outBytes > MAX_OUTPUT_BYTES) {
         killed = "output";
-        child.kill("SIGKILL");
+        void killRun(child, uid);
       } else out.push(d);
     });
     child.stderr.on("data", (/** @type {Buffer} */ d) => {
@@ -89,9 +138,16 @@ export async function runSubmission(job) {
     /** @type {[number | null, NodeJS.Signals | null]} */
     const [code, signal] = await new Promise((resolve, reject) => {
       child.on("error", reject);
-      child.on("close", (c, s) => resolve([c, s]));
+      child.on("exit", (c, s) => resolve([c, s]));
     });
     clearTimeout(timer);
+    // The program is done: nothing it started may outlive it. Then wait (bounded) for its pipes to drain.
+    await killRun(child, uid);
+    let drain;
+    await Promise.race([closed, new Promise((resolve) => (drain = setTimeout(resolve, DRAIN_MS)))]);
+    clearTimeout(drain);
+    child.stdout.destroy();
+    child.stderr.destroy();
     const stdout = Buffer.concat(out).toString("utf8");
     // ulimit -t ends a CPU-bound process with SIGXCPU (or SIGKILL at the hard limit).
     const tle = killed === "wall" || signal === "SIGXCPU" || (signal === "SIGKILL" && killed === null);
@@ -124,15 +180,30 @@ function sameToken(a, b) {
 export function createSandboxServer(opts = {}) {
   const maxConcurrent = opts.maxConcurrent ?? Math.max(1, availableParallelism());
   const maxQueue = opts.maxQueue ?? maxConcurrent * 8;
+  // Run slots; as root each slot is a uid of its own, so concurrent runs cannot see each other.
+  const free = Array.from({ length: maxConcurrent }, (_, i) => i);
   let active = 0;
-  /** @type {(() => void)[]} */
+  /** @type {((slot: number) => void)[]} */
   const waiting = [];
-  const acquire = () => (active < maxConcurrent ? (active++, Promise.resolve()) : new Promise((r) => waiting.push(() => r(undefined))));
-  const release = () => {
-    const next = waiting.shift();
-    if (next) next();
-    else active--;
+  /** @returns {Promise<number>} */
+  const acquire = () => {
+    const slot = free.pop();
+    if (slot !== undefined) {
+      active++;
+      return Promise.resolve(slot);
+    }
+    return new Promise((r) => waiting.push(r));
   };
+  /** @param {number} slot */
+  const release = (slot) => {
+    const next = waiting.shift();
+    if (next) next(slot);
+    else {
+      active--;
+      free.push(slot);
+    }
+  };
+  const isolated = isRoot();
 
   return createServer(async (req, res) => {
     /** @param {number} status @param {unknown} body @param {Record<string, string>} [headers] */
@@ -173,9 +244,10 @@ export function createSandboxServer(opts = {}) {
         const source = Buffer.from(body.source_code, "base64").toString("utf8");
         if (Buffer.byteLength(source) > MAX_SOURCE_BYTES) return send(422, { error: "source too large" });
         if (!LANGUAGES.some((l) => l.id === body.language_id)) return send(422, { error: `unknown language_id ${body.language_id}` });
-        await acquire();
+        const slot = await acquire();
         try {
           const result = await runSubmission({
+            uid: isolated ? RUN_UID_BASE + slot : undefined,
             language_id: body.language_id,
             source,
             stdin: typeof body.stdin === "string" ? Buffer.from(body.stdin, "base64").toString("utf8") : "",
@@ -185,7 +257,7 @@ export function createSandboxServer(opts = {}) {
           });
           return send(201, result);
         } finally {
-          release();
+          release(slot);
         }
       }
       send(404, { error: `no route ${req.method} ${url.pathname}` });
@@ -197,9 +269,12 @@ export function createSandboxServer(opts = {}) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? 2358);
+  const token = process.env.SANDBOX_TOKEN || undefined;
+  delete process.env.SANDBOX_TOKEN;
   const server = createSandboxServer({
-    token: process.env.SANDBOX_TOKEN || undefined,
+    token,
     maxConcurrent: process.env.MAX_CONCURRENT ? Number(process.env.MAX_CONCURRENT) : undefined,
   });
-  server.listen(port, "0.0.0.0", () => console.log(`counterexample sandbox listening on :${port}${process.env.SANDBOX_TOKEN ? " (token auth on)" : ""}`));
+  if (!isRoot()) console.warn("not running as root: submissions share the server's uid and are NOT isolated from each other (development only; use the container image)");
+  server.listen(port, "0.0.0.0", () => console.log(`counterexample sandbox listening on :${port}${token ? " (token auth on)" : ""}`));
 }

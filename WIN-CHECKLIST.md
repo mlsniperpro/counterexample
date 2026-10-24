@@ -67,7 +67,7 @@ Legend:
 - [x] Failure paths: timeouts, aborts, 429/503 retries, 401, malformed JSON, schema violations, budget exhaustion, partial results, a full sandbox queue.
 - [x] Soak and failure injection: the mutation soak (`pnpm soak`), fake 429s, hanging providers, a missing runtime.
 - [x] Fresh-clone README run passed (break-it.md).
-- [x] Security: sandbox env isolation tested; constant-time token auth; share links schema-validated (http(s) links only); no SSRF (URLs from env only).
+- [x] Security: sandbox env isolation tested; per-run uid, process cap and kill-all-after-run in the container (Docker-tested, `break-it.md`); constant-time token auth; share links schema-validated (http(s) links only); no SSRF (URLs from env only).
 - [x] Scalability statement with measured load (README "Load and limits").
 
 ## Audit findings (all fixed; details in `.agent/win/COUNTEREXAMPLE/reaudit.md`)
@@ -89,3 +89,16 @@ Legend:
   - soak writes the README only when clean;
   - memoised diff;
   - CRLF diff.
+- [x] Round 5 (full hostile audit of `ee9018d`): 3 critical, 4 high, 7 medium/low findings, all fixed with regression tests that fail on the old code:
+  - critical: a forked child escaped the time limit and held a sandbox slot forever; runs now get their own process group, and in the container their own uid whose every process is killed after the run (`tini` reaps them);
+  - critical: user code could read the sandbox token from the server's environment and outlive its run; each run slot now has its own unprivileged uid with a private directory and a 64-process cap, and the server drops the token from its environment;
+  - critical: checklist cited `break-it.md` before it existed; it is now written per tested commit;
+  - high: a Python `inf`/`nan` result shifted every later result onto the wrong input; non-finite floats are now encoded the same way in both languages, and an unreadable line keeps its place;
+  - high: model-written generators could exhaust memory; a family is cut to 500,000 values and generation checks the deadline;
+  - high: the understand call for a pasted statement was untraced, unbudgeted and had no deadline; it is now an attack stage like the others;
+  - high: responses without token usage, and failed or cut-off calls, cost $0 against the spend cap; they now count as unpriced;
+  - medium: "no mismatch on N inputs" counted inputs the oracle could not judge; it now counts judged inputs only and says how many were not;
+  - medium: FEEDBACK.md said the Nebius P1 was not attempted; updated to the built sandbox endpoint;
+  - medium: hand-typed load numbers; `pnpm bench --readme` now writes the "Load per attack" line;
+  - medium: spoofable `x-forwarded-for`; forwarding headers are trusted only on Vercel or with `TRUST_PROXY_HEADERS=1`;
+  - low: shared links now say they were not verified by the server; Judge0's per-submission CPU limit is documented; a Python `__main__` block or JS `export` no longer breaks loading.

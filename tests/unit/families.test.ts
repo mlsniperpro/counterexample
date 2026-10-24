@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { generateInputs, mutationInputs, parseFamilies } from "@/lib/agent/families";
-import { argsConform, type TypeSpec } from "@/lib/core/spec";
+import { argsConform, inputsWithinBudget, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 import { ModelOutputError } from "@/lib/errors";
 import { FIXTURES } from "@/fixtures/replay";
 import { PROBLEMS } from "@/lib/problems/catalog";
@@ -75,6 +75,16 @@ describe("generateInputs / mutationInputs", () => {
     expect(new Set(a.inputs.map((x) => JSON.stringify(x))).size).toBe(a.inputs.length);
     expect(a.inputs.every((x) => argsConform(x, specs))).toBe(true);
     expect(a.dropped).toBeGreaterThan(0); // the family's int range is wider than the problem's
+  });
+
+  it("cuts a family of maximal inputs to its value budget, so it stays fast and small", () => {
+    const huge: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: SPEC_LIMITS.maxValuesPerInput, max: SPEC_LIMITS.maxValuesPerInput } };
+    const t0 = Date.now();
+    const g = generateInputs({ ...family, args: [huge], count: 300 }, [huge], 1, "s");
+    expect(g.inputs.length).toBe(Math.floor(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput));
+    expect(Date.now() - t0).toBeLessThan(5000);
+    expect(mutationInputs(g.inputs, [huge], 300, 1, "m").inputs.length).toBeLessThanOrEqual(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput);
+    expect(inputsWithinBudget([{ kind: "int", min: 0, max: 1 }], 300)).toBe(300);
   });
 
   it("mutants always conform and never repeat a seed", () => {

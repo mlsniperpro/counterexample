@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { mutateArgs } from "../core/mutate";
 import { hashString, mulberry32, pick } from "../core/rng";
-import { argsConform, arity, genArgs, parseTypeSpec, type TypeSpec } from "../core/spec";
+import { argsConform, arity, genArgs, inputsWithinBudget, parseTypeSpec, type TypeSpec } from "../core/spec";
 import { errorMessage } from "../errors";
 import { parseJsonAnswer } from "./parse";
 import type { Family } from "./types";
@@ -65,7 +65,8 @@ export function generateInputs(f: Family, specs: TypeSpec[], seed: number, salt:
   const inputs: unknown[][] = [];
   const seen = new Set<string>();
   let dropped = 0;
-  for (let i = 0; i < f.count; i++) {
+  const count = inputsWithinBudget(f.args, f.count);
+  for (let i = 0; i < count; i++) {
     const args = genArgs(f.args, rng);
     if (!argsConform(args, specs)) {
       dropped++;
@@ -86,7 +87,8 @@ export function mutationInputs(seeds: unknown[][], specs: TypeSpec[], count: num
   const seen = new Set(seeds.map((s) => JSON.stringify(s)));
   const inputs: unknown[][] = [];
   let dropped = 0;
-  for (let i = 0; i < count * 3 && inputs.length < count; i++) {
+  const want = inputsWithinBudget(specs, count);
+  for (let i = 0; i < want * 3 && inputs.length < want; i++) {
     // Stack 1 to 3 mutations on a random seed.
     let m = pick(rng, seeds);
     for (let k = 1 + Math.floor(rng() * 3); k > 0; k--) m = mutateArgs(m, rng);

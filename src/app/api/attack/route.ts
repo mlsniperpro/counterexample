@@ -1,23 +1,15 @@
-import { attackBodySchema, getGuard, PUBLIC_BUDGETS, spentBy } from "@/lib/agent/api";
+import { attackBodySchema, clientIp, getGuard, PUBLIC_BUDGETS } from "@/lib/agent/api";
 import type { Guard } from "@/lib/agent/guard";
-import { attack } from "@/lib/agent/run";
+import { attack, type AttackInput, type StatementInput } from "@/lib/agent/run";
 import { makeDeps, resolveMode, type Mode } from "@/lib/agent/setup";
 import type { TraceEvent } from "@/lib/agent/trace";
-import { understandProblem } from "@/lib/agent/understand";
-import { AppError, ConfigError, errorMessage } from "@/lib/errors";
-import { priceTable } from "@/lib/models/pricing";
+import { ConfigError, errorMessage } from "@/lib/errors";
 import { editedKey } from "@/fixtures/replay";
 import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
-import type { Problem } from "@/lib/problems/types";
 
 export const maxDuration = 60;
 
 const json = (status: number, error: string, headers: Record<string, string> = {}) => Response.json({ error }, { status, headers });
-
-/** Vercel sets x-real-ip and overwrites x-forwarded-for; elsewhere this is only as trustworthy as the proxy in front. */
-function clientIp(req: Request): string {
-  return req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-}
 
 /** POST /api/attack streams NDJSON: one {"type":"mode"} line, {"type":"event"} lines, then one {"type":"report"} (or {"type":"error"}) line. */
 export async function POST(req: Request) {
@@ -41,32 +33,26 @@ export async function POST(req: Request) {
   if (body.problemId !== undefined && !builtIn) return json(400, `Unknown problem "${body.problemId}".`);
   if (!builtIn && mode === "replay") return json(400, "Replay mode (no NEBIUS_API_KEY on the server) only covers the built-in problems.");
 
-  const admitted = guard.admit(clientIp(req), Date.now(), mode === "live");
+  const admitted = guard.admit(clientIp(req.headers), Date.now(), mode === "live");
   if (!admitted.ok) return json(admitted.status, `${admitted.reason} Retry in ${admitted.retryAfterS}s.`, { "retry-after": String(admitted.retryAfterS) });
   const { ticket } = admitted;
   const spent = { costUsd: 0, unpricedCalls: 0 };
   const release = () => guard.done(ticket, spent, Date.now());
 
-  let problem: Problem;
-  let entry = "solve";
-  let solutionKey: string | undefined;
+  let input: AttackInput | StatementInput;
   if (builtIn) {
-    problem = builtIn;
     // Replay has explanations recorded for the demo code only; edited code gets an honest generic one.
     const demo = BUILT_INS.find((b) => b.problem.id === builtIn.id)?.demo;
-    if (mode === "replay" && demo && (demo.code.trim() !== body.code.trim() || demo.language !== body.language)) {
-      solutionKey = editedKey(builtIn.id, demo.language === body.language);
-    }
+    const edited = mode === "replay" && demo && (demo.code.trim() !== body.code.trim() || demo.language !== body.language);
+    input = {
+      problem: builtIn,
+      solution: { language: body.language, code: body.code, entry: "solve" },
+      research: body.research,
+      solutionKey: edited ? editedKey(builtIn.id, demo.language === body.language) : undefined,
+    };
   } else {
-    try {
-      const u = await understandProblem(body.statement ?? "", { code: body.code, language: body.language }, deps.provider, deps.models, req.signal);
-      Object.assign(spent, spentBy(u.response, deps.prices ?? priceTable()));
-      ({ problem, entry } = u);
-    } catch (e) {
-      release();
-      if (!(e instanceof AppError)) console.error("understand failed", e);
-      return json(422, `Could not turn the statement into a typed spec: ${e instanceof AppError ? e.message : "unexpected error"}`);
-    }
+    // The understand stage types the statement inside the attack: traced, costed and within its budget.
+    input = { statement: body.statement ?? "", solution: { language: body.language, code: body.code }, research: body.research };
   }
 
   const enc = new TextEncoder();
@@ -82,11 +68,8 @@ export async function POST(req: Request) {
         }
       };
       try {
-        send({ type: "mode", mode, executor: deps.executor.label, problem: { id: problem.id, title: problem.title } });
-        const report = await attack(
-          { problem, solution: { language: body.language, code: body.code, entry }, research: body.research, solutionKey },
-          { ...deps, budgets: PUBLIC_BUDGETS, signal: req.signal, onEvent: (e: TraceEvent) => send({ type: "event", event: e }) },
-        );
+        send({ type: "mode", mode, executor: deps.executor.label, problem: builtIn ? { id: builtIn.id, title: builtIn.title } : { id: "custom", title: "Custom problem" } });
+        const report = await attack(input, { ...deps, budgets: PUBLIC_BUDGETS, signal: req.signal, onEvent: (e: TraceEvent) => send({ type: "event", event: e }) });
         spent.costUsd += report.stats.costUsd;
         spent.unpricedCalls += report.stats.unpricedCalls;
         const { trace: _omit, ...rest } = report;

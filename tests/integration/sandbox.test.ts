@@ -1,7 +1,8 @@
+import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Judge0Executor } from "@/lib/exec/judge0";
-import { createSandboxServer, runSubmission } from "../../sandbox/server.mjs";
+import { RUN_UID_BASE, createSandboxServer, runSubmission } from "../../sandbox/server.mjs";
 
 type Srv = ReturnType<typeof createSandboxServer>;
 const listen = async (s: Srv) => {
@@ -97,6 +98,44 @@ describe("sandbox HTTP API", () => {
     expect(unb64(big.stderr)).toMatch(/output limit/);
     const sleepy = await runSubmission({ language_id: 63, source: "setTimeout(() => {}, 60000)", stdin: "", cpuSeconds: 1, wallSeconds: 0.1, memoryKb: 256 * 1024 });
     expect(sleepy.status.id).toBe(5);
+  });
+
+  it("ends a run on time even when the program forks a child that holds its pipes", async () => {
+    const source = "import os, time\nif os.fork() == 0:\n    time.sleep(30)\nwhile True:\n    pass\n";
+    const t0 = Date.now();
+    const r = await runSubmission({ language_id: 71, source, stdin: "", cpuSeconds: 1, wallSeconds: 1, memoryKb: 256 * 1024 });
+    expect(r.status.id).toBe(5);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+
+  it("as root, runs each slot as its own uid: no reading the server's environment, no process outliving the run", async () => {
+    // A child that leaves the process group, then reports its pid; the program itself exits cleanly.
+    const source = [
+      "import os, sys, time",
+      "try:",
+      "    open(f'/proc/{os.getppid()}/environ').read()",
+      "    print('environ readable')",
+      "except OSError:",
+      "    print('environ denied')",
+      "pid = os.fork()",
+      "if pid == 0:",
+      "    os.setsid()",
+      "    time.sleep(30)",
+      "    sys.exit(0)",
+      "print(pid)",
+    ].join("\n");
+    const job = { language_id: 71, source, stdin: "", cpuSeconds: 2, wallSeconds: 5, memoryKb: 256 * 1024, uid: RUN_UID_BASE };
+    if (process.getuid?.() !== 0) {
+      // Without root a run cannot switch uid, and says so instead of running unisolated.
+      await expect(runSubmission(job)).rejects.toThrow(/EPERM|operation not permitted/i);
+      return;
+    }
+    const r = await runSubmission(job);
+    expect(r.status.id).toBe(3);
+    const [verdict, forked] = unb64(r.stdout).trim().split("\n");
+    expect(verdict).toBe("environ denied");
+    const state = await readFile(`/proc/${forked}/status`, "utf8").then((t) => /^State:\s+(\w)/m.exec(t)?.[1], () => "gone");
+    expect(["gone", "Z"]).toContain(state);
   });
 
   it("returns 503 with Retry-After when the queue is full, and the client retries", async () => {

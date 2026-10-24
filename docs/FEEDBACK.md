@@ -20,9 +20,10 @@ Kept as we build (required written feedback for the hackathon). Items marked **p
 - **Pending live run:** does Ultra's reasoning output arrive in `content` or a separate field, and does it include `<think>` blocks? We strip `<think>...</think>` defensively (`stripThinking`).
 - **Pending live run:** how reliably each model follows "answer with one JSON object" for the generator DSL. Every family is validated and invalid ones are dropped with a trace warning, so this is measurable from a live trace.
 
-## Nebius AI Cloud / Serverless Jobs
+## Nebius AI Cloud (Serverless endpoints and Jobs)
 
-- Not attempted yet (P1). The `Executor` interface is ready for a Jobs executor; see `FRICTION.md` for what we need to know from the docs (stdin or input mounts, cold start per job, limits).
+- We built the P1 sandbox as a Nebius Serverless AI endpoint instead of a Jobs executor: Jobs have no REST endpoint for reading a job's logs, so a job's output cannot be collected per run (exact details in `FRICTION.md`). The sandbox (`sandbox/`, deploy steps in `docs/NEBIUS-SANDBOX.md`) is a small Judge0-compatible container; it is tested locally in Docker, and deploying it needs Nebius AI Cloud credentials (owner step in `BLOCKED.md`).
+- What would help: a documented way to stream or fetch a job's stdout over REST, and per-request CPU limits on endpoints.
 
 ## Tavily
 

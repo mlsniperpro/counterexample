@@ -9,11 +9,13 @@ describe("harness program", () => {
     for (const ok of ["solve", "_x1", "$f"]) expect(() => buildProgram("javascript", "", ok)).not.toThrow();
   });
 
-  it("appends the harness after the user's code for both languages", () => {
-    const py = buildProgram("python", "def solve(x):\n    return x\n", "solve");
-    expect(py.startsWith("def solve")).toBe(true);
-    expect(py).toContain("__f = solve");
-    const js = buildProgram("javascript", "function solve(x) { return x; }", "solve");
+  it("loads Python as its own module and appends the harness after JavaScript code", () => {
+    const code = "def solve(x):\n    return x\n";
+    const py = buildProgram("python", code, "solve");
+    expect(py).toContain(Buffer.from(code).toString("base64"));
+    expect(py).toContain('__f = getattr(__cx_mod, "solve")');
+    const js = buildProgram("javascript", "export default function solve(x) { return x; }", "solve");
+    expect(js.startsWith("function solve")).toBe(true);
     expect(js).toContain("const __f = solve;");
   });
 

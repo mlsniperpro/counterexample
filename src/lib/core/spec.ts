@@ -226,7 +226,7 @@ export function argsConform(args: unknown[], specs: TypeSpec[]): boolean {
 }
 
 /** Hard caps on what a (model-written) spec may ask for, so generation stays bounded in memory and time. */
-export const SPEC_LIMITS = { maxLen: 10_000, maxNodes: 1_000, maxEdges: 10_000, maxOptions: 16, maxDepth: 4, maxValuesPerInput: 200_000 } as const;
+export const SPEC_LIMITS = { maxLen: 10_000, maxNodes: 1_000, maxEdges: 10_000, maxOptions: 16, maxDepth: 4, maxValuesPerInput: 200_000, maxValuesPerFamily: 500_000 } as const;
 
 /** Optional field where JSON null means "not set" (models often write null). */
 const opt = <T extends z.ZodType>(t: T) => t.nullish().transform((v) => v ?? undefined);
@@ -296,6 +296,15 @@ export function maxValues(spec: TypeSpec): number {
     case "graph":
       return 1 + 3 * spec.m.max;
   }
+}
+
+/**
+ * How many inputs of these argument specs fit in one family's value budget
+ * (at least one), so a family of maximal inputs cannot exhaust memory or time.
+ */
+export function inputsWithinBudget(args: TypeSpec[], wanted: number): number {
+  const per = args.reduce((a, s) => a + maxValues(s), 0);
+  return Math.min(wanted, Math.max(1, Math.floor(SPEC_LIMITS.maxValuesPerFamily / Math.max(1, per))));
 }
 
 /** Nested graphs make no sense (a graph expands to two top-level arguments). */

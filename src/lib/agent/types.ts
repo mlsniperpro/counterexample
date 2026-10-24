@@ -20,6 +20,17 @@ export type AttackInput = {
   solutionKey?: string;
 };
 
+/**
+ * A pasted statement instead of a typed problem (live mode): the understand
+ * stage turns it into a Problem with one fast-model call, traced and counted
+ * against the attack's budget like every other call. The entry function comes
+ * from that answer, or from the code.
+ */
+export type StatementInput = Omit<AttackInput, "problem" | "solution"> & {
+  statement: string;
+  solution: Omit<Solution, "entry">;
+};
+
 export type AgentDeps = {
   provider: ModelProvider;
   models: ModelConfig;

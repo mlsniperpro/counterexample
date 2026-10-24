@@ -34,6 +34,23 @@ describe("LocalExecutor (dev only)", () => {
     expect(r.processes).toBe(2);
   });
 
+  it("does not wait on a forked child that holds the output pipe, whether the program hangs or exits", async () => {
+    const fork = "import os, time\ndef solve(x):\n    if os.fork() == 0:\n        time.sleep(30)\n        os._exit(0)\n    while x == 2:\n        pass\n    return x\n";
+    const t0 = Date.now();
+    const r = await local.run({ ...base, timeLimitMs: 300, language: "python", code: fork, inputs: [[1], [2], [3]] });
+    expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([1, "timeout", 3]);
+    expect(Date.now() - t0).toBeLessThan(10_000);
+  });
+
+  it("runs a Python solution that has a __main__ block and a JavaScript one written as an ES module", async () => {
+    const py = "import sys\ndef solve(x):\n    return x + 1\nif __name__ == '__main__':\n    print(solve(int(sys.stdin.read())))\n";
+    const r = await local.run({ ...base, language: "python", code: py, inputs: [[1], [2]] });
+    expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([2, 3]);
+    const js = "export function solve(x) { return x + 1; }";
+    const j = await local.run({ ...base, language: "javascript", code: js, inputs: [[1]] });
+    expect(j.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([2]);
+  });
+
   it("treats syntax errors and a missing entry function as compile errors", async () => {
     const r = await local.run({ ...base, language: "python", code: "def solve(x)\n    return x\n", inputs: [[1], [2]] });
     expect(r.outcomes.every((o) => !o.ok && o.error === "compile")).toBe(true);
@@ -100,6 +117,21 @@ describe("harness program", () => {
 
   it("ignores user output that lacks the record marker", () => {
     expect(parseLines('{"ok":true,"out":1}\n\x1eCX{"ok":true,"out":2,"ms":1}\n')).toEqual([{ ok: true, out: 2, ms: 1 }]);
+  });
+
+  it("keeps results aligned with inputs when a complete line cannot be read, and drops only a cut-off last line", () => {
+    const ok = (out: number) => `\x1eCX{"ok":true,"out":${out},"ms":1}\n`;
+    const parsed = parseLines(ok(1) + "\x1eCX{broken\n" + ok(3) + '\x1eCX{"ok":tr');
+    expect(parsed).toEqual([{ ok: true, out: 1, ms: 1 }, { ok: false, error: "internal", message: "unreadable result line" }, { ok: true, out: 3, ms: 1 }]);
+  });
+
+  it.each(["python", "javascript"] as const)("writes non-finite floats as strings in %s, so later results stay on their inputs", async (language) => {
+    const code =
+      language === "python"
+        ? "def solve(x):\n    return [float('inf'), -float('inf'), float('nan')] if x == 2 else x * 10\n"
+        : "function solve(x) { return x === 2 ? [Infinity, -Infinity, NaN] : x * 10; }";
+    const r = await local.run({ ...base, language, code, inputs: [[1], [2], [3], [4]] });
+    expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([10, ["Infinity", "-Infinity", "NaN"], 30, 40]);
   });
 
   it("restarts after a crash and marks the crashing input", async () => {

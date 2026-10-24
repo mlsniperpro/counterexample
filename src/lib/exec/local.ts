@@ -12,6 +12,8 @@ const STARTUP_GRACE_MS = 3000;
 export const MAX_STDOUT_BYTES = 32 * 1024 * 1024;
 const MAX_STDERR_BYTES = 20_000;
 const RECORD = "\x1eCX";
+/** After the program exits and its process group is killed, how long to wait for its pipes to close. */
+const DRAIN_MS = 1000;
 
 /** One pool for the whole process, so parallel attacks cannot fork without bound. */
 const processes = new Semaphore(Math.max(2, availableParallelism()));
@@ -52,10 +54,19 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
       ? ["bash", ["--noprofile", "--norc", "-c", `ulimit -v ${mb * 1024}; exec python3 -I "$0"`, file]]
       : ["node", [`--max-old-space-size=${mb}`, `--stack-size=4000`, file]];
   return new Promise((resolve, reject) => {
+    // Its own process group, so a forked child dies with it instead of holding the pipes open.
     const child = spawn(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: { PATH: process.env.PATH ?? "/usr/bin:/bin", NODE_ENV: "production" },
+      detached: true,
     });
+    const killGroup = () => {
+      try {
+        if (child.pid) process.kill(-child.pid, "SIGKILL");
+      } catch {
+        // The group is already gone.
+      }
+    };
     const out: Buffer[] = [];
     let outBytes = 0;
     let stderr = "";
@@ -68,18 +79,18 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         killedFor = "timeout";
-        child.kill("SIGKILL");
+        killGroup();
       }, ms);
     };
     arm(STARTUP_GRACE_MS + req.timeLimitMs);
-    const onAbort = () => child.kill("SIGKILL");
+    const onAbort = killGroup;
     req.signal?.addEventListener("abort", onAbort, { once: true });
     child.stdout.on("data", (d: Buffer) => {
       if (killedFor) return;
       outBytes += d.length;
       if (outBytes > MAX_STDOUT_BYTES) {
         killedFor = "output";
-        child.kill("SIGKILL");
+        killGroup();
         return;
       }
       out.push(d);
@@ -103,7 +114,23 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
       reject(new ExecutorError(`could not start ${cmd}: ${e.message}`, { cause: e }));
     });
     child.stdin.end(JSON.stringify({ inputs: chunk }));
-    child.on("close", (code: number | null) => {
+    // Finish on exit: kill what the program left behind, then wait (bounded) for its pipes to drain.
+    child.on("exit", (code: number | null) => {
+      killGroup();
+      const drain = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish(code);
+      }, DRAIN_MS);
+      child.on("close", () => {
+        clearTimeout(drain);
+        finish(code);
+      });
+    });
+    let finished = false;
+    const finish = (code: number | null) => {
+      if (finished) return;
+      finished = true;
       if (timer) clearTimeout(timer);
       req.signal?.removeEventListener("abort", onAbort);
       if (req.signal?.aborted) {
@@ -124,7 +151,7 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
         const memory = /MemoryError|heap out of memory|Cannot allocate/i.test(stderr);
         resolve({ lines, end: "crash", message: memory ? "memory limit exceeded" : lastLines || `exit ${code}` });
       }
-    });
+    };
   });
 }
 

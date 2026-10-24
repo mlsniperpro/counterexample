@@ -12,15 +12,16 @@ Per submission:
 - a CPU-time limit (`ulimit -t`) and a wall-clock limit;
 - a memory limit (`ulimit -v` for Python, `--max-old-space-size` for Node);
 - a 32 MB output cap;
-- a minimal environment (no server variables or secrets reach user code; tested).
+- a minimal environment (no server variables or secrets reach user code; tested);
+- its run slot's own unprivileged uid (20000 + slot), so it cannot read the server's environment (the token) or another submission's directory, may own at most 64 processes, and every process of that uid is killed when the run ends: a forked child cannot outlive the run, hold its slot, or touch the next submission (tested, including a child that calls `setsid`).
 
 Per server:
 - a bounded run queue that answers 503 with `Retry-After` when full (`Judge0Executor` retries);
 - request size limits;
 - token auth via `X-Auth-Token` or `Authorization: Bearer`, compared in constant time;
-- the image runs as an unprivileged user and works with `--read-only --tmpfs /tmp`.
+- the server process runs as root inside the container only to switch each run to its slot uid; submitted code never runs as root. The image works with `--read-only --tmpfs /tmp`.
 
-Isolation between users and from the network comes from the container: one endpoint per deployment, no shared state.
+Network isolation comes from the container: deploy the endpoint without outbound access if your platform allows it. Run outside the container without root (`pnpm sandbox`), runs share the server's uid and only the process group is killed; the server warns about this at start, and it is for development only.
 
 Verified in the build session (Docker 29.9.2):
 - `docker build -t counterexample-sandbox sandbox/` succeeded.
@@ -66,7 +67,7 @@ Sources:
 
 A job provisions a VM per run, and the jobs API has no endpoint for reading a job's output back. The [REST API](https://docs.nebius.com/rest-api/ai/v1/jobs/create) creates jobs and reports state; logs go through the logging stack.
 
-An interactive attack makes 17 to 47 sandbox calls (measured on the benchmark), each expected in well under a second. A warm endpoint fits that pattern; a VM per batch does not.
+An interactive attack makes a few dozen sandbox calls ("Load per attack" in the README, measured on the benchmark), each expected in well under a second. A warm endpoint fits that pattern; a VM per batch does not.
 
 ## Run it locally
 

@@ -191,7 +191,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         <div className="shared">
           <div className="row between">
             <p className="small muted" role="status">
-              Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server.
+              Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server, and nothing in it was re-run or verified here: a link can say anything, so re-run the attack to check it.
             </p>
             <button className="ghost" onClick={closeShared}>
               Close

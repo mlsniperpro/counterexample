@@ -29,6 +29,8 @@ export type ModelResponse = {
   latencyMs: number;
   /** True when tokens/latency are estimated (replay), not measured. */
   simulated: boolean;
+  /** True when the provider reported no token usage, so the call cannot be priced. */
+  unmetered?: boolean;
 };
 
 export interface ModelProvider {

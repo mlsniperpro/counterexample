@@ -1,11 +1,8 @@
 import { z } from "zod";
 import { parseTypeSpec } from "../core/spec";
 import { ModelOutputError } from "../errors";
-import { modelFor, type ModelConfig } from "../models/config";
-import type { ModelProvider, ModelResponse } from "../models/types";
 import type { Problem, Solution } from "../problems/types";
 import { parseJsonAnswer, stripThinking } from "./parse";
-import { understandPrompt } from "./prompts";
 
 const MAX_PARAMS = 6;
 const MAX_EXAMPLES = 10;
@@ -31,33 +28,19 @@ export function firstFunctionName(code: string, language: Solution["language"]):
 }
 
 /**
- * Live mode only: turn a pasted statement into a typed Problem with the fast
- * model. The answer is schema-validated: cosmetic fields are normalised,
- * anything that affects the attack (types, examples, entry) must be valid or
- * it is a ModelOutputError.
+ * Live mode only: turn the fast model's answer about a pasted statement into
+ * a typed Problem. The answer is schema-validated: cosmetic fields are
+ * normalised, anything that affects the attack (types, examples, entry) must
+ * be valid or it is a ModelOutputError.
  */
-export async function understandProblem(
-  statement: string,
-  solution: Pick<Solution, "code" | "language">,
-  provider: ModelProvider,
-  models: ModelConfig,
-  signal?: AbortSignal,
-): Promise<{ problem: Problem; entry: string; response: ModelResponse }> {
-  const res = await provider.complete({
-    model: modelFor(models, "fast"),
-    purpose: "understand",
-    messages: understandPrompt(statement, solution.code, solution.language),
-    replayKey: "custom",
-    signal,
-  });
-  const a = parseJsonAnswer(stripThinking(res.text), specAnswerSchema, "problem spec");
+export function parseUnderstanding(text: string, statement: string, solution: Pick<Solution, "code" | "language">): { problem: Problem; entry: string } {
+  const a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
   const entry = a.entry ?? firstFunctionName(solution.code, solution.language);
   if (!entry) throw new ModelOutputError("problem spec: no entry function named, and none found in the code");
   const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(p.type, `params[${i}].type`) }));
   if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
   return {
     entry,
-    response: res,
     problem: {
       id: "custom",
       title: a.title,

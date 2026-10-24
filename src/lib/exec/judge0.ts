@@ -34,6 +34,9 @@ export const JUDGE0_RETRY: RetryPolicy = { ...DEFAULT_RETRY, timeoutMs: 45_000 }
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
 const unb64 = (s: string | null | undefined) => (s ? Buffer.from(s, "base64").toString("utf8") : "");
 
+/** Inputs sent per Judge0 submission by default. */
+export const JUDGE0_INPUTS_PER_SUBMISSION = 200;
+
 /**
  * Runs code on any Judge0-compatible API (self-hosted Judge0 CE, or RapidAPI).
  * Judge0 has no per-input timeout, so each chunk gets chunk*limit of CPU time;
@@ -46,7 +49,7 @@ export class Judge0Executor implements Executor {
   private readonly cfg: Required<Pick<Judge0Config, "chunkSize">> & Judge0Config;
 
   constructor(cfg: Judge0Config) {
-    this.cfg = { chunkSize: 200, ...cfg, baseUrl: cfg.baseUrl.replace(/\/+$/, "") };
+    this.cfg = { chunkSize: JUDGE0_INPUTS_PER_SUBMISSION, ...cfg, baseUrl: cfg.baseUrl.replace(/\/+$/, "") };
     let url: URL;
     try {
       url = new URL(this.cfg.baseUrl);

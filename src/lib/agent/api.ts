@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { costUsd, type Price } from "../models/pricing";
-import type { ModelResponse } from "../models/types";
 import { BUILT_INS } from "../problems/catalog";
 import { Guard, guardConfig } from "./guard";
 import type { Mode } from "./setup";
@@ -37,8 +35,14 @@ export function problemsPayload(mode: Mode) {
   return { mode, problems: BUILT_INS.map((b) => ({ ...b.problem, demo: { language: b.demo.language, code: b.demo.code, entry: b.demo.entry } })) };
 }
 
-/** What one model call adds to the daily spend: its price, or "unpriced" (charged at a flat rate by the guard). */
-export function spentBy(res: ModelResponse, prices: Record<string, Price>): { costUsd: number; unpricedCalls: number } {
-  const cost = costUsd(res.model, res.promptTokens, res.completionTokens, prices);
-  return cost === null ? { costUsd: 0, unpricedCalls: 1 } : { costUsd: cost, unpricedCalls: 0 };
+/**
+ * The client address for per-IP limits. Forwarding headers are only as
+ * trustworthy as the proxy that sets them: Vercel sets x-real-ip and
+ * overwrites x-forwarded-for, so they are trusted on Vercel (VERCEL=1) or
+ * behind another proxy that does the same (TRUST_PROXY_HEADERS=1). Anywhere
+ * else a client could spoof them, so every client shares one bucket.
+ */
+export function clientIp(headers: Headers, env: Record<string, string | undefined> = process.env): string {
+  if (env.VERCEL !== "1" && env.TRUST_PROXY_HEADERS !== "1") return "untrusted-proxy";
+  return headers.get("x-real-ip") ?? headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }

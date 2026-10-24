@@ -40,7 +40,7 @@ export const DSL_DOC = `Input DSL (JSON):
 - {"kind":"const","value":v}
 - {"kind":"oneOf","options":[T,...]}
 - {"kind":"graph","n":{"min":a,"max":b},"m":{"min":a,"max":b},"weight":{"min":a,"max":b},"dag":bool}   (expands to two arguments: n and edges [[u,v,w],...])
-Limits: lengths up to ${SPEC_LIMITS.maxLen}, graphs up to ${SPEC_LIMITS.maxNodes} nodes and ${SPEC_LIMITS.maxEdges} edges, nesting up to ${SPEC_LIMITS.maxDepth} levels, at most ${SPEC_LIMITS.maxValuesPerInput} values per input. A graph may only be a top-level argument.`;
+Limits: lengths up to ${SPEC_LIMITS.maxLen}, graphs up to ${SPEC_LIMITS.maxNodes} nodes and ${SPEC_LIMITS.maxEdges} edges, nesting up to ${SPEC_LIMITS.maxDepth} levels, at most ${SPEC_LIMITS.maxValuesPerInput} values per input, and a family is cut to the inputs that fit in ${SPEC_LIMITS.maxValuesPerFamily} values in total (so few huge inputs, or many small ones). A graph may only be a top-level argument.`;
 
 export function generatorsPrompt(p: Problem, s: Solution, facts: ResearchFact[]): ChatMessage[] {
   return [

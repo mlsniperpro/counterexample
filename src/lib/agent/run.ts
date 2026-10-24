@@ -1,9 +1,9 @@
 import { BudgetExceeded, errorMessage } from "../errors";
 import { createContext, explainAbort, finish } from "./context";
 import { attackStage, fixStage, isCompileFailure, oracleStage, researchStage, runStage, shrinkStage, understandStage } from "./stages";
-import type { AgentDeps, AttackInput, Report } from "./types";
+import type { AgentDeps, AttackInput, Report, StatementInput } from "./types";
 
-export type { AgentDeps, AttackInput, Report } from "./types";
+export type { AgentDeps, AttackInput, Report, StatementInput } from "./types";
 
 /**
  * One attack on one solution: understand, research (if needed), oracle,
@@ -11,23 +11,26 @@ export type { AgentDeps, AttackInput, Report } from "./types";
  * budgeted and traced. Never throws: failures become a verdict, and a
  * counterexample found before a failure is kept.
  */
-export async function attack(input: AttackInput, deps: AgentDeps): Promise<Report> {
+export async function attack(input: AttackInput | StatementInput, deps: AgentDeps): Promise<Report> {
   const ctx = createContext(input, deps);
   const { report } = ctx;
   try {
-    understandStage(ctx);
+    await understandStage(ctx);
     const facts = await researchStage(ctx);
     if (!(await oracleStage(ctx))) return finish(ctx);
     const plan = await attackStage(ctx, facts);
     const { hits, tested } = await runStage(ctx, plan);
-    if (isCompileFailure(hits, input.problem.examples.length)) {
+    if (isCompileFailure(hits, ctx.input.problem.examples.length)) {
       report.verdict = "compile_error";
       report.message = hits[0]?.j.got ?? "the solution did not load";
       return finish(ctx);
     }
     if (hits.length === 0) {
       report.verdict = "no_counterexample";
-      report.message = `No mismatch on ${ctx.inputsTested} inputs across ${ctx.families.filter((f) => f.tested).length} families. That is evidence, not proof.`;
+      // Only inputs the oracle could judge count as evidence.
+      const skipped = ctx.families.reduce((n, f) => n + f.oracleSkipped, 0);
+      const unjudged = skipped ? ` The oracle could not judge ${skipped} more (it failed or timed out on them), so those prove nothing.` : "";
+      report.message = `No mismatch on ${ctx.inputsTested - skipped} judged inputs across ${ctx.families.filter((f) => f.tested).length} families.${unjudged} That is evidence, not proof.`;
       return finish(ctx);
     }
     const cx = await shrinkStage(ctx, hits);

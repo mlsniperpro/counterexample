@@ -1,6 +1,6 @@
 import { modelFor, type ModelConfig } from "../models/config";
 import { costUsd, type Price } from "../models/pricing";
-import type { ChatMessage, ModelProvider, ModelRole, Purpose } from "../models/types";
+import type { ChatMessage, ModelProvider, ModelResponse, ModelRole, Purpose } from "../models/types";
 import type { Budget } from "./budget";
 import { stripThinking } from "./parse";
 import type { Stage, Tracer } from "./trace";
@@ -38,14 +38,22 @@ export class ModelCaller {
   async call(stage: Stage, role: ModelRole, purpose: Purpose, messages: ChatMessage[], replayKey: string, attempt = 0): Promise<string> {
     this.budget.useModelCall();
     const model = modelFor(this.models, role);
-    const res = await this.provider.complete({ model, purpose, messages, replayKey, attempt, signal: this.signal });
+    let res: ModelResponse;
+    try {
+      res = await this.provider.complete({ model, purpose, messages, replayKey, attempt, signal: this.signal });
+    } catch (e) {
+      // A failed or cut-off live call may still be billed: count it as unpriced so the daily spend cap sees it.
+      if (this.provider.name !== "replay") this.unpricedCalls++;
+      throw e;
+    }
     // The echoed model id may differ from the one requested (aliases, casing); fall back to the requested id's price.
-    const cost = costUsd(res.model, res.promptTokens, res.completionTokens, this.prices) ?? costUsd(model, res.promptTokens, res.completionTokens, this.prices);
+    const cost = res.unmetered ? null : (costUsd(res.model, res.promptTokens, res.completionTokens, this.prices) ?? costUsd(model, res.promptTokens, res.completionTokens, this.prices));
     if (cost === null) {
       this.unpricedCalls++;
-      if (!this.warnedUnpriced.has(res.model)) {
-        this.warnedUnpriced.add(res.model);
-        this.tracer.emit(stage, "warn", `No price known for ${res.model}: its calls are reported as unpriced (set MODEL_PRICES)`);
+      const reason = res.unmetered ? "the response reported no token usage" : "no price is known for it (set MODEL_PRICES)";
+      if (!this.warnedUnpriced.has(`${res.model}:${reason}`)) {
+        this.warnedUnpriced.add(`${res.model}:${reason}`);
+        this.tracer.emit(stage, "warn", `${res.model} call reported as unpriced: ${reason}`);
       }
     } else {
       this.costUsd += cost;

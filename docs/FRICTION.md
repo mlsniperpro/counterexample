@@ -25,7 +25,7 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
 - **Tool:** Token Factory, Tavily.
 - **What happened:** `NEBIUS_API_KEY` and `TAVILY_API_KEY` were not set in the session, so the live benchmark could not run. Everything runs in deterministic replay mode instead; `pnpm bench --live` is ready for the owner.
 
-## 2026-10-24: Nebius Serverless Jobs executor (P1) not attempted yet
+## 2026-10-24: Nebius Serverless Jobs executor (P1) blocked at first (superseded below)
 
 - **Tool:** Nebius AI Cloud / Serverless Jobs.
 - **What happened:** with the Nebius docs blocked from the build session (above) and no AI Cloud credentials, we could not read the Jobs API or test a container run, so we did not build the executor. The `Executor` interface (`src/lib/exec/types.ts`) is the integration point: a Jobs executor would build the same harness program (`buildProgram`), submit one job per chunk with stdin JSON, and parse the same JSON-lines output with `runWithRestarts`.
@@ -40,6 +40,6 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
 
 - **Tool:** Nebius AI Cloud, Serverless AI jobs.
 - **What happened:** `api.nebius.cloud` was reachable from the build session (`curl https://api.nebius.cloud/openapi.json` returned `200`, 1.5 MB), unlike the Token Factory hosts. The OpenAPI spec lists `/ai/v1/jobs` (create, list), `/ai/v1/jobs/{id}` (get, delete), `cancel`, `restart` and `get-by-name`. A job's status has state, timestamps and endpoints, but **no REST endpoint returns a job's stdout or logs**. Logs go through the logging stack (CLI `nebius ai job logs`, or Loki and logcli). Each job also provisions its own VM.
-- **Impact:** a "Serverless Jobs executor" that submits each batch of inputs as a job would need a second channel to read results back (a public port, object storage, or the logging API), and would pay VM provisioning time per batch. An interactive attack makes 17 to 47 sandbox calls.
+- **Impact:** a "Serverless Jobs executor" that submits each batch of inputs as a job would need a second channel to read results back (a public port, object storage, or the logging API), and would pay VM provisioning time per batch. An interactive attack makes a few dozen sandbox calls (see "Load per attack" in the README).
 - **What we did:** we built the P1 as a **Serverless AI endpoint** running our own Judge0-compatible sandbox (`sandbox/`, `docs/NEBIUS-SANDBOX.md`). It is warm, takes token auth, and is reached through the existing `Judge0Executor`.
 - **Ask:** a `GET /ai/v1/jobs/{id}/logs` (or output) REST endpoint would make jobs usable as a batch code runner from serverless apps.

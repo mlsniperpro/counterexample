@@ -47,13 +47,17 @@ export class NebiusProvider implements ModelProvider {
       throw new UpstreamError("token-factory", `unexpected response shape for ${req.model}: ${parsed.error.issues[0]?.message ?? "invalid"}`, null, false);
     }
     const j = parsed.data;
+    const promptTokens = j.usage?.prompt_tokens;
+    const completionTokens = j.usage?.completion_tokens;
     return {
       text: j.choices[0]?.message.content ?? "",
       model: j.model ?? req.model,
-      promptTokens: j.usage?.prompt_tokens ?? 0,
-      completionTokens: j.usage?.completion_tokens ?? 0,
+      promptTokens: promptTokens ?? 0,
+      completionTokens: completionTokens ?? 0,
       latencyMs: Date.now() - t0,
       simulated: false,
+      // No usage means no price: the caller counts it as unpriced instead of free.
+      unmetered: promptTokens === undefined || completionTokens === undefined,
     };
   }
 }

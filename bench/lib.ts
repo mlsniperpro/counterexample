@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIXTURES } from "../src/fixtures/replay";
 import type { Verdict } from "../src/lib/agent/types";
+import { JUDGE0_INPUTS_PER_SUBMISSION } from "../src/lib/exec/judge0";
 import type { Language } from "../src/lib/exec/types";
 import type { Routing } from "../src/lib/models/config";
 import type { ReplayFixtures } from "../src/lib/models/replay";
@@ -59,6 +60,8 @@ export type Row = {
   costUsd: number;
   unpricedCalls: number;
   modelCalls: number;
+  /** Sandbox runs (one program on one input). */
+  runs: number;
   inputs: number;
   minimal?: unknown[];
   fixVerified?: boolean;
@@ -119,6 +122,8 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     ...(s.some((x) => x.unpricedCalls > 0) ? [row("Unpriced model calls (not in cost)", (x) => `${x.unpricedCalls}`)] : []),
     row("Runs ending in error / budget / bad oracle", (x) => `${x.errors}`),
     "",
+    loadLine(rows.filter((x) => x.config === "routed")),
+    "",
     "| Solution | Expected | Verdict (routed) | Minimal counterexample | Fix verified |",
     "| --- | --- | --- | --- | --- |",
     ...rows
@@ -126,6 +131,14 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
       .map((x) => `| \`${x.key}\` | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
   ];
   return lines.join("\n") + "\n";
+}
+
+const span = (xs: number[]) => `${Math.min(...xs).toLocaleString("en-US")} to ${Math.max(...xs).toLocaleString("en-US")} (median ${(median(xs) ?? 0).toLocaleString("en-US")})`;
+
+/** Per-attack load of the routed configuration, for the README's "Load and limits". */
+export function loadLine(rows: Row[]): string {
+  if (!rows.length) return "Load per attack: no runs.";
+  return `Load per attack (routed): ${span(rows.map((x) => x.modelCalls))} model calls and ${span(rows.map((x) => x.runs))} sandbox runs, which is ${span(rows.map((x) => Math.ceil(x.runs / JUDGE0_INPUTS_PER_SUBMISSION)))} Judge0 submissions at ${JUDGE0_INPUTS_PER_SUBMISSION} inputs per submission (a lower bound: a timeout or crash splits a submission).`;
 }
 
 /** Replace the text between <!-- bench:<label>:start --> and <!-- bench:<label>:end --> in a README. */

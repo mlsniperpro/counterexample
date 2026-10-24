@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { attack } from "@/lib/agent/run";
 import { makeDeps } from "@/lib/agent/setup";
 import { POST } from "@/app/api/attack/route";
-import { resetGuardForTests } from "@/lib/agent/api";
+import { PUBLIC_BUDGETS, resetGuardForTests } from "@/lib/agent/api";
 import { preflight } from "@/lib/preflight";
 import { BUILT_INS } from "@/lib/problems/catalog";
 import { fakeEnv, startFakes, type Fakes } from "../fakes/services";
@@ -60,6 +60,7 @@ describe("POST /api/attack in live mode (fake services)", () => {
     const saved = { ...process.env };
     Object.assign(process.env, fakeEnv(fakes));
     delete process.env.REPLAY;
+    process.env.VERCEL = "1";
     resetGuardForTests();
     try {
       const isqrt = BUILT_INS.find((x) => x.problem.id === "isqrt")!;
@@ -89,6 +90,10 @@ describe("POST /api/attack in live mode (fake services)", () => {
       expect(customReport.problem).toEqual({ id: "custom", title: "Integer square root" });
       expect(customReport.verdict).toBe("counterexample");
       expect(customReport.counterexample.args).toEqual([2147483647]);
+      // The understand call is part of the attack: traced, priced, and counted in its call budget.
+      expect(customReport.stages[0]).toMatchObject({ stage: "understand", purpose: "understand" });
+      expect(customReport.stats.modelCalls).toBe(customReport.stages.reduce((n: number, s: { calls: number }) => n + s.calls, 0));
+      expect(customReport.stats.modelCalls).toBeLessThanOrEqual(PUBLIC_BUDGETS.maxModelCalls);
     } finally {
       process.env = saved;
       resetGuardForTests();

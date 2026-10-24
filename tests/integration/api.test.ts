@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/attack/route";
-import { attackBodySchema, problemsPayload, resetGuardForTests, spentBy } from "@/lib/agent/api";
+import { attackBodySchema, clientIp, problemsPayload, resetGuardForTests } from "@/lib/agent/api";
 import { BUILT_INS } from "@/lib/problems/catalog";
 
 const saved = { ...process.env };
@@ -95,6 +95,7 @@ describe("POST /api/attack (replay mode)", () => {
 
   it("rate-limits per IP with 429 and Retry-After", async () => {
     process.env.RATE_LIMIT_PER_HOUR = "1";
+    process.env.VERCEL = "1"; // forwarding headers are only trusted behind a proxy that sets them
     resetGuardForTests();
     const first = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "9.9.9.9" });
     await first.text();
@@ -104,6 +105,13 @@ describe("POST /api/attack (replay mode)", () => {
     const other = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "8.8.8.8" });
     expect(other.status).toBe(200);
     await other.text();
+  });
+
+  it("does not trust spoofable forwarding headers unless a proxy that sets them is declared", () => {
+    const h = new Headers({ "x-real-ip": "1.1.1.1", "x-forwarded-for": "2.2.2.2, 3.3.3.3" });
+    expect(clientIp(h, {})).toBe("untrusted-proxy");
+    expect(clientIp(h, { VERCEL: "1" })).toBe("1.1.1.1");
+    expect(clientIp(new Headers({ "x-forwarded-for": "2.2.2.2, 3.3.3.3" }), { TRUST_PROXY_HEADERS: "1" })).toBe("2.2.2.2");
   });
 
   it("returns 503 with the reason when the server is misconfigured", async () => {
@@ -134,14 +142,6 @@ describe("GET /api/problems payload", () => {
     expect(j.mode).toBe("replay");
     expect(j.problems).toHaveLength(5);
     expect(JSON.stringify(j)).not.toMatch(/"bug"/);
-  });
-});
-
-describe("spentBy", () => {
-  it("prices a call, or counts it as unpriced", () => {
-    const res = { text: "", model: "m", promptTokens: 1_000_000, completionTokens: 0, latencyMs: 0, simulated: false };
-    expect(spentBy(res, { m: { in: 2, out: 0 } })).toEqual({ costUsd: 2, unpricedCalls: 0 });
-    expect(spentBy(res, {})).toEqual({ costUsd: 0, unpricedCalls: 1 });
   });
 });
 
