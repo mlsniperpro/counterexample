@@ -46,7 +46,7 @@ RESUME update:
   3. on the final HEAD: soak, `FC_NUM_RUNS=5000` units, the sandbox bench (also under load), a fresh-clone run;
   4. write break-it.md and reaudit.md (AUDITED_COMMIT = the final HEAD);
   5. run the gate, push, and post the PR #1 status comment.
-- Push rule: at most once per 45 min (one accidental double push at 09:01). PR #1: subscribing to activity failed, so check it manually.
+- Push rule (owner, replaces the old 45-minute spacing): Push when a substantial task is complete and green (a set of findings fixed and tested, a feature slice working, a soak or break-it pass recorded, a gate run); no timer. Every push is a meaningful, squashed commit set: never empty, format-only or "wip" commits; exactly one PR (#1). PR #1: subscribing to activity failed, so check it manually.
 - Container: `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox`. Start `dockerd` first, then `DOCKER_BUILDKIT=0 docker build -t counterexample-sandbox sandbox/`.
 
 ## Earlier hand-off (2026-10-24, previous session)
@@ -58,7 +58,7 @@ Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successo
 - Rules:
   - Follow BRIEF.md and AGENTS.md: pnpm only; never commit secrets; log sponsor-tool problems in docs/FRICTION.md.
   - One PR only, and don't touch other PRs or issues.
-  - Push at most once per 45 min, and squash WIP before pushing.
+  - (Superseded by the owner's push rule in "Commands": push when a substantial task is complete and green, no timer.)
   - Run `pnpm lint && pnpm typecheck && pnpm test` before every push.
   - Never edit `.agent/win-gate.sh`, tests or thresholds to get green.
 
@@ -117,6 +117,7 @@ Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successo
 - Everything else is in the PR "Decisions" section.
 
 ## Commands
+- Owner rule (2026-10-25, keep across hand-offs), replacing the 45-minute push spacing everywhere (brief, this file, earlier messages): Push when a substantial task is complete and green (a set of findings fixed and tested, a feature slice working, a soak or break-it pass recorded, a gate run); no timer. Every push is a meaningful, squashed commit set: never empty, format-only or "wip" commits; exactly one PR (#1). Never sit idle and never end the turn to wait: while a subagent, audit, soak or build runs, keep working on the next item here and collect results when they arrive. Never stop with "will push at HH:MM" or "waiting for X". The only two reasons to stop are the API usage limit or the /goal being met.
 - Owner rule (2026-10-25, keep across hand-offs): every subagent launched with the Agent tool uses model "sonnet" and effort "high". That covers auditors, reviewers, fixers, researchers and soak/log watchers. The main session keeps integration, self-review of the diff, deciding which findings are real (verify each Sonnet finding before fixing it, and never drop one unchecked), and the gate.
 - Install: `pnpm install`
 - Test: `pnpm lint && pnpm typecheck && pnpm test`
