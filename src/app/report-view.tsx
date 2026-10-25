@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { showValue } from "@/lib/core/compare";
 import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
 import { fmtArgs, ms, usd, VERDICT } from "./format";
@@ -18,9 +19,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
   return (
     <section className="card result">
       <div className="row between">
-        <h2 className={`verdict ${r.verdict}`} aria-live="polite">
-          {VERDICT[r.verdict]}
-        </h2>
+        <h2 className={`verdict ${r.verdict}`}>{VERDICT[r.verdict]}</h2>
         <div className="row">
           {onShare && (
             <button className="ghost" onClick={onShare}>
@@ -42,12 +41,12 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
 
       {r.counterexample && (
         <div className="cx">
-          <div className="label">Minimal counterexample</div>
+          <div className="label">{r.counterexample.shrinkExhausted ? "Counterexample (shrinking stopped early, may not be minimal)" : "Minimal counterexample"}</div>
           <code className="big">solve({fmtArgs(r.counterexample.args)})</code>
           <div className="cmp">
             <div>
               <span className="label">expected</span>
-              <code>{JSON.stringify(r.counterexample.expected)}</code>
+              <code>{showValue(r.counterexample.expected)}</code>
             </div>
             <div>
               <span className="label">got</span>
@@ -97,7 +96,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       )}
 
       <div className="label">Attack families</div>
-      <div className="scroll">
+      <div className="scroll" tabIndex={0} role="region" aria-label="Attack families table">
         <table>
           <thead>
             <tr>
@@ -123,7 +122,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       </div>
 
       <div className="label">Why Ultra here, Super there</div>
-      <div className="scroll">
+      <div className="scroll" tabIndex={0} role="region" aria-label="Model routing per step table">
         <table>
           <thead>
             <tr>

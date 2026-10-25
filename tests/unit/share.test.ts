@@ -113,6 +113,19 @@ describe("share links (report in the URL fragment)", () => {
     await expect(decodeReport(bomb)).rejects.toThrow(/too large/);
   });
 
+  it("rejects a deeply nested link with ShareLinkError, not a stack overflow, and keeps ordinary nesting", async () => {
+    const r = await realReport();
+    const nest = (depth: number) => "[".repeat(depth) + "]".repeat(depth);
+    const withArgs = (args: string) => JSON.stringify({ ...r, counterexample: { ...r.counterexample!, args: ["ARGS"] } }).replace('"ARGS"', args);
+    const deep = await linkFor(withArgs(nest(10_000)));
+    expect(deep.length).toBeLessThan(MAX_LINK_CHARS);
+    const err = await decodeReport(deep).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ShareLinkError);
+    expect((err as Error).message).toMatch(/nested too deeply/);
+    const ok = await decodeReport(await linkFor(withArgs(nest(40))));
+    expect(JSON.stringify(ok.counterexample?.args)).toBe(`[${nest(40)}]`);
+  });
+
   it("base64url round-trips any bytes and detects share fragments", () => {
     fc.assert(
       fc.property(fc.uint8Array({ maxLength: 2000 }), (bytes) => {

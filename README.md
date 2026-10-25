@@ -11,15 +11,16 @@ pnpm install
 pnpm dev          # open http://localhost:3000 and press "Attack this solution"
 ```
 
-Without keys the app runs in **replay mode**: model answers are recorded, while every program run is real. The five built-in problems each carry a subtly buggy solution. Each attack ends in a minimal counterexample, a two-sentence explanation, and a fix that has been re-attacked; "Share link" puts the whole report into a URL. With keys, the same UI runs live on Nebius Token Factory (see "Run it").
+Without keys the app runs in **replay mode**: model answers are recorded, while every program run is real. The five built-in problems each carry a subtly buggy solution. Each attack ends in a minimal counterexample, a two-sentence explanation, and a fix that has been re-attacked; "Share link" puts the report (without its trace) into a URL. With keys, the same UI runs live on Nebius Token Factory (see "Run it").
 
 What it found in the built-in solutions:
 
 ```
-solve([0], 0)          expected 0, got -1            binary search, loop exits at lo == hi
-solve(2147483647)      expected 46340, got 0         integer sqrt, (lo + hi + 1) >> 1 overflows
-solve([2, 3], 4)       expected 2, got -1            coin change, greedy
-solve("baab")          expected 2, got 3             sliding window moves backwards
+solve([0], 0)                           expected 0, got -1                binary search, loop exits at lo == hi
+solve(2147483647)                       expected 46340, got 0             integer sqrt, (lo + hi + 1) >> 1 overflows
+solve([2, 3], 4)                        expected 2, got -1                coin change, greedy
+solve("baab")                           expected 2, got 3                 sliding window moves backwards
+solve(3, [[0,1,1],[1,2,-2],[0,2,0]])    expected [0,1,-1], got [0,1,0]    Dijkstra, negative edge
 ```
 
 ## How it uses Nebius Token Factory and NVIDIA Nemotron
@@ -55,9 +56,9 @@ Every fact carries its URL into the trace and the report. A generator family may
 - **Generators, not test cases.** The fast model writes input *families* in a small JSON DSL (`src/lib/core/spec.ts`): ints with edge bias, arrays (sorted, distinct, duplicate pools), strings, tuples, DAGs as edge lists. Model output is interpreted, never executed, and every generated input is checked against the problem's declared constraints, so an over-eager generator cannot cause a false alarm.
 - **Small scope first.** Right after the examples, a bounded-exhaustive family runs every small input of the declared types. That means all integers near zero plus the bounds, all short strings and arrays over a few values, and all small graphs with up to two edges. This follows the small-scope hypothesis that most bugs have a small counterexample, and it catches bugs random sampling skips (a solution wrong only at `x = 5` out of 2^31).
 - **Mutation on top of generation.** After the model's families, type-aware mutants of the examples and of every input already tried (±1, negation, duplicated or dropped elements, swaps, repeated slices) run as their own family, after EvalPlus. They are filtered by the same validator.
-- **Delta debugging over structured inputs** (`src/lib/core/shrink.ts`): chunk removal, element simplification, binary search on integers, isolated-node removal with relabelling for graphs. A well-founded size measure guarantees termination; the problem's validator keeps every step legal.
-- **One harness, any sandbox.** Code is wrapped in the same JSON-lines harness for every executor (`src/lib/exec/program.ts`). If one input hangs or crashes, the next unreported input is blamed and the batch restarts after it, so one bad input never loses the rest.
-- **Budgets and an honest verdict.** Model calls, sandbox runs and wall clock are budgeted per attack. If the oracle never matches the examples, the verdict is `oracle_unreliable` and **no bug is claimed**. If nothing breaks, the report says "evidence, not proof".
+- **Delta debugging over structured inputs** (`src/lib/core/shrink.ts`): chunk removal, element simplification, binary search on integers, isolated-node removal with relabelling for graphs. Adjacent pairs are removed at every offset, so crossed brackets like `({())}` shrink to `({)}`. A well-founded size measure guarantees termination; the problem's validator keeps every step legal. If the shrink budget runs out first, the report says the input may not be minimal.
+- **One harness, any sandbox.** Code is wrapped in the same JSON-lines harness for every executor (`src/lib/exec/program.ts`). If one input hangs or crashes, the next unreported input is blamed and the batch restarts after it, so one bad input never loses the rest. Judge0 has one time limit per submission, so there an input is blamed for a timeout only after it also times out alone, and a submission never holds more inputs than fit their full limits in Judge0's 15 s CPU cap.
+- **Budgets and an honest verdict.** Model calls, sandbox runs and wall clock are budgeted per attack. If the oracle never matches the examples, the verdict is `oracle_unreliable` and **no bug is claimed**. A mismatch counts only after it reproduces on a fresh re-run; one that does not (an overloaded sandbox, say) is dropped with a warning in the trace and the attack goes on. Outputs are compared as JSON values: object key order does not matter, and integers beyond 2^53 are compared by their exact digits, so an overflow in the last digit is still caught. If nothing breaks, the report says "evidence, not proof".
 - **Robust at the edges.** Every external input is schema-validated with zod: the API body, every model answer (generator families, research facts, problem specs), and every Token Factory, Tavily and Judge0 response. Network calls have per-attempt timeouts, bounded retries with full-jitter backoff (honouring `Retry-After`) and an idempotency key. Failures are typed errors (`src/lib/errors.ts`). Nothing falls back silently: a failed search, a rejected family, an unpriced model or an unverified fix each show up in the trace and the report.
 - **Deterministic replay.** `ReplayProvider` serves recorded responses, so the whole loop runs in tests and for judges without a key. `pnpm bench --live --record` turns a live run into new fixtures.
 
@@ -151,6 +152,9 @@ tests/e2e         the whole loop in replay mode
 src/app           Next.js UI and /api/attack (NDJSON stream)
 bench/            solutions, benchmark script, results
 docs/             FEEDBACK, FRICTION, VIDEO shot list, architecture.svg
+sandbox/          the Counterexample sandbox (Judge0-compatible, for a Nebius Serverless AI endpoint)
 ```
+
+`.agent/` and `WIN-CHECKLIST.md` hold the build process's audit trail and evidence; they are not part of the app.
 
 Built by the AlgoCracked team. Interview prep is the first use; attacking AI-written code before you merge it is the everyday one.

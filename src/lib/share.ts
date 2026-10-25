@@ -18,6 +18,8 @@ export const SHARE_PREFIX = "#r=1.";
 export const MAX_LINK_CHARS = 8000;
 /** Decompression cap, so a crafted link cannot inflate into a huge payload. */
 export const MAX_DECODED_BYTES = 512 * 1024;
+/** Nesting cap, checked before validation: the recursive schema would otherwise overflow the stack on a deeply nested link. */
+export const MAX_JSON_DEPTH = 64;
 
 const str = (max: number) => z.string().max(max);
 const httpUrl = z.url({ protocol: /^https?$/ });
@@ -64,6 +66,8 @@ const sharedReportSchema: z.ZodType<SharedReport> = z.object({
       original: z.object({ args: z.array(z.json()), family: str(60) }),
       shrinkSteps: count,
       shrinkEvals: count,
+      // Links made before this field existed decode as shrunk to completion, which is what they claimed.
+      shrinkExhausted: z.boolean().default(false),
     })
     .optional(),
   explanation: str(CAP.explanation).optional(),
@@ -164,9 +168,29 @@ export async function decodeReport(hash: string): Promise<SharedReport> {
   } catch {
     throw new ShareLinkError("the link is damaged (not valid JSON)");
   }
-  const parsed = sharedReportSchema.safeParse(json);
+  if (jsonDepth(json) > MAX_JSON_DEPTH) throw new ShareLinkError("the link does not contain a valid report (nested too deeply)");
+  let parsed: ReturnType<typeof sharedReportSchema.safeParse>;
+  try {
+    parsed = sharedReportSchema.safeParse(json);
+  } catch {
+    throw new ShareLinkError("the link does not contain a valid report");
+  }
   if (!parsed.success) throw new ShareLinkError(`the link does not contain a valid report (${parsed.error.issues[0]?.path.join(".") || "root"})`);
   return parsed.data;
+}
+
+/** Nesting depth of parsed JSON, computed without recursion so it cannot overflow itself. */
+function jsonDepth(root: unknown): number {
+  let max = 0;
+  const stack: [unknown, number][] = [[root, 1]];
+  while (stack.length) {
+    const [v, d] = stack.pop()!;
+    if (v === null || typeof v !== "object") continue;
+    if (d > max) max = d;
+    if (max > MAX_JSON_DEPTH) return max;
+    for (const child of Object.values(v)) stack.push([child, d + 1]);
+  }
+  return max;
 }
 
 async function pipe(input: Uint8Array, transform: CompressionStream | DecompressionStream, maxBytes = Infinity): Promise<Uint8Array> {

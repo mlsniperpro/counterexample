@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { Example } from "@/lib/problems/types";
 import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared, type SharedReport } from "@/lib/share";
-import { fmtArgs, ms, toMarkdown, type ReportNoTrace } from "./format";
+import { fmtArgs, ms, toMarkdown, VERDICT, type ReportNoTrace } from "./format";
+import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
 import { buildAttackBody } from "./request";
 import { saveFile } from "./save-file";
+import { CUT_MESSAGE, readAttackStream } from "./stream";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
@@ -17,6 +19,11 @@ const MODE_LABEL = {
   replay: "Replay mode: recorded model responses, real execution",
   unknown: "Server mode unknown (status check failed)",
 } as const;
+/** Client-side cap on one attack: the server's own deadline is 50 s and its maxDuration 60 s. */
+const CLIENT_TIMEOUT_MS = 75_000;
+/** Abort reasons, so the catch can tell a cancel or a timeout from a superseded run. */
+const CANCELLED = "cancelled";
+const TIMED_OUT = "timed out";
 
 export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const first = problems[0];
@@ -35,6 +42,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
   const [shared, setShared] = useState<SharedReport | null>(null);
+  const [error, setError] = useState("");
   const [shareNote, setShareNote] = useState("");
   const [shareLink, setShareLink] = useState("");
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
@@ -58,8 +66,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [report, setReport] = useState<ReportNoTrace | null>(null);
   const [executor, setExecutor] = useState("");
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  /** Text for the always-mounted live region: the verdict when a run ends, or why it stopped. */
+  const [status, setStatus] = useState("");
   const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
   const traceEnd = useRef<HTMLOListElement | null>(null);
   useEffect(() => {
     const el = traceEnd.current;
@@ -71,7 +81,16 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     if (isShareFragment(window.location.hash)) window.history.replaceState(null, "", window.location.pathname);
   }
 
+  /** Stop the in-flight run, if any; its stream stops updating the page at once. */
+  function stopRun(reason?: string) {
+    const ac = abort.current;
+    abort.current = null;
+    ac?.abort(reason);
+    setRunning(false);
+  }
+
   function pick(id: string) {
+    stopRun();
     clearShareHash();
     setPid(id);
     const p = problems.find((x) => x.id === id);
@@ -83,19 +102,25 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     }
     setEvents([]);
     setReport(null);
+    setExecutor("");
     setError("");
+    setStatus("");
   }
 
   async function run() {
     abort.current?.abort();
     const ac = new AbortController();
     abort.current = ac;
+    // Only the run that owns the current controller may touch the page.
+    const live = () => abort.current === ac;
+    const timer = setTimeout(() => ac.abort(TIMED_OUT), CLIENT_TIMEOUT_MS);
     setRunning(true);
     setEvents([]);
     setReport(null);
     setShareNote("");
     setShareLink("");
     setError("");
+    setStatus("");
     setShared(null);
     clearShareHash();
     try {
@@ -109,29 +134,28 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         const j = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(j.error ?? res.statusText);
       }
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl);
-          buf = buf.slice(nl + 1);
-          if (!line.trim()) continue;
-          const msg = JSON.parse(line);
-          if (msg.type === "event") setEvents((xs) => [...xs, msg.event]);
-          else if (msg.type === "report") setReport(msg.report);
-          else if (msg.type === "mode") setExecutor(msg.executor);
-          else if (msg.type === "error") setError(msg.error);
-        }
-      }
+      const end = await readAttackStream(res.body, (msg) => {
+        if (!live()) return;
+        if (msg.type === "event") setEvents((xs) => [...xs, msg.event]);
+        else if (msg.type === "report") {
+          setReport(msg.report);
+          setStatus(`${VERDICT[msg.report.verdict]}. ${msg.report.message}`);
+        } else if (msg.type === "mode") setExecutor(msg.executor);
+        else if (msg.type === "error") setError(msg.error);
+      });
+      if (live() && !end.complete) setError(CUT_MESSAGE);
     } catch (e) {
-      if ((e as Error).name !== "AbortError") setError((e as Error).message);
+      if (live()) {
+        const reason: unknown = ac.signal.aborted ? ac.signal.reason : undefined;
+        if (reason === TIMED_OUT) setError(`The attack took longer than ${CLIENT_TIMEOUT_MS / 1000} s, so it was stopped; the partial trace is shown.`);
+        else setError((e as Error).message);
+      } else if (ac.signal.reason === CANCELLED) setStatus("Attack cancelled; the partial trace is shown.");
     } finally {
-      setRunning(false);
+      clearTimeout(timer);
+      if (live()) {
+        abort.current = null;
+        setRunning(false);
+      }
     }
   }
 
@@ -215,7 +239,9 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         {current ? (
           <>
-            <p className="statement">{current.statement}</p>
+            <p className="statement">
+              {splitCode(current.statement).map((p, i) => (p.code ? <code key={i}>{p.text}</code> : <Fragment key={i}>{p.text}</Fragment>))}
+            </p>
             <ul className="examples">
               {current.examples.map((e, i) => (
                 <li key={i}>
@@ -249,10 +275,24 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           </label>
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
-        <button className="go" onClick={run} disabled={running}>
-          {running ? "Attacking…" : "Attack this solution"}
-        </button>
-        {error && <p className="err">{error}</p>}
+        <div className="go-row">
+          <button className="go" onClick={run} disabled={running}>
+            {running ? "Attacking…" : "Attack this solution"}
+          </button>
+          {running && (
+            <button className="ghost cancel" onClick={() => stopRun(CANCELLED)}>
+              Cancel
+            </button>
+          )}
+        </div>
+        {error && (
+          <p className="err" role="alert">
+            {error}
+          </p>
+        )}
+        <p className="sr-only" role="status" aria-live="polite">
+          {status}
+        </p>
       </section>
 
       {(events.length > 0 || report) && (

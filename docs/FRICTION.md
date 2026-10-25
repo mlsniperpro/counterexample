@@ -29,7 +29,7 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
 
 - **Tool:** Nebius AI Cloud / Serverless Jobs.
 - **What happened:** with the Nebius docs blocked from the build session (above) and no AI Cloud credentials, we could not read the Jobs API or test a container run, so we did not build the executor. The `Executor` interface (`src/lib/exec/types.ts`) is the integration point: a Jobs executor would build the same harness program (`buildProgram`), submit one job per chunk with stdin JSON, and parse the same JSON-lines output with `runWithRestarts`.
-- **Next step:** owner to check the Serverless Jobs docs for (a) passing stdin or a mounted input file, (b) cold-start time per job (the agent runs ~10 to 40 small batches per attack, so per-job latency matters), (c) per-job CPU/memory limits.
+- **Next step:** owner to check the Serverless Jobs docs for (a) passing stdin or a mounted input file, (b) cold-start time per job (an attack sends several small batches, measured in the README's "Load per attack" line, so per-job latency matters), (c) per-job CPU/memory limits.
 
 ## 2026-10-24: Judge0 CE default runtimes are old
 
