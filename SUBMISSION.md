@@ -12,9 +12,9 @@ You paste a problem and a solution: your interview answer, or code an AI wrote. 
 
 1. **Understands** the problem as a typed spec. When the statement references external facts, **Tavily** fetches them and every fact is cited in the trace.
 2. **Builds an oracle:** Nemotron 3 **Ultra** writes a slow but obviously-correct brute force and must pass the examples before it is trusted.
-3. **Attacks:** Nemotron 3 **Super** designs adversarial input *generators* (bounds, duplicates, overflow, degenerate graphs) in a typed DSL.
+3. **Attacks:** Nemotron 3 **Super** designs adversarial input *generators* (bounds, duplicates, overflow, worst-case sizes, long chains) in a typed DSL, on top of deterministic small-scope exhaustive and mutation families.
 4. **Runs** the solution and the oracle on thousands of inputs in a sandbox (Judge0-compatible API).
-5. **Shrinks** any mismatch to a minimal counterexample with delta debugging.
+5. **Confirms and shrinks:** a mismatch counts only once it reproduces on a fresh run, then delta debugging shrinks it to a minimal counterexample.
 6. **Explains and fixes:** Ultra explains the bug in two sentences and proposes a fix, which is **re-attacked** before it is called fixed.
 7. **Reports** the full trace: every model call (which model and why), every run, cost and latency per step.
 
@@ -30,7 +30,11 @@ Research runs when the statement leans on external facts or the user ticks "Rese
 
 ## Results
 
-See the README's benchmark section; every number there is produced by `bench/run.ts`. _Owner: paste the live-mode table after `pnpm bench --live --readme`._
+Every number below is produced by `bench/run.ts` (`pnpm bench --readme`) in replay mode: recorded model answers that we wrote, with real execution. They measure the pipeline, not Nemotron's judgement, until the live run. _Owner: paste the live-mode table after `pnpm bench --live --readme`._
+
+- **54 solutions** in 13 problems: 38 known-buggy (each documents its bug) and 16 correct, in Python and JavaScript. The agent finds **38 of 38** with **0 false alarms**, and every proposed fix is verified by re-attack.
+- **Where the models matter.** We ran two ablations under the same budgets. On the 30 base-tier bugs, the deterministic families alone (small-scope exhaustive, mutations, random) already find all 30. On the 8 hard-tier bugs, which show only at worst-case sizes or on specific structure (exponential backtracking on a long unsplittable run, a memo that forgets failures, a modulus applied too late, a distance array that overflows on a long chain), **the model-designed families (recorded answers in replay; Nemotron Super writes them live) find 8 of 8, and both ablations find 0 of 8.**
+- **Soak.** Hundreds of single-point mutants of every solution are attacked, and every claimed counterexample is checked against a reference solution: 0 false claims and 0 misses.
 
 ## What's next
 
