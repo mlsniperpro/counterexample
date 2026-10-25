@@ -155,7 +155,7 @@ export async function runWithRestarts(
       processes++;
       const line = solo.lines[0];
       if (line) {
-        outcomes.push(line);
+        outcomes.push(overLimit(line) ? timedOut(line) : line);
         continue;
       }
       if (solo.end === "compile") {
@@ -181,9 +181,14 @@ export async function runWithRestarts(
       processes++;
       again = solo.lines[0] ?? { ok: false, error: solo.end === "timeout" ? "timeout" : "runtime", message: solo.message || solo.end };
     }
-    if (again.ok && again.ms > (perInputLimitMs ?? Infinity)) {
-      return { ok: false, error: "timeout", message: `time limit ${perInputLimitMs}ms exceeded (took ${Math.round(again.ms)}ms)` };
-    }
-    return again;
+    return overLimit(again) ? timedOut(again) : again;
+  }
+
+  function overLimit(o: RunOutcome): o is Extract<RunOutcome, { ok: true }> {
+    return o.ok && o.ms > (perInputLimitMs ?? Infinity);
+  }
+
+  function timedOut(o: Extract<RunOutcome, { ok: true }>): RunOutcome {
+    return { ok: false, error: "timeout", message: `time limit ${perInputLimitMs}ms exceeded (took ${Math.round(o.ms)}ms)` };
   }
 }

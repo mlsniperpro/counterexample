@@ -189,6 +189,19 @@ describe("runWithRestarts enforces the per-input limit when the chunk finished (
     ]);
   });
 
+  it("checks the limit on a blamed input's solo run too", async () => {
+    // The chunk times out at input 1; alone, input 1 finishes but still takes 900 ms of a 300 ms limit.
+    const chunks: number[][] = [];
+    const runChunk = async (chunk: unknown[][]): Promise<ChunkResult> => {
+      const ids = (chunk as number[][]).map(([i]) => i!);
+      chunks.push(ids);
+      if (ids.length > 1) return { lines: [{ ok: true, out: ids[0], ms: 10 }], end: "timeout", message: "tle" };
+      return { lines: [{ ok: true, out: ids[0], ms: ids[0] === 1 ? 900 : 10 }], end: "ok", message: "" };
+    };
+    const r = await runWithRestarts([[0], [1], [2]], runChunk, Infinity, 300);
+    expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([0, "timeout", 2]);
+  });
+
   it("does not re-run a lone input that is over the limit", async () => {
     const f = timed([900]);
     const r = await runWithRestarts([[0]], f.runChunk, Infinity, 300);
