@@ -1,19 +1,48 @@
 # HANDOFF (COUNTEREXAMPLE)
 
-Updated 2026-10-25 ~09:00 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ (holds the lease, status=active).
+Updated 2026-10-25 by session_01Q1oMvNAnBQBDukXyvqyhQZ at WIND DOWN (owner request). Lease released.
 
 ## Latest state (read first)
-- Round 6: four parallel hostile audits of `04f1f92`, plus a sandbox benchmark that hit a real false alarm. All findings are fixed with regression tests in `3b0bf80` (core), `5d4f6c6` (UI and docs) and `99ed3a2` (security). The list is under "Round 6" in WIN-CHECKLIST.md.
-- Benchmark regenerated on that code: 30/30 found, 0 false alarms, 30/30 fixes verified.
-- Sandbox image rebuilt: `/health` shows network blocked and shared dirs locked, and the binary-search benchmark against the container gives 12/12, also under concurrent test-suite load.
-- `pnpm lint && pnpm typecheck && pnpm test` pass: 285/285.
-- Next:
-  1. Audit round 7: full hostile pass on the new HEAD, in parallel subagents.
-  2. Fix and repeat until 2 clean rounds in a row.
-  3. Then run soak, deep fast-check and a fresh-clone run on the final HEAD.
-  4. Write break-it.md and reaudit.md.
-  5. Run the gate, push, and post the PR status.
-- To run the container: `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox`. Start `dockerd` first if it is not running.
+- Round 6 is fully fixed and pushed. Commits: `3b0bf80` core, `5d4f6c6` UI and docs, `99ed3a2` security, `a0f7d69` bench results, `91aa3f5` handoff. The sandbox is hardened with a seccomp network deny, per-run memory and file limits and locked dirs. `/health` shows network blocked.
+- Round 7 (four audits of `91aa3f5`) is NOT clean:
+  - Security audit: no findings.
+  - Core audit: 6 medium, 4 low. All fixed in the WIND DOWN commit, with tests:
+    - big-int example outputs are kept exact;
+    - JS BigInt results are written as exact digits;
+    - the JS harness uses perf_hooks, for Judge0 Node 12;
+    - Judge0 enforces the per-input limit on finished chunks, after a solo re-run;
+    - a fix is verified only if the counterexample itself was judged, with unjudged inputs reported;
+    - confirmHits loops through batches;
+    - the run reserve is right-sized;
+    - the big-int marker no longer leaks into JSON (showValue at the JSON boundaries, exactReviver in stream.ts);
+    - the dead shrink candidate is removed;
+    - float mode recurses into objects.
+  - Judge audit, fixed:
+    - a new "no-model" ablation, plus a "Found by family" column and row;
+    - the README ablation text rewritten honestly (deterministic families alone find 30/30);
+    - the architecture.svg claim;
+    - a separate replay rate limit, REPLAY_RATE_LIMIT_PER_HOUR=120;
+    - VIDEO.md now demos coin-change;
+    - the TTFC label.
+  - Judge audit, open: rerun `pnpm screenshots` on HEAD (the screenshots are stale), and write break-it.md, which the checklist cites but which does not exist.
+  - UI audit: 2 medium and 5 low, IN PROGRESS when wind-down hit. A stopped agent left partial edits, which are committed in the WIND DOWN commit: `src/app/run-state.ts`, `src/app/clipboard.ts`, their tests, and edits to attack-ui.tsx, stream.ts, report-view.tsx, globals.css, sandbox.test.ts and guard-limit.test.ts. They typecheck, lint clean and pass `pnpm test` (314/314 after one assertion update), but have not been reviewed or browser-checked. Re-verify each finding:
+    1. extract the run state machine into a pure tested module (run-state.ts may be partial); mutations like `live = () => true` must fail a test;
+    2. sandbox.test "queue is full" is flaky under heavy load: poll /health until active===1 instead of setTimeout(100);
+    3. a malformed stream line must abort the run's controller, cancel the reader, and show "The server sent an unreadable response.";
+    4. a share-link decode error must render at the top, not below the fold;
+    5. a clipboard failure needs try/catch and a visible note;
+    6. a cancelled run needs a visible muted note;
+    7. the live-trace `<ol>` and the diff `<pre>` need tabIndex=0, role=region and aria-label (axe scrollable-region-focusable);
+    8. the Semaphore test needs an A-runs, B-queues, C-arrives-after-A-finishes case.
+- Planned next (task): a HARD benchmark tier, with 8+ bugs that only worst-case-size or structured inputs expose (first-pivot quicksort on large sorted input, recursion on long chains, and so on). Model families must be needed there, and the no-model ablation must miss them. Not started (that agent was stopped before changing anything). This is the strongest "use of Nemotron" evidence we lack.
+- Then:
+  1. audit round 8 (4 parallel audits);
+  2. fix and repeat until 2 clean rounds in a row;
+  3. on the final HEAD: soak, `FC_NUM_RUNS=5000` units, the sandbox bench (also under load), a fresh-clone run;
+  4. write break-it.md and reaudit.md (AUDITED_COMMIT = the final HEAD);
+  5. run the gate, push, and post the PR #1 status comment.
+- Push rule: at most once per 45 min (one accidental double push at 09:01). PR #1: subscribing to activity failed, so check it manually.
+- Container: `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox`. Start `dockerd` first, then `DOCKER_BUILDKIT=0 docker build -t counterexample-sandbox sandbox/`.
 
 ## Earlier hand-off (2026-10-24, previous session)
 Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successor that has only this repo.

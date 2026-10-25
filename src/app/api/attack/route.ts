@@ -3,6 +3,7 @@ import { worstCaseAttackUsd, type Guard } from "@/lib/agent/guard";
 import { attack, type AttackInput, type StatementInput } from "@/lib/agent/run";
 import { makeDeps, resolveMode, type Mode } from "@/lib/agent/setup";
 import type { TraceEvent } from "@/lib/agent/trace";
+import { showValue } from "@/lib/core/compare";
 import { ConfigError, errorMessage } from "@/lib/errors";
 import { priceTable } from "@/lib/models/pricing";
 import { editedKey } from "@/fixtures/replay";
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
       const send = (o: unknown) => {
         if (!open) return;
         try {
-          controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
+          controller.enqueue(enc.encode(showValue(o) + "\n"));
         } catch {
           open = false; // client went away; req.signal stops the attack
         }

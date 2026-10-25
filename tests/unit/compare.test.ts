@@ -72,3 +72,12 @@ describe("outputsEqual on objects and big integers", () => {
     expect(displayable("y".repeat(5000))).toMatch(/truncated/);
   });
 });
+
+describe("float mode inside objects", () => {
+  it("uses the tolerance on object values too, with keys in any order", () => {
+    expect(outputsEqual({ avg: 0.1 + 0.2, n: [1e9] }, { n: [1e9 + 1e-3], avg: 0.3 }, "float")).toBe(true);
+    expect(outputsEqual({ avg: 1 }, { avg: 1.001 }, "float")).toBe(false);
+    expect(outputsEqual({ a: 1 }, { a: 1, b: 2 }, "float")).toBe(false);
+    expect(outputsEqual({ a: 1 }, { b: 1 }, "float")).toBe(false);
+  });
+});

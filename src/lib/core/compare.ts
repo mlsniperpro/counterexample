@@ -35,9 +35,9 @@ function canon(v: unknown): string {
   });
 }
 
-/** JSON text for display, with big integers written as plain digits. */
-export function showValue(v: unknown): string {
-  const s = JSON.stringify(v, (_k, x) => normalise(x));
+/** JSON text for display and for every JSON the app writes out (stream, trace, report files), with big integers written as plain digits. */
+export function showValue(v: unknown, space?: number): string {
+  const s = JSON.stringify(v, (_k, x) => normalise(x), space);
   return s === undefined ? "undefined" : s.replace(BIG_RE, "$1");
 }
 
@@ -69,6 +69,8 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
   return canon(a) === canon(b);
 }
 
+const isPlainObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+
 const asFloat = (x: unknown): unknown => (typeof x === "string" && x.startsWith(BIG) ? Number(x.slice(BIG.length)) : x);
 
 function floatEq(a: unknown, b: unknown): boolean {
@@ -78,5 +80,10 @@ function floatEq(a: unknown, b: unknown): boolean {
     return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
   if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));
+  if (isPlainObject(fa) && isPlainObject(fb)) {
+    const ka = Object.keys(fa).sort();
+    const kb = Object.keys(fb).sort();
+    return ka.length === kb.length && ka.every((k, i) => k === kb[i] && floatEq(fa[k], fb[k]));
+  }
   return canon(fa) === canon(fb);
 }

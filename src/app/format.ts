@@ -6,6 +6,15 @@ import type { SharedReport } from "@/lib/share";
 
 export type ReportNoTrace = Omit<Report, "trace">;
 
+/** One line on how the re-attack of a fix went; only inputs the oracle could judge count as evidence. */
+export function fixSummary(f: { verified: boolean; reattackInputs: number; reattackMismatches: number; reattackUnjudged: number }): string {
+  const judged = f.reattackInputs - f.reattackUnjudged;
+  const unjudged = f.reattackUnjudged ? ` (${f.reattackUnjudged} more the oracle could not judge)` : "";
+  if (f.reattackMismatches) return `still fails on ${f.reattackMismatches} of ${judged} judged inputs${unjudged}`;
+  if (f.verified) return `re-attacked on ${judged} judged inputs: 0 failures${unjudged}`;
+  return `no failure on ${judged} judged inputs${unjudged}, but the re-attack was incomplete`;
+}
+
 export const fmtArgs = (a: unknown[]) => a.map((x) => JSON.stringify(x)).join(", ");
 
 export const ms = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
@@ -29,7 +38,7 @@ export function toMarkdown(r: SharedReport): string {
     lines.push(r.counterexample.shrinkExhausted ? "## Counterexample (shrinking stopped early, may not be minimal)" : "## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${showValue(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
   }
   if (r.explanation) lines.push("## Why", "", r.explanation, "");
-  if (r.fix) lines.push(`## Fix (${r.fix.verified ? "verified" : "NOT verified"} on ${r.fix.reattackInputs} inputs)`, "", "```" + r.solution.language, r.fix.code.trim(), "```", "");
+  if (r.fix) lines.push(`## Fix (${r.fix.verified ? "verified" : "NOT verified"}: ${fixSummary(r.fix)})`, "", "```" + r.solution.language, r.fix.code.trim(), "```", "");
   lines.push("## Model routing", "", "| step | model | calls | cost | latency |", "| --- | --- | --- | --- | --- |");
   for (const s of r.stages) lines.push(`| ${s.purpose} | ${s.model} | ${s.calls} | ${usd(s.costUsd)} | ${ms(s.latencyMs)}${s.simulated ? " (simulated)" : ""} |`);
   lines.push("", `${r.stats.inputsTested} inputs, ${r.stats.runs} sandbox runs, ${r.stats.modelCalls} model calls, ${usd(r.stats.costUsd)}. Provider: ${r.setup.provider}; executor: ${r.setup.executor}.`);

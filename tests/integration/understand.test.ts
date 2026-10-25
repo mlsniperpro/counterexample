@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { firstFunctionName, parseUnderstanding } from "@/lib/agent/understand";
 import { ModelOutputError } from "@/lib/errors";
+import { outputsEqual } from "@/lib/core/compare";
+import { parseLines } from "@/lib/exec/program";
 
 const spec = {
   title: "Sum",
@@ -17,6 +19,15 @@ const run = async (answer: unknown) =>
   parseUnderstanding(typeof answer === "string" ? answer : "```json\n" + JSON.stringify(answer) + "\n```", "Add two numbers.", { code: "def add(a, b): return a + b", language: "python" });
 
 describe("parseUnderstanding (live-mode statement to typed spec)", () => {
+  it("keeps example outputs beyond 2^53 exact, so a correct oracle's exact output matches them", async () => {
+    const text = "```json\n" + JSON.stringify(spec).replace('"output":3', '"output":15999999992000000001') + "\n```";
+    const { problem } = await run(text);
+    const [oracleOut] = parseLines('\x1eCX{"ok":true,"out":15999999992000000001,"ms":1}\n').map((o) => (o.ok ? o.out : undefined));
+    expect(outputsEqual(oracleOut, problem.examples[0]!.output)).toBe(true);
+    expect(outputsEqual(15999999992000000000, problem.examples[0]!.output)).toBe(false);
+    expect(problem.examples[0]!.args).toEqual([1, 2]);
+  });
+
   it("turns a valid model answer into a Problem", async () => {
     const { problem, entry } = await run(spec);
     expect(entry).toBe("add");

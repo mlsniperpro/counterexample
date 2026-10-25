@@ -131,28 +131,35 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
   return false;
 }
 
+/** The fast model's generator families, validated, with citations limited to this run's research. */
+async function modelFamiliesFor(ctx: AttackContext, facts: ResearchFact[]): Promise<Family[]> {
+  const { problem, solution } = ctx.input;
+  const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
+  const { families, rejected } = parseFamilies(text, specsOf(ctx), ctx.limits.inputsPerFamily);
+  for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
+  // A family may only cite sources this run's research actually gave the model.
+  const given = new Set(facts.map((f) => f.url));
+  let uncited = 0;
+  for (const f of families) {
+    const kept = f.citations.filter((c) => given.has(c));
+    uncited += f.citations.length - kept.length;
+    f.citations = kept;
+  }
+  if (uncited) ctx.tracer.emit("attack", "info", `Removed ${uncited} citation(s) to sources that were not part of this run's research`);
+  return families;
+}
+
 /** The fast model designs generator families; examples first, mutations and a random baseline after. */
 export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Promise<Family[]> {
-  const { problem, solution } = ctx.input;
+  const { problem } = ctx.input;
   const specs = specsOf(ctx);
   startStage(ctx, "attack", "Designing adversarial input generators");
   const baselineOnly = ctx.input.generators === "baseline-only";
+  const modelFamilies = (ctx.input.generators ?? "model") === "model";
   const plan: Family[] = [{ name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" }];
   if (!baselineOnly) {
     plan.push({ name: "small-scope", rationale: "Every small input of the declared types (bounded exhaustive testing: most bugs have a small counterexample).", citations: [], args: specs, count: Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily), source: "exhaustive" });
-    const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
-    const { families, rejected } = parseFamilies(text, specs, ctx.limits.inputsPerFamily);
-    for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
-    // A family may only cite sources this run's research actually gave the model.
-    const given = new Set(facts.map((f) => f.url));
-    let uncited = 0;
-    for (const f of families) {
-      const kept = f.citations.filter((c) => given.has(c));
-      uncited += f.citations.length - kept.length;
-      f.citations = kept;
-    }
-    if (uncited) ctx.tracer.emit("attack", "info", `Removed ${uncited} citation(s) to sources that were not part of this run's research`);
-    plan.push(...families);
+    if (modelFamilies) plan.push(...(await modelFamiliesFor(ctx, facts)));
     plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: Math.min(MUTANTS, ctx.limits.inputsPerFamily), source: "mutation" });
   }
   plan.push({
@@ -181,28 +188,35 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
 export type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean };
 
 /**
- * Re-judge the smallest new hits on a fresh run before trusting them: a
+ * Re-judge new hits on a fresh run before trusting them, smallest first, in
+ * batches of CONFIRM_HITS until one batch has a hit that fails again: a
  * sandbox can time out or crash for reasons that are not the solution's
  * (load, a shared time budget), and a bug must reproduce before it is
  * claimed. Returns the confirmed hits (with their fresh judgement) followed by
- * the unchecked rest, or nothing when none of the re-checked hits reproduced
- * (the unchecked ones are then dropped too, and the run goes on).
+ * the not yet re-checked rest, or nothing when no hit reproduced (the run
+ * then goes on).
  */
-async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit[]> {
+export async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit[]> {
   const bySize = [...found].sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length);
-  const checked = bySize.slice(0, CONFIRM_HITS);
-  const again = await ctx.judge.compare("run", ctx.input.solution, checked.map((h) => h.args));
-  const confirmed = checked.flatMap((h, i) => {
-    const j = again[i];
-    return j && j.status === "mismatch" ? [{ ...h, j, confirmed: true }] : [];
-  });
-  const flaky = checked.length - confirmed.length;
-  if (flaky) {
-    ctx.tracer.emit("run", "warn", `${flaky} mismatch(es) did not reproduce on a re-run (flaky execution, e.g. an overloaded sandbox) and were dropped`, {
-      inputs: checked.filter((h) => !confirmed.some((c) => c.args === h.args)).map((h) => h.args),
+  const dropped: unknown[][] = [];
+  let result: Hit[] = [];
+  for (let at = 0; at < bySize.length && !result.length; at += CONFIRM_HITS) {
+    const checked = bySize.slice(at, at + CONFIRM_HITS);
+    const again = await ctx.judge.compare("run", ctx.input.solution, checked.map((h) => h.args));
+    const confirmed: Hit[] = [];
+    checked.forEach((h, i) => {
+      const j = again[i];
+      if (j && j.status === "mismatch") confirmed.push({ ...h, j, confirmed: true });
+      else dropped.push(h.args);
+    });
+    if (confirmed.length) result = [...confirmed, ...bySize.slice(at + CONFIRM_HITS)];
+  }
+  if (dropped.length) {
+    ctx.tracer.emit("run", "warn", `${dropped.length} mismatch(es) did not reproduce on a re-run (flaky execution, e.g. an overloaded sandbox) and were dropped`, {
+      inputs: dropped.slice(0, 10),
     });
   }
-  return confirmed.length ? [...confirmed, ...bySize.slice(CONFIRM_HITS)] : [];
+  return result;
 }
 
 function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
@@ -242,8 +256,8 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
     const st: FamilyStats = { name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: inputs.length + dropped, dropped, tested: 0, mismatches: 0, oracleSkipped: 0 };
     ctx.families.push(st);
     if (dropped) ctx.tracer.emit("run", "warn", `${f.name}: dropped ${dropped} input(s) that violate the problem constraints`);
-    // Keep enough runs in reserve to shrink a hit (two programs per candidate).
-    const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals * 2);
+    // Room is in inputs (two runs each); shrinking needs maxShrinkEvals inputs, plus the confirm and final re-checks.
+    const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals - CONFIRM_HITS - 1);
     const batch = inputs.slice(0, room);
     if (batch.length < inputs.length) truncated = true;
     for (let at = 0; at < batch.length && !hits.length; at += RUN_CHUNK) {
@@ -355,15 +369,21 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     const batch = reattack.slice(0, Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2)));
     const judged = await ctx.judge.compare("reattack", fix, batch, "fix");
     const bad = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ j, args: batch[i] as unknown[] }] : []));
-    const verified = bad.length === 0 && batch.length === reattack.length;
-    ctx.report.fix = { code: fix.code, verified, attempts: a + 1, reattackInputs: batch.length, reattackMismatches: bad.length };
+    // Only inputs the oracle could judge are evidence, and the counterexample itself (always first) must be one of them.
+    const unjudged = judged.filter((j) => j.status === "oracle_error").length;
+    const cxFixed = judged[0]?.status === "agree";
+    const verified = bad.length === 0 && batch.length === reattack.length && cxFixed;
+    ctx.report.fix = { code: fix.code, verified, attempts: a + 1, reattackInputs: batch.length, reattackMismatches: bad.length, reattackUnjudged: unjudged };
+    const unjudgedNote = unjudged ? ` (the oracle could not judge ${unjudged} more, which prove nothing)` : "";
     if (bad.length === 0 && !verified) {
-      ctx.tracer.emit("reattack", "warn", `Fix passed ${batch.length} of ${reattack.length} inputs; the run budget ran out before the rest, so it is not verified`);
+      const why = batch.length < reattack.length ? `the run budget ran out after ${batch.length} of ${reattack.length} inputs` : "the oracle could not judge the counterexample itself";
+      ctx.tracer.emit("reattack", "warn", `Fix had no mismatch on ${batch.length - unjudged} judged inputs${unjudgedNote}, but ${why}, so it is not verified`);
       return;
     }
-    ctx.tracer.emit("reattack", bad.length ? "warn" : "result", bad.length ? `Fix still fails on ${bad.length} input(s)` : `Fix verified on ${batch.length} inputs`, {
+    ctx.tracer.emit("reattack", bad.length ? "warn" : "result", bad.length ? `Fix still fails on ${bad.length} input(s)` : `Fix verified on ${batch.length - unjudged} judged inputs${unjudgedNote}`, {
       mismatches: bad.length,
       inputs: batch.length,
+      unjudged,
     });
     if (verified) return;
     const worst = bad.sort((x, y) => JSON.stringify(x.args).length - JSON.stringify(y.args).length)[0];

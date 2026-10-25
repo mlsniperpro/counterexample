@@ -68,7 +68,8 @@ select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid 
 .small { font-size: 0.82rem; }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @media (min-width: 960px) { .grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; } .grid .card { margin-bottom: 0; } }
-.trace ol { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; font-size: 0.85rem; }
+.trace-scroll { max-height: 70vh; overflow-y: auto; }
+.trace ol { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; }
 .ev { display: grid; grid-template-columns: 56px 72px minmax(0, 1fr); gap: 6px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
 .ev .t { color: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .ev .st { font-family: var(--mono); font-size: 0.75rem; color: var(--accent-ink); }
@@ -91,7 +92,7 @@ select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid 
 .cmp .label { display: block; margin: 0 0 2px; }
 .code-out { background: var(--code-bg); border-radius: 8px; padding: 10px; overflow-x: auto; margin: 0; }
 .scroll { overflow-x: auto; }
-.scroll:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.scroll:focus-visible, .trace-scroll:focus-visible, .code-out:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
@@ -100,6 +101,8 @@ th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: 
 .stats b { font-size: 1.1rem; }
 .stats span { color: var(--muted); font-size: 0.78rem; }
 .foot { color: var(--muted); font-size: 0.82rem; text-align: center; margin-top: 24px; }
+.share-err { margin: 0 0 16px; }
+.note { margin: 8px 0 0; }
 .shared { margin-bottom: 16px; }
 .shared > .row { background: var(--card); border: 1px solid var(--accent); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
 .shared > .row p { margin: 0; min-width: 0; overflow-wrap: anywhere; }

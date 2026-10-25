@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAttackStream, type StreamMsg } from "@/app/stream";
+import { readAttackStream, UNREADABLE_MESSAGE, type StreamMsg } from "@/app/stream";
 
 /** A response body that delivers the given chunks, split wherever the test likes. */
 const body = (...chunks: string[]) =>
@@ -62,5 +62,43 @@ describe("readAttackStream (the UI's NDJSON reader)", () => {
     const msgs: StreamMsg[] = [];
     await readAttackStream(stream, (m) => msgs.push(m));
     expect(msgs).toEqual([{ type: "error", error: "→ fail" }]);
+  });
+
+  /** A body that stays open after its chunks, like a server still attacking, and records whether it was cancelled. */
+  const open = (...chunks: string[]) => {
+    const seen = { cancelled: false };
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        for (const s of chunks) c.enqueue(new TextEncoder().encode(s));
+      },
+      cancel() {
+        seen.cancelled = true;
+      },
+    });
+    return { stream, seen };
+  };
+
+  it("maps a line that is not JSON (a proxy's HTML page) to a readable error, and cancels the stream", async () => {
+    const { stream, seen } = open(`${mode}\n<html><body>502 Bad Gateway</body></html>\n`);
+    const msgs: StreamMsg[] = [];
+    await expect(readAttackStream(stream, (m) => msgs.push(m))).rejects.toThrow(UNREADABLE_MESSAGE);
+    expect(msgs.map((m) => m.type)).toEqual(["mode"]);
+    expect(seen.cancelled).toBe(true);
+  });
+
+  it("treats JSON that is not a message as unreadable", async () => {
+    for (const line of ["123", "null", '"text"', '{"no":"type"}']) {
+      await expect(read(`${line}\n`)).rejects.toThrow(UNREADABLE_MESSAGE);
+    }
+  });
+
+  it("cancels the stream when the message handler throws", async () => {
+    const { stream, seen } = open(`${mode}\n`);
+    await expect(
+      readAttackStream(stream, () => {
+        throw new Error("handler failed");
+      }),
+    ).rejects.toThrow("handler failed");
+    expect(seen.cancelled).toBe(true);
   });
 });

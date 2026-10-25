@@ -16,6 +16,8 @@ type Env = Record<string, string | undefined>;
 const intFromEnv = (fallback: number) => z.coerce.number().int().min(0).default(fallback);
 const guardEnvSchema = z.object({
   RATE_LIMIT_PER_HOUR: intFromEnv(10),
+  /** Replay attacks spend no model money, only sandbox time (still bounded by MAX_CONCURRENT_ATTACKS), so judges can click through freely. */
+  REPLAY_RATE_LIMIT_PER_HOUR: intFromEnv(120),
   ATTACKS_PER_IP_PER_DAY: intFromEnv(30),
   DAILY_SPEND_CAP_USD: z.coerce.number().min(0).default(2),
   MAX_CONCURRENT_ATTACKS: z.coerce.number().int().min(1).default(4),
@@ -28,6 +30,7 @@ export function guardConfig(env: Env = process.env): GuardConfig {
   const pick = (k: keyof GuardConfig) => (env[k] === "" ? undefined : env[k]);
   const r = guardEnvSchema.safeParse({
     RATE_LIMIT_PER_HOUR: pick("RATE_LIMIT_PER_HOUR"),
+    REPLAY_RATE_LIMIT_PER_HOUR: pick("REPLAY_RATE_LIMIT_PER_HOUR"),
     ATTACKS_PER_IP_PER_DAY: pick("ATTACKS_PER_IP_PER_DAY"),
     DAILY_SPEND_CAP_USD: pick("DAILY_SPEND_CAP_USD"),
     MAX_CONCURRENT_ATTACKS: pick("MAX_CONCURRENT_ATTACKS"),
@@ -41,7 +44,8 @@ export function guardConfig(env: Env = process.env): GuardConfig {
 export const MAX_TRACKED_IPS = 10_000;
 const HOUR = 3_600_000;
 
-type Usage = { recent: number[]; day: string; today: number };
+/** `recent`/`today` count live attacks; `replay` counts replay attacks in the last hour. */
+type Usage = { recent: number[]; replay: number[]; day: string; today: number };
 
 /**
  * A concurrency slot expires after this long even if done() never runs (the
@@ -95,11 +99,12 @@ export class Guard {
    */
   admit(ip: string, now: number, live: boolean, reserveUsd = 0): GuardDecision {
     const u = this.touch(ip, now);
-    if (u.recent.length >= this.config.RATE_LIMIT_PER_HOUR) {
-      const oldest = u.recent[0] ?? now;
+    const recent = live ? u.recent : u.replay;
+    if (recent.length >= (live ? this.config.RATE_LIMIT_PER_HOUR : this.config.REPLAY_RATE_LIMIT_PER_HOUR)) {
+      const oldest = recent[0] ?? now;
       return { ok: false, status: 429, reason: "Hourly limit reached for your address.", retryAfterS: Math.ceil((HOUR - (now - oldest)) / 1000) };
     }
-    if (u.today >= this.config.ATTACKS_PER_IP_PER_DAY) {
+    if (live && u.today >= this.config.ATTACKS_PER_IP_PER_DAY) {
       return { ok: false, status: 429, reason: "Daily limit reached for your address.", retryAfterS: secondsToMidnightUtc(now) };
     }
     if (live && !this.spendAllowed(now, reserveUsd)) {
@@ -110,8 +115,8 @@ export class Guard {
     if (this.leases.size >= this.config.MAX_CONCURRENT_ATTACKS) {
       return { ok: false, status: 503, reason: "The server is busy with other attacks.", retryAfterS: 10 };
     }
-    u.recent.push(now);
-    u.today++;
+    recent.push(now);
+    if (live) u.today++;
     const ticket = this.nextTicket++;
     const reservedUsd = live ? reserveUsd : 0;
     this.spend.usd += reservedUsd;
@@ -158,9 +163,10 @@ export class Guard {
   private touch(ip: string, now: number): Usage {
     let u = this.usage.get(ip);
     if (u) this.usage.delete(ip); // re-insert below to mark as most recent
-    else u = { recent: [], day: dayOf(now), today: 0 };
+    else u = { recent: [], replay: [], day: dayOf(now), today: 0 };
     u.recent = u.recent.filter((t) => now - t < HOUR);
-    if (u.day !== dayOf(now)) u = { recent: u.recent, day: dayOf(now), today: 0 };
+    u.replay = u.replay.filter((t) => now - t < HOUR);
+    if (u.day !== dayOf(now)) u = { recent: u.recent, replay: u.replay, day: dayOf(now), today: 0 };
     this.usage.set(ip, u);
     while (this.usage.size > MAX_TRACKED_IPS) {
       const oldest = this.usage.keys().next().value;

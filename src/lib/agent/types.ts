@@ -8,13 +8,19 @@ import type { ResearchClient, ResearchFact } from "../research/tavily";
 import type { Budgets } from "./budget";
 import type { Stage, TraceEvent } from "./trace";
 
+export type Generators = "model" | "no-model" | "baseline-only";
+
 export type AttackInput = {
   problem: Problem;
   solution: Solution;
   research?: "auto" | "force" | "off";
   seed?: number;
-  /** "baseline-only" skips model-designed and mutation families (ablation for the benchmark). */
-  generators?: "model" | "baseline-only";
+  /**
+   * Benchmark ablations: "no-model" skips only the model-designed families
+   * (examples, small-scope, mutations and random still run); "baseline-only"
+   * runs just the examples and 1000 uniform random inputs.
+   */
+  generators?: Generators;
   /** Replay keys: problem-level fixtures, optionally overridden per solution. */
   replayKey?: string;
   solutionKey?: string;
@@ -108,7 +114,8 @@ export type Report = {
   families: FamilyStats[];
   counterexample?: Counterexample;
   explanation?: string;
-  fix?: { code: string; verified: boolean; attempts: number; reattackInputs: number; reattackMismatches: number };
+  /** `reattackUnjudged`: re-attack inputs the oracle could not judge (they count neither for nor against the fix). */
+  fix?: { code: string; verified: boolean; attempts: number; reattackInputs: number; reattackMismatches: number; reattackUnjudged: number };
   stats: {
     modelCalls: number;
     runs: number;

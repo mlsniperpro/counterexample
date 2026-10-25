@@ -73,15 +73,16 @@ Every fact carries its URL into the trace and the report. A generator family may
 <!-- bench:fixture:start -->
 Mode: **fixture** (replayed model responses; token counts estimated from text length, model latency simulated; execution is real). Executor: Local subprocess (dev only, not sandboxed).
 
-| Metric | Routed (Ultra + Super) | Ultra only | Ablation: no model generators (1000 uniform random inputs) |
-| --- | --- | --- | --- |
-| Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
-| False alarms (of 10 correct) | 0 | 0 | 0 |
-| Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample (wall clock, varies by about ±0.2 s run to run) | 4.8 s | 10.3 s | 2.2 s |
-| Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
-| Model cost, all 40 solutions | $0.0567 | $0.1099 | $0.0336 |
-| Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
+| Metric | Routed (Ultra + Super) | Ultra only | Ablation: no model families (examples, small-scope, mutations, random) | Ablation: examples + 1000 uniform random inputs only |
+| --- | --- | --- | --- | --- |
+| Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 30 (100%) | 27 (90%) |
+| False alarms (of 10 correct) | 0 | 0 | 0 | 0 |
+| Fixes verified by re-attack | 30 of 30 | 30 of 30 | 30 of 30 | 27 of 27 |
+| Bugs first found by a model-designed family | 6 | 6 | 0 | 0 |
+| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.2 s run to run) | 4.8 s | 10.3 s | 2.3 s | 2.3 s |
+| Model cost per solution | $0.0014 | $0.0027 | $0.0009 | $0.0008 |
+| Model cost, all 40 solutions | $0.0567 | $0.1099 | $0.0350 | $0.0336 |
+| Runs ending in error / budget / bad oracle | 0 | 0 | 0 | 0 |
 
 Load per attack (routed): 2 to 4 (median 3) model calls and 1,456 to 3,373 (median 2,319.5) sandbox runs, which is at least 31 to 71 (median 49) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
 <!-- bench:fixture:end -->
@@ -89,7 +90,7 @@ Load per attack (routed): 2 to 4 (median 3) model calls and 1,456 to 3,373 (medi
 How to read this honestly:
 
 - In fixture mode the generator families and oracles are **recorded responses we wrote**, knowing the bug classes. These numbers measure the pipeline (oracle check, generation, sandbox runs, shrinking, re-attack), not Nemotron's judgement. Token counts are estimated from text length and model latency is simulated, so time-to-first-counterexample is dominated by simulated latency (Ultra is slower per token, which is why Ultra-only is slower).
-- The ablation row is the useful one: **uniform random inputs alone already find most of these bugs**. The ones they miss are exactly the ones that need targeted inputs: the int32 midpoint overflow (only `x = 2^31 - 1`), the `x = 0 / 1` bound in integer sqrt, and crossed brackets like `([)]`.
+- The two ablation columns are the useful ones, and they say something we did not expect. **Uniform random inputs alone find 27 of 30**; they miss the int32 midpoint overflow (only `x = 2^31 - 1`), the `x = 0 / 1` bound in integer sqrt, and crossed brackets like `([)]`. **The deterministic families (small-scope, mutations) close that gap on their own: without any model-designed family, 30 of 30 are still found.** In the routed run the model's families are first to break 6 of the 30 (the "Found by family" column), but none of these 30 bugs needs them. Bugs that only show at worst-case sizes or on specific structure are the case model families exist for, and this benchmark does not yet measure it.
 
 ### Soak: hundreds of buggy programs, every claim independently checked
 
@@ -133,7 +134,7 @@ Deployment: a Vercel preview works for the UI; set the env vars above.
 ## Load and limits
 
 - **Per attack:** at most 8 model calls on the public endpoint (12 in the library), 60,000 sandbox runs and 50 s of wall clock. That works out to about 300 inputs per family, 2,000 shrink evaluations, 3 oracle attempts and 2 fix attempts. What the 40 benchmark solutions actually use is in the "Load per attack" line of the benchmark results above, written by `pnpm bench --readme`. A pasted statement adds one model call (understanding it), inside the same cap. Generated values are capped by the DSL (lengths up to 10,000; at most 200,000 values per input). The local executor caps process output at 32 MB, and a process pool sized to the CPU count bounds concurrent processes.
-- **Per server instance:** `MAX_CONCURRENT_ATTACKS` (default 4), `RATE_LIMIT_PER_HOUR` and `ATTACKS_PER_IP_PER_DAY` per IP, and `DAILY_SPEND_CAP_USD` across all live attacks. The IP table is capped at 10,000 entries. Client IPs come from forwarding headers only on Vercel (`VERCEL=1`: `x-real-ip`, which the platform sets) or behind a proxy that appends to `X-Forwarded-For` (`TRUST_PROXY_HEADERS=1`: the right-most entry only, since the client controls the rest); anywhere else those headers could be spoofed, so all clients share one bucket. The daily spend cap reserves a worst-case cost for each attack when it is admitted and settles the real cost when it ends, so concurrent attacks cannot overshoot it. Request bodies over 88 KB are refused before they are read in full. If the client disconnects, the attack stops at its next model call or sandbox run.
+- **Per server instance:** `MAX_CONCURRENT_ATTACKS` (default 4), per IP `RATE_LIMIT_PER_HOUR` (default 10) and `ATTACKS_PER_IP_PER_DAY` (default 30) for live attacks and `REPLAY_RATE_LIMIT_PER_HOUR` (default 120) for replay attacks, which cost no model money, and `DAILY_SPEND_CAP_USD` (default $2) across all live attacks. The IP table is capped at 10,000 entries. Client IPs come from forwarding headers only on Vercel (`VERCEL=1`: `x-real-ip`, which the platform sets) or behind a proxy that appends to `X-Forwarded-For` (`TRUST_PROXY_HEADERS=1`: the right-most entry only, since the client controls the rest); anywhere else those headers could be spoofed, so all clients share one bucket. The daily spend cap reserves a worst-case cost for each attack when it is admitted and settles the real cost when it ends, so concurrent attacks cannot overshoot it. Request bodies over 88 KB are refused before they are read in full. If the client disconnects, the attack stops at its next model call or sandbox run.
 - **Expected load and where it breaks first:** a hackathon demo, with tens of concurrent users at most. The first limit hit is the sandbox. Each attack sends several Judge0 submissions (the measured count is in "Load per attack" above), so a shared Judge0 instance saturates first. Judge0 limits CPU time per submission, not per input (a submission of n inputs gets n times the per-input limit, and never more inputs than fit in its 15 s cap), so a slow input is caught as a timeout of its submission, confirmed by running it alone, and the rest are resubmitted; the concurrency cap turns that into a fast 503 instead of a pile-up. Next come the guards: they live in memory, so with N serverless instances the effective limits are N times higher. A shared store (Redis or Vercel KV) is the fix, and it is the one change needed before a real launch. Token Factory cost is capped per day; Token Factory latency (not measured yet; see `BLOCKED.md`) sets the wall-clock floor.
 
 ## Layout

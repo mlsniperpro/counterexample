@@ -4,7 +4,7 @@ import { ModelOutputError } from "../errors";
 /** Parsers for model output. Shared by live and replay providers, so replay tests exercise them. */
 
 /** The first JSON object in the text: inside a ```json fence if there is one, else the outermost braces. */
-export function extractJson(text: string): unknown {
+export function extractJson(text: string, reviver?: (key: string, value: unknown, ctx?: { source?: string }) => unknown): unknown {
   const fence = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text)?.[1];
   for (const c of [fence, text]) {
     if (!c) continue;
@@ -12,7 +12,7 @@ export function extractJson(text: string): unknown {
     const end = c.lastIndexOf("}");
     if (start < 0 || end <= start) continue;
     try {
-      return JSON.parse(c.slice(start, end + 1));
+      return JSON.parse(c.slice(start, end + 1), reviver);
     } catch {
       // try the next candidate
     }

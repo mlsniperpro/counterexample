@@ -13,6 +13,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { attack } from "../src/lib/agent/run";
+import { showValue } from "../src/lib/core/compare";
 import { makeDeps, resolveMode } from "../src/lib/agent/setup";
 import { RecordingProvider, type ReplayFixtures } from "../src/lib/models/replay";
 import { getProblem } from "../src/lib/problems/catalog";
@@ -61,12 +62,14 @@ async function main(args: string[]) {
         timeLimitMs: problem.timeLimitMs,
         inputs: r.stats.inputsTested,
         minimal: r.counterexample?.args,
+        foundBy: r.counterexample?.original.family,
+        foundByModel: r.counterexample ? r.families.find((f) => f.name === r.counterexample?.original.family)?.source === "model" : undefined,
         fixVerified: r.fix?.verified,
         wallMs: r.stats.wallMs,
         message: r.message,
       });
       const ok = s.buggy ? r.verdict === "counterexample" : r.verdict === "no_counterexample";
-      const tag = ok ? "ok  " : config.id === "random-only" ? "miss" : "MISS";
+      const tag = ok ? "ok  " : config.id === "random-only" || config.id === "no-model" ? "miss" : "MISS";
       console.log(`${tag} ${config.id.padEnd(11)} ${s.key.padEnd(36)} ${r.verdict.padEnd(18)} ${r.counterexample ? JSON.stringify(r.counterexample.args).slice(0, 50) : ""}`);
     }
   }
@@ -76,7 +79,7 @@ async function main(args: string[]) {
     const outDir = join(ROOT, "bench/results");
     mkdirSync(outDir, { recursive: true });
     const summary = CONFIGS.map((c) => summarise(rows, c.id));
-    writeFileSync(join(outDir, `${label}.json`), JSON.stringify({ mode: label, executor: executorLabel, summary, rows }, null, 2) + "\n");
+    writeFileSync(join(outDir, `${label}.json`), showValue({ mode: label, executor: executorLabel, summary, rows }, 2) + "\n");
     writeFileSync(join(outDir, `${label}.md`), md);
     if (args.includes("--readme")) {
       const readmePath = join(ROOT, "README.md");

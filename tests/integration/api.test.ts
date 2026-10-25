@@ -8,6 +8,7 @@ beforeEach(() => {
   // Always replay here, even if a key happens to be set in the environment.
   process.env.REPLAY = "1";
   delete process.env.RATE_LIMIT_PER_HOUR;
+  delete process.env.REPLAY_RATE_LIMIT_PER_HOUR;
   delete process.env.MAX_CONCURRENT_ATTACKS;
   resetGuardForTests();
 });
@@ -94,8 +95,8 @@ describe("POST /api/attack (replay mode)", () => {
     }
   });
 
-  it("rate-limits per IP with 429 and Retry-After", async () => {
-    process.env.RATE_LIMIT_PER_HOUR = "1";
+  it("rate-limits per IP with 429 and Retry-After (the replay limit, in replay mode)", async () => {
+    process.env.REPLAY_RATE_LIMIT_PER_HOUR = "1";
     process.env.VERCEL = "1"; // forwarding headers are only trusted behind a proxy that sets them
     resetGuardForTests();
     const first = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "9.9.9.9" });

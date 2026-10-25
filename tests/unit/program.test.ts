@@ -110,7 +110,7 @@ describe("runWithRestarts with a time limit shared by the chunk (Judge0)", () =>
 
   it("does not blame an innocent input when slow but legal earlier inputs used up the chunk's budget", async () => {
     const f = sharedBudget([4, 4, 4, 1], 10);
-    const r = await runWithRestarts([[0], [1], [2], [3]], f.runChunk, Infinity, true);
+    const r = await runWithRestarts([[0], [1], [2], [3]], f.runChunk, Infinity, 1000);
     expect(r.outcomes).toEqual([0, 1, 2, 3].map((i) => ({ ok: true, out: i, ms: 0 })));
     expect(f.chunks).toEqual([[0, 1, 2, 3], [2], [3]]);
     expect(r.processes).toBe(3);
@@ -118,7 +118,7 @@ describe("runWithRestarts with a time limit shared by the chunk (Judge0)", () =>
 
   it("still blames an input that times out on its own", async () => {
     const f = sharedBudget([1, 50, 1], 10);
-    const r = await runWithRestarts([[0], [1], [2]], f.runChunk, Infinity, true);
+    const r = await runWithRestarts([[0], [1], [2]], f.runChunk, Infinity, 1000);
     expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([0, "timeout", 2]);
     expect(f.chunks).toEqual([[0, 1, 2], [1], [2]]);
   });
@@ -157,5 +157,42 @@ describe("Judge0 chunk size", () => {
         if (n > 1) expect((n * limit) / 1000 + 0.5).toBeLessThanOrEqual(15);
       }),
     );
+  });
+});
+
+describe("runWithRestarts enforces the per-input limit when the chunk finished (Judge0)", () => {
+  /** Each input reports a measured time; `soloMs` overrides it when the input runs alone. */
+  const timed = (ms: number[], soloMs: Record<number, number> = {}) => {
+    const chunks: number[][] = [];
+    const runChunk = async (chunk: unknown[][]): Promise<ChunkResult> => {
+      const ids = (chunk as number[][]).map(([i]) => i!);
+      chunks.push(ids);
+      return { lines: ids.map((i) => ({ ok: true as const, out: i, ms: ids.length === 1 ? (soloMs[i] ?? ms[i]!) : ms[i]! })), end: "ok", message: "" };
+    };
+    return { runChunk, chunks };
+  };
+
+  it("reports an input over its own limit as a timeout once it is over the limit alone too", async () => {
+    const f = timed([10, 1500, 10]);
+    const r = await runWithRestarts([[0], [1], [2]], f.runChunk, Infinity, 300);
+    expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([0, "timeout", 2]);
+    expect(f.chunks).toEqual([[0, 1, 2], [1]]);
+  });
+
+  it("keeps the input's result when it is within the limit alone (a slow moment, not a slow solution)", async () => {
+    const f = timed([10, 1500, 10], { 1: 40 });
+    const r = await runWithRestarts([[0], [1], [2]], f.runChunk, Infinity, 300);
+    expect(r.outcomes).toEqual([
+      { ok: true, out: 0, ms: 10 },
+      { ok: true, out: 1, ms: 40 },
+      { ok: true, out: 2, ms: 10 },
+    ]);
+  });
+
+  it("does not re-run a lone input that is over the limit", async () => {
+    const f = timed([900]);
+    const r = await runWithRestarts([[0]], f.runChunk, Infinity, 300);
+    expect(r.outcomes[0]).toMatchObject({ ok: false, error: "timeout" });
+    expect(f.chunks).toHaveLength(1);
   });
 });

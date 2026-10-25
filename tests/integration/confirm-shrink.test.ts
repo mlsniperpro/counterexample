@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { attack } from "@/lib/agent/run";
+import { createContext } from "@/lib/agent/context";
 import { makeDeps } from "@/lib/agent/setup";
+import { CONFIRM_HITS, confirmHits } from "@/lib/agent/stages";
 import type { TraceEvent } from "@/lib/agent/trace";
 import { FIXTURES } from "@/fixtures/replay";
 import type { Executor, RunRequest } from "@/lib/exec/types";
@@ -99,5 +101,74 @@ describe("oracle answers without code", () => {
     const r = await attack({ problem: bs.problem, solution: bs.demo, research: "off" }, deps(fx));
     expect(r.verdict).toBe("oracle_unreliable");
     expect(r.counterexample).toBeUndefined();
+  });
+});
+
+describe("benchmark ablations", () => {
+  it("no-model keeps every family except the model-designed ones, and makes no generator call", async () => {
+    const r = await attack({ problem: coins.problem, solution: coins.demo, research: "off", generators: "no-model" }, deps());
+    const sources = new Set(r.families.map((f) => f.source));
+    expect(sources).toEqual(new Set(["examples", "exhaustive", "mutation", "baseline"]));
+    expect(r.stages.some((c) => c.purpose === "generators")).toBe(false);
+  });
+
+  it("baseline-only runs just the examples and random inputs", async () => {
+    const r = await attack({ problem: coins.problem, solution: coins.demo, research: "off", generators: "baseline-only" }, deps());
+    expect(new Set(r.families.map((f) => f.source))).toEqual(new Set(["examples", "baseline"]));
+  });
+});
+
+describe("confirming hits", () => {
+  it("keeps re-checking past a batch of flaky hits until a real one reproduces, and counts every dropped hit", async () => {
+    const solution = { language: "python" as const, code: "def solve(x):\n    return -1 if x == 12345 else x\n", entry: "solve" };
+    const executor: Executor = {
+      name: "fake",
+      label: "fake",
+      async run(req: RunRequest) {
+        const outcomes = req.inputs.map(([x]) => {
+          const n = x as number;
+          // The oracle is the identity; the solution is wrong only at 12345.
+          return { ok: true as const, out: req.code === solution.code && n === 12345 ? -1 : n, ms: 0 };
+        });
+        return { outcomes, wallMs: 0, processes: 1 };
+      },
+    };
+    const problem = { ...bs.problem, params: [{ name: "x", type: { kind: "int" as const, min: 0, max: 100_000 } }], examples: [] };
+    const events: TraceEvent[] = [];
+    const ctx = createContext({ problem, solution, research: "off" }, { ...deps(), executor, onEvent: (e) => events.push(e) });
+    ctx.judge.oracleCode = "def solve(x):\n    return x\n";
+    // Sightings from an overloaded sandbox: 1 to 5 timed out spuriously (they pass on a re-run), 12345 is a real bug.
+    const found = [1, 2, 3, 4, 5, 12345].map((x) => ({ args: [x], family: "f", confirmed: false, j: { status: "mismatch" as const, expected: x, got: "timeout" } }));
+    const kept = await confirmHits(ctx, found);
+    expect(kept.map((h) => h.args)).toEqual([[12345]]);
+    expect(kept[0]?.confirmed).toBe(true);
+    expect(events.some((e) => e.kind === "warn" && /^5 mismatch\(es\) did not reproduce/.test(e.msg))).toBe(true);
+  });
+
+  it("does not call a fix verified when the oracle could judge none of the re-attack", async () => {
+    const d = deps();
+    // Only the re-attack sends a batch this large: there every program times out, so nothing can be judged.
+    const executor: Executor = {
+      name: d.executor.name,
+      label: d.executor.label,
+      async run(req: RunRequest) {
+        if (req.inputs.length <= 100) return d.executor.run(req);
+        return { outcomes: req.inputs.map(() => ({ ok: false as const, error: "timeout" as const, message: "time limit exceeded" })), wallMs: 0, processes: 1 };
+      },
+    };
+    const r = await attack({ problem: coins.problem, solution: coins.demo, research: "off" }, { ...d, executor });
+    expect(r.verdict).toBe("counterexample");
+    expect(r.fix?.verified).toBe(false);
+    expect(r.fix?.reattackUnjudged).toBe(r.fix?.reattackInputs);
+    expect(r.trace.some((e) => /could not judge the counterexample itself, so it is not verified/.test(e.msg))).toBe(true);
+  });
+
+  it("reserves only what shrinking needs, so a tight run budget still covers a full attack", async () => {
+    const full = await attack({ problem: bs.problem, solution: correct, research: "off" }, deps());
+    expect(full.verdict).toBe("no_counterexample");
+    const shrinkReserve = 2 * (2_000 + CONFIRM_HITS + 1);
+    const r = await attack({ problem: bs.problem, solution: correct, research: "off" }, { ...deps(), budgets: { maxRuns: full.stats.runs + shrinkReserve } });
+    expect(r.verdict).toBe("no_counterexample");
+    expect(r.stats.inputsTested).toBe(full.stats.inputsTested);
   });
 });

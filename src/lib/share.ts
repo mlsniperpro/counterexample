@@ -71,7 +71,7 @@ const sharedReportSchema: z.ZodType<SharedReport> = z.object({
     })
     .optional(),
   explanation: str(CAP.explanation).optional(),
-  fix: z.object({ code: str(20_000), verified: z.boolean(), attempts: count, reattackInputs: count, reattackMismatches: count }).optional(),
+  fix: z.object({ code: str(20_000), verified: z.boolean(), attempts: count, reattackInputs: count, reattackMismatches: count, reattackUnjudged: count.default(0) }).optional(),
   stats: z.object({
     modelCalls: count,
     runs: count,

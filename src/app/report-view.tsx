@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { showValue } from "@/lib/core/compare";
 import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
-import { fmtArgs, ms, usd, VERDICT } from "./format";
+import { copyNote } from "./clipboard";
+import { fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
 
 type Props = {
   r: SharedReport;
-  onCopy: () => void;
+  /** Writes the report to the clipboard; a rejection is shown as a note, not thrown. */
+  onCopy: () => Promise<void> | void;
   /** Absent for a report opened from a link. */
   onShare?: () => void;
   shareNote?: string;
@@ -16,6 +18,8 @@ type Props = {
 };
 
 export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }: Props) {
+  const [copied, setCopied] = useState("");
+  const copy = async () => setCopied(await copyNote(onCopy));
   return (
     <section className="card result">
       <div className="row between">
@@ -26,7 +30,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
               Share link
             </button>
           )}
-          <button className="ghost" onClick={onCopy}>
+          <button className="ghost" onClick={copy}>
             Copy report
           </button>
         </div>
@@ -34,6 +38,11 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       {shareNote && (
         <p className="small muted" role="status">
           {shareNote}
+        </p>
+      )}
+      {copied && (
+        <p className="small muted" role="status">
+          {copied}
         </p>
       )}
       {shareLink && <input className="share-link" readOnly value={shareLink} aria-label="Shareable report link" onFocus={(e) => e.currentTarget.select()} />}
@@ -71,7 +80,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
           <div className="label">
             Proposed fix ·{" "}
             <span className={r.fix.verified ? "good" : "bad"}>
-              {r.fix.verified ? `re-attacked on ${r.fix.reattackInputs} inputs: 0 failures` : `still fails on ${r.fix.reattackMismatches} of ${r.fix.reattackInputs} inputs`}
+              {fixSummary(r.fix)}
             </span>
           </div>
           <FixView before={r.solution.code} after={r.fix.code} />
@@ -198,7 +207,9 @@ function FixView({ before, after }: { before: string; after: string }) {
             Show changes only
           </button>
         )}
-        <pre className="code-out">{after}</pre>
+        <pre className="code-out" tabIndex={0} role="region" aria-label="Proposed fix">
+          {after}
+        </pre>
       </>
     );
   }
@@ -212,7 +223,7 @@ function FixView({ before, after }: { before: string; after: string }) {
           Show full fix
         </button>
       </div>
-      <pre className="code-out diff" aria-label="Diff of the proposed fix against your code">
+      <pre className="code-out diff" tabIndex={0} role="region" aria-label="Diff of the proposed fix against your code">
         {diff.map((l, i) => (
           <div key={i} className={`dl ${l.op}`}>
             <span className="sign" aria-hidden="true">

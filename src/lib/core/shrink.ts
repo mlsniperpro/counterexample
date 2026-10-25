@@ -43,7 +43,6 @@ function intCandidates(x: number): number[] {
   // x - x/2, x - x/4, ..., x - 1: a binary search towards the smallest failing magnitude.
   for (let d = Math.trunc(x / 2); d !== 0; d = Math.trunc(d / 2)) out.push(x - d);
   out.push(x - Math.sign(x));
-  if (x < 0) out.push(-x);
   return [...new Set(out)].filter((y) => y !== x);
 }
 

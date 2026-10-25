@@ -101,7 +101,7 @@ export class Judge0Executor implements Executor {
       req.inputs,
       (chunk) => this.submit(source, req, chunk),
       chunkLimit(this.cfg.chunkSize, req.timeLimitMs),
-      true,
+      req.timeLimitMs,
     );
     return { outcomes, processes, wallMs: Date.now() - t0 };
   }

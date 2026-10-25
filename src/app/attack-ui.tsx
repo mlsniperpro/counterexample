@@ -1,15 +1,16 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { TraceEvent } from "@/lib/agent/trace";
+import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
 import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared, type SharedReport } from "@/lib/share";
-import { fmtArgs, ms, toMarkdown, VERDICT, type ReportNoTrace } from "./format";
+import { fmtArgs, ms, toMarkdown } from "./format";
 import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
 import { buildAttackBody } from "./request";
+import { CANCELLED, CLIENT_TIMEOUT_MS, initialRun, runReducer, TIMED_OUT, type RunOutcome } from "./run-state";
 import { saveFile } from "./save-file";
-import { CUT_MESSAGE, readAttackStream } from "./stream";
+import { readAttackStream } from "./stream";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
@@ -19,11 +20,6 @@ const MODE_LABEL = {
   replay: "Replay mode: recorded model responses, real execution",
   unknown: "Server mode unknown (status check failed)",
 } as const;
-/** Client-side cap on one attack: the server's own deadline is 50 s and its maxDuration 60 s. */
-const CLIENT_TIMEOUT_MS = 75_000;
-/** Abort reasons, so the catch can tell a cancel or a timeout from a superseded run. */
-const CANCELLED = "cancelled";
-const TIMED_OUT = "timed out";
 
 export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const first = problems[0];
@@ -42,7 +38,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
   const [shared, setShared] = useState<SharedReport | null>(null);
-  const [error, setError] = useState("");
+  /** Why a share link could not be opened; shown at the top, where the shared report would be. */
+  const [shareError, setShareError] = useState("");
   const [shareNote, setShareNote] = useState("");
   const [shareLink, setShareLink] = useState("");
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
@@ -54,23 +51,22 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       decodeReport(hash)
         .then((r) => {
           setShared(r);
-          setError("");
+          setShareError("");
         })
-        .catch((e: Error) => setError(`Could not open the shared report: ${e.message}`));
+        .catch((e: Error) => {
+          setShared(null);
+          setShareError(`Could not open the shared report: ${e.message}`);
+        });
     };
     open();
     window.addEventListener("hashchange", open);
     return () => window.removeEventListener("hashchange", open);
   }, []);
-  const [events, setEvents] = useState<TraceEvent[]>([]);
-  const [report, setReport] = useState<ReportNoTrace | null>(null);
-  const [executor, setExecutor] = useState("");
-  const [running, setRunning] = useState(false);
-  /** Text for the always-mounted live region: the verdict when a run ends, or why it stopped. */
-  const [status, setStatus] = useState("");
+  const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
   const abort = useRef<AbortController | null>(null);
+  const lastRun = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
-  const traceEnd = useRef<HTMLOListElement | null>(null);
+  const traceEnd = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = traceEnd.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -81,16 +77,21 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     if (isShareFragment(window.location.hash)) window.history.replaceState(null, "", window.location.pathname);
   }
 
-  /** Stop the in-flight run, if any; its stream stops updating the page at once. */
-  function stopRun(reason?: string) {
+  /** Abort the in-flight request, if any. The reducer has already disowned the run, so it cannot touch the page. */
+  function abortRun(reason?: string) {
     const ac = abort.current;
     abort.current = null;
     ac?.abort(reason);
-    setRunning(false);
+  }
+
+  function cancel() {
+    dispatch({ type: "cancel" });
+    abortRun(CANCELLED);
   }
 
   function pick(id: string) {
-    stopRun();
+    dispatch({ type: "reset" });
+    abortRun();
     clearShareHash();
     setPid(id);
     const p = problems.find((x) => x.id === id);
@@ -100,29 +101,21 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     } else {
       setCode("");
     }
-    setEvents([]);
-    setReport(null);
-    setExecutor("");
-    setError("");
-    setStatus("");
   }
 
   async function run() {
-    abort.current?.abort();
+    abortRun();
     const ac = new AbortController();
     abort.current = ac;
-    // Only the run that owns the current controller may touch the page.
-    const live = () => abort.current === ac;
+    const runId = ++lastRun.current;
     const timer = setTimeout(() => ac.abort(TIMED_OUT), CLIENT_TIMEOUT_MS);
-    setRunning(true);
-    setEvents([]);
-    setReport(null);
+    dispatch({ type: "start", runId });
     setShareNote("");
     setShareLink("");
-    setError("");
-    setStatus("");
     setShared(null);
+    setShareError("");
     clearShareHash();
+    let outcome: RunOutcome;
     try {
       const res = await fetch("/api/attack", {
         method: "POST",
@@ -134,32 +127,19 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         const j = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(j.error ?? res.statusText);
       }
-      const end = await readAttackStream(res.body, (msg) => {
-        if (!live()) return;
-        if (msg.type === "event") setEvents((xs) => [...xs, msg.event]);
-        else if (msg.type === "report") {
-          setReport(msg.report);
-          setStatus(`${VERDICT[msg.report.verdict]}. ${msg.report.message}`);
-        } else if (msg.type === "mode") setExecutor(msg.executor);
-        else if (msg.type === "error") setError(msg.error);
-      });
-      if (live() && !end.complete) setError(CUT_MESSAGE);
+      outcome = await readAttackStream(res.body, (msg) => dispatch({ type: "msg", runId, msg }));
     } catch (e) {
-      if (live()) {
-        const reason: unknown = ac.signal.aborted ? ac.signal.reason : undefined;
-        if (reason === TIMED_OUT) setError(`The attack took longer than ${CLIENT_TIMEOUT_MS / 1000} s, so it was stopped; the partial trace is shown.`);
-        else setError((e as Error).message);
-      } else if (ac.signal.reason === CANCELLED) setStatus("Attack cancelled; the partial trace is shown.");
+      outcome = { thrown: e, abortReason: ac.signal.aborted ? ac.signal.reason : undefined };
     } finally {
       clearTimeout(timer);
-      if (live()) {
-        abort.current = null;
-        setRunning(false);
-      }
+      // Whatever ended the run (a bad line, an error), the request goes too, so the server frees its slot.
+      ac.abort();
+      if (abort.current === ac) abort.current = null;
     }
+    dispatch({ type: "finish", runId, outcome });
   }
 
-  const jsonl = useMemo(() => events.map((e) => JSON.stringify(e)).join("\n") + "\n", [events]);
+  const jsonl = useMemo(() => events.map((e) => showValue(e)).join("\n") + "\n", [events]);
   const download = () => saveFile(`trace-${pid}.jsonl`, jsonl, "application/jsonl");
   const copyReport = async () => {
     if (report) await navigator.clipboard.writeText(toMarkdown(report));
@@ -170,7 +150,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     if (!enc.ok) {
       setShareLink("");
       // Same content a link would carry (no trace, no oracle code), as a file instead.
-      saveFile(`report-${report.problem.id}.json`, JSON.stringify(toShared(report), null, 2), "application/json");
+      saveFile(`report-${report.problem.id}.json`, showValue(toShared(report), 2), "application/json");
       setShareNote(
         enc.reason === "too_large"
           ? `This report is too large for a link (${enc.length.toLocaleString()} characters), so it was downloaded as JSON instead.`
@@ -190,7 +170,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   };
   const closeShared = () => {
     setShared(null);
-    setError("");
+    setShareError("");
     clearShareHash();
   };
 
@@ -210,6 +190,12 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           {executor && <span className="badge">{executor}</span>}
         </div>
       </header>
+
+      {shareError && (
+        <p className="err share-err" role="alert">
+          {shareError}
+        </p>
+      )}
 
       {shared && (
         <div className="shared">
@@ -280,7 +266,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             {running ? "Attacking…" : "Attack this solution"}
           </button>
           {running && (
-            <button className="ghost cancel" onClick={() => stopRun(CANCELLED)}>
+            <button className="ghost cancel" onClick={cancel}>
               Cancel
             </button>
           )}
@@ -290,6 +276,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             {error}
           </p>
         )}
+        {note && <p className="small muted note">{note}</p>}
         <p className="sr-only" role="status" aria-live="polite">
           {status}
         </p>
@@ -304,28 +291,31 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
                 trace.jsonl
               </button>
             </div>
-            <ol ref={traceEnd}>
-              {events.map((e) => (
-                <li key={e.seq} className={`ev ${e.kind}`}>
-                  <span className="t">{ms(e.t)}</span>
-                  <span className="st">{e.stage}</span>
-                  <span className="msg">{e.msg}</span>
-                  {e.kind === "model_call" && e.data && <span className="why">{String(e.data.why)}</span>}
-                  {e.kind === "research" && Array.isArray(e.data?.facts) && (
-                    <ul className="facts">
-                      {(e.data.facts as { fact: string; url: string }[]).map((f, i) => (
-                        <li key={i}>
-                          {f.fact}{" "}
-                          <a href={f.url} target="_blank" rel="noreferrer">
-                            source
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ol>
+            {/* The scroller is the wrapper, not the list: a region role on the <ol> would orphan its items. */}
+            <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events">
+              <ol>
+                {events.map((e) => (
+                  <li key={e.seq} className={`ev ${e.kind}`}>
+                    <span className="t">{ms(e.t)}</span>
+                    <span className="st">{e.stage}</span>
+                    <span className="msg">{e.msg}</span>
+                    {e.kind === "model_call" && e.data && <span className="why">{String(e.data.why)}</span>}
+                    {e.kind === "research" && Array.isArray(e.data?.facts) && (
+                      <ul className="facts">
+                        {(e.data.facts as { fact: string; url: string }[]).map((f, i) => (
+                          <li key={i}>
+                            {f.fact}{" "}
+                            <a href={f.url} target="_blank" rel="noreferrer">
+                              source
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
           </section>
 
           {report && <ReportView r={report} onCopy={copyReport} onShare={shareReport} shareNote={shareNote} shareLink={shareLink} />}

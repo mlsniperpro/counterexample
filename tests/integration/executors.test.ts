@@ -4,6 +4,7 @@ import { Judge0Executor } from "@/lib/exec/judge0";
 import { errorSummary, LocalExecutor } from "@/lib/exec/local";
 import { buildProgram, parseLines, runWithRestarts } from "@/lib/exec/program";
 import type { RunRequest } from "@/lib/exec/types";
+import { outputsEqual, showValue } from "@/lib/core/compare";
 
 const local = new LocalExecutor();
 const base = { entry: "solve", timeLimitMs: 400, memoryLimitMb: 256 } as const;
@@ -18,6 +19,24 @@ describe("LocalExecutor (dev only)", () => {
   it("runs JavaScript and keeps console.log out of the results", async () => {
     const r = await local.run({ ...base, language: "javascript", code: "function solve(s) { console.log('x'); return s.split('').reverse().join(''); }", inputs: [["abc"], [""]] });
     expect(r.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual(["cba", ""]);
+  });
+
+  it("writes JavaScript BigInt results as exact integers, and compares them by their digits", async () => {
+    const code = "function solve(x) { return x === 1 ? 2n ** 70n : [x, -(2n ** 64n), { a: 5n }]; }";
+    const r = await local.run({ ...base, language: "javascript", code, inputs: [[1], [3]] });
+    const [a, b] = r.outcomes;
+    expect(a?.ok && b?.ok).toBe(true);
+    if (!a?.ok || !b?.ok) return;
+    expect(showValue(a.out)).toBe("1180591620717411303424");
+    expect(showValue(b.out)).toBe('[3,-18446744073709551616,{"a":5}]');
+    const py = await local.run({ ...base, language: "python", code: "def solve(x):\n    return 2 ** 70 if x == 1 else [x, -(2 ** 64), {'a': 5}]\n", inputs: [[1], [3]] });
+    expect(py.outcomes.every((o, i) => o.ok && outputsEqual(o.out, (r.outcomes[i] as { out: unknown }).out))).toBe(true);
+  });
+
+  it("times JavaScript inputs with perf_hooks, which Judge0 CE's default Node 12 has (it has no global performance)", () => {
+    const js = buildProgram("javascript", "function solve(x) { return x; }", "solve");
+    expect(js).toContain('require("perf_hooks").performance');
+    expect(js).not.toMatch(/[^.]performance\.now\(/);
   });
 
   it("reports runtime errors per input", async () => {

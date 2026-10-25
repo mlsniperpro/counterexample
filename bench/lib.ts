@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIXTURES } from "../src/fixtures/replay";
-import type { Verdict } from "../src/lib/agent/types";
+import type { Generators, Verdict } from "../src/lib/agent/types";
 import { RUN_CHUNK } from "../src/lib/agent/stages";
 import { chunkLimit, JUDGE0_INPUTS_PER_SUBMISSION } from "../src/lib/exec/judge0";
 import type { Language } from "../src/lib/exec/types";
@@ -43,13 +43,14 @@ export function benchFixtures(subjects: Subject[]): ReplayFixtures {
   return fx;
 }
 
-export type ConfigId = "routed" | "ultra-only" | "random-only";
-export type Config = { id: ConfigId; routing: Routing; generators: "model" | "baseline-only"; title: string };
+export type ConfigId = "routed" | "ultra-only" | "no-model" | "random-only";
+export type Config = { id: ConfigId; routing: Routing; generators: Generators; title: string };
 
 export const CONFIGS: Config[] = [
   { id: "routed", routing: "routed", generators: "model", title: "Routed (Ultra + Super)" },
   { id: "ultra-only", routing: "ultra-only", generators: "model", title: "Ultra only" },
-  { id: "random-only", routing: "routed", generators: "baseline-only", title: "Ablation: no model generators (1000 uniform random inputs)" },
+  { id: "no-model", routing: "routed", generators: "no-model", title: "Ablation: no model families (examples, small-scope, mutations, random)" },
+  { id: "random-only", routing: "routed", generators: "baseline-only", title: "Ablation: examples + 1000 uniform random inputs only" },
 ];
 
 export type Row = {
@@ -67,6 +68,10 @@ export type Row = {
   timeLimitMs: number;
   inputs: number;
   minimal?: unknown[];
+  /** The family whose input first broke the solution (before shrinking). */
+  foundBy?: string;
+  /** Whether that family was designed by the model (vs examples, small-scope, mutations or random). */
+  foundByModel?: boolean;
   fixVerified?: boolean;
   wallMs: number;
   message: string;
@@ -94,6 +99,7 @@ export function summarise(rows: Row[], config: ConfigId) {
     correct: correct.length,
     falseAlarms: correct.filter((x) => x.verdict === "counterexample").length,
     fixesVerified: found.filter((x) => x.fixVerified).length,
+    foundByModel: found.filter((x) => x.foundByModel).length,
     medianTtfcMs: median(found.flatMap((x) => (x.ttfcMs === null ? [] : [x.ttfcMs]))),
     totalCostUsd: total,
     costPerSolutionUsd: r.length ? total / r.length : 0,
@@ -119,7 +125,11 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     row(`Bugs found (of ${head?.buggy ?? 0} buggy)`, (x) => `${x.found} (${pct(x.found, x.buggy)})`),
     row(`False alarms (of ${head?.correct ?? 0} correct)`, (x) => `${x.falseAlarms}`),
     row("Fixes verified by re-attack", (x) => `${x.fixesVerified} of ${x.found}`),
-    row("Median time to first counterexample (wall clock, varies by about ±0.2 s run to run)", (x) => sec(x.medianTtfcMs)),
+    row("Bugs first found by a model-designed family", (x) => `${x.foundByModel}`),
+    row(
+      mode === "fixture" ? "Median time to first counterexample (execution plus simulated model latency; varies by about ±0.2 s run to run)" : "Median time to first counterexample (wall clock)",
+      (x) => sec(x.medianTtfcMs),
+    ),
     row("Model cost per solution", (x) => usd(x.costPerSolutionUsd)),
     row(`Model cost, all ${n} solutions`, (x) => usd(x.totalCostUsd)),
     ...(s.some((x) => x.unpricedCalls > 0) ? [row("Unpriced model calls (not in cost)", (x) => `${x.unpricedCalls}`)] : []),
@@ -127,11 +137,11 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     "",
     loadLine(rows.filter((x) => x.config === "routed")),
     "",
-    "| Solution | Expected | Verdict (routed) | Minimal counterexample | Fix verified |",
-    "| --- | --- | --- | --- | --- |",
+    "| Solution | Expected | Verdict (routed) | Found by family | Minimal counterexample | Fix verified |",
+    "| --- | --- | --- | --- | --- | --- |",
     ...rows
       .filter((x) => x.config === "routed")
-      .map((x) => `| \`${x.key}\` | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
+      .map((x) => `| \`${x.key}\` | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.foundBy ? `${x.foundBy}${x.foundByModel ? " (model)" : ""}` : ""} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
   ];
   return lines.join("\n") + "\n";
 }

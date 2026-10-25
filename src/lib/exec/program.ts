@@ -64,14 +64,18 @@ __cx_main()
   console.log = __err; console.info = __err; console.warn = __err; console.debug = __err;
   const __data = JSON.parse(require("fs").readFileSync(0, "utf8"));
   const __f = ${entry};
-  const __finite = (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
+  // perf_hooks, not the global: Judge0 CE's default JavaScript is Node 12, which has no global performance.
+  const __perf = require("perf_hooks").performance;
+  // A BigInt is written as its plain digits (JSON has no BigInt; the parser keeps big integers exact).
+  const __finite = (k, v) => (typeof v === "bigint" ? "\\u0000BIG" + v.toString() : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
+  const __digits = (s) => s.replace(/"\\\\u0000BIG(-?\\d+)"/g, "$1");
   __write("\\x1eCR\\n");
   for (const __args of __data.inputs) {
-    const __t0 = performance.now();
+    const __t0 = __perf.now();
     let __line;
     try {
       const __r = __f(...__args);
-      __line = JSON.stringify({ ok: true, out: __r === undefined ? null : __r, ms: performance.now() - __t0 }, __finite);
+      __line = __digits(JSON.stringify({ ok: true, out: __r === undefined ? null : __r, ms: __perf.now() - __t0 }, __finite));
     } catch (__e) {
       __line = JSON.stringify({ ok: false, error: "runtime", message: String(__e && __e.stack ? String(__e).slice(0, 200) : __e).slice(0, 200) });
     }
@@ -113,18 +117,21 @@ export function parseLines(stdout: string): RunOutcome[] {
  * Run all inputs through repeated chunk invocations. When a process times out
  * or crashes mid-chunk, the input right after the last reported line is
  * blamed and the run restarts after it, so one bad input never loses the rest.
- * With `sharedTimeLimit` (an executor whose time limit covers the whole chunk,
- * like Judge0), a timeout in a multi-input chunk is only blamed on that input
- * after it also times out alone: the shared budget can run out on slow but
- * legal runs of earlier inputs, and blaming an innocent input would turn a
- * correct solution into a false alarm.
+ * With `perInputLimitMs` (an executor whose time limit covers the whole chunk,
+ * like Judge0), two more rules apply. A timeout in a multi-input chunk is
+ * only blamed on that input after it also times out alone: the shared budget
+ * can run out on slow but legal runs of earlier inputs, and blaming an
+ * innocent input would turn a correct solution into a false alarm. And an
+ * input whose own measured time is over the limit, though the chunk as a whole
+ * finished in time, is a timeout too, once it is over the limit alone as well.
  */
 export async function runWithRestarts(
   inputs: unknown[][],
   runChunk: (chunk: unknown[][]) => Promise<ChunkResult>,
   maxChunk = Infinity,
-  sharedTimeLimit = false,
+  perInputLimitMs?: number,
 ): Promise<{ outcomes: RunOutcome[]; processes: number }> {
+  const sharedTimeLimit = perInputLimitMs !== undefined;
   const outcomes: RunOutcome[] = [];
   let processes = 0;
   while (outcomes.length < inputs.length) {
@@ -136,7 +143,9 @@ export async function runWithRestarts(
       while (outcomes.length < inputs.length) outcomes.push({ ok: false, error: "compile", message: res.message });
       break;
     }
-    outcomes.push(...res.lines.slice(0, chunk.length));
+    for (const [i, line] of res.lines.slice(0, chunk.length).entries()) {
+      outcomes.push(sharedTimeLimit && line.ok && line.ms > perInputLimitMs ? await confirmSlow(chunk[i] as unknown[], chunk.length, line) : line);
+    }
     if (res.lines.length >= chunk.length) continue;
     let end = res.end;
     let message = res.message;
@@ -163,4 +172,18 @@ export async function runWithRestarts(
     }
   }
   return { outcomes, processes };
+
+  /** An input over its own limit inside a chunk that finished: re-run it alone (unless it was alone) before calling it a timeout. */
+  async function confirmSlow(args: unknown[], chunkLength: number, line: RunOutcome): Promise<RunOutcome> {
+    let again = line;
+    if (chunkLength > 1) {
+      const solo = await runChunk([args]);
+      processes++;
+      again = solo.lines[0] ?? { ok: false, error: solo.end === "timeout" ? "timeout" : "runtime", message: solo.message || solo.end };
+    }
+    if (again.ok && again.ms > (perInputLimitMs ?? Infinity)) {
+      return { ok: false, error: "timeout", message: `time limit ${perInputLimitMs}ms exceeded (took ${Math.round(again.ms)}ms)` };
+    }
+    return again;
+  }
 }

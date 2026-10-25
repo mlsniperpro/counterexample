@@ -10,7 +10,7 @@ const cfg = (over: Partial<ReturnType<typeof guardConfig>> = {}) => ({ ...guardC
 
 describe("guard config", () => {
   it("has defaults and validates env", () => {
-    expect(guardConfig({})).toEqual({ RATE_LIMIT_PER_HOUR: 10, ATTACKS_PER_IP_PER_DAY: 30, DAILY_SPEND_CAP_USD: 2, MAX_CONCURRENT_ATTACKS: 4, UNPRICED_CALL_USD: 0.05 });
+    expect(guardConfig({})).toEqual({ RATE_LIMIT_PER_HOUR: 10, REPLAY_RATE_LIMIT_PER_HOUR: 120, ATTACKS_PER_IP_PER_DAY: 30, DAILY_SPEND_CAP_USD: 2, MAX_CONCURRENT_ATTACKS: 4, UNPRICED_CALL_USD: 0.05 });
     expect(guardConfig({ RATE_LIMIT_PER_HOUR: "3", DAILY_SPEND_CAP_USD: "0.5", MAX_CONCURRENT_ATTACKS: "" }).RATE_LIMIT_PER_HOUR).toBe(3);
     expect(() => guardConfig({ RATE_LIMIT_PER_HOUR: "lots" })).toThrow(ConfigError);
     expect(() => guardConfig({ MAX_CONCURRENT_ATTACKS: "0" })).toThrow(ConfigError);
@@ -27,23 +27,33 @@ function once(g: Guard, ip: string, now: number, live = false, spent = free): bo
 }
 
 describe("Guard", () => {
-  it("limits attacks per IP per hour, with Retry-After", () => {
+  it("limits live attacks per IP per hour, with Retry-After", () => {
     const g = new Guard(cfg({ RATE_LIMIT_PER_HOUR: 2 }));
-    expect(once(g, "a", DAY)).toBe(true);
-    expect(once(g, "a", DAY + 1)).toBe(true);
-    const no = g.admit("a", DAY + 2, false);
+    expect(once(g, "a", DAY, true)).toBe(true);
+    expect(once(g, "a", DAY + 1, true)).toBe(true);
+    const no = g.admit("a", DAY + 2, true);
     expect(no).toMatchObject({ ok: false, status: 429 });
     if (!no.ok) expect(no.retryAfterS).toBe(3600);
-    expect(once(g, "b", DAY + 2)).toBe(true);
-    expect(once(g, "a", DAY + 3_600_001)).toBe(true);
+    expect(once(g, "b", DAY + 2, true)).toBe(true);
+    expect(once(g, "a", DAY + 3_600_001, true)).toBe(true);
+  });
+
+  it("limits replay attacks per IP per hour on their own, higher limit, without using up live allowance", () => {
+    const g = new Guard(cfg({ RATE_LIMIT_PER_HOUR: 1, REPLAY_RATE_LIMIT_PER_HOUR: 3, ATTACKS_PER_IP_PER_DAY: 1 }));
+    for (let i = 0; i < 3; i++) expect(once(g, "a", DAY + i, false)).toBe(true);
+    expect(g.admit("a", DAY + 3, false)).toMatchObject({ ok: false, status: 429 });
+    // Replay used neither the live hourly nor the daily allowance.
+    expect(once(g, "a", DAY + 4, true)).toBe(true);
+    expect(g.admit("a", DAY + 5, true)).toMatchObject({ ok: false, status: 429 });
+    expect(once(g, "a", DAY + 3_600_010, false)).toBe(true);
   });
 
   it("limits attacks per IP per day, resetting at UTC midnight", () => {
     const g = new Guard(cfg({ RATE_LIMIT_PER_HOUR: 100, ATTACKS_PER_IP_PER_DAY: 2 }));
-    expect(once(g, "a", DAY)).toBe(true);
-    expect(once(g, "a", DAY + 1)).toBe(true);
-    expect(g.admit("a", DAY + 2, false)).toMatchObject({ ok: false, status: 429, reason: expect.stringMatching(/Daily/) });
-    expect(once(g, "a", DAY + 86_400_000)).toBe(true);
+    expect(once(g, "a", DAY, true)).toBe(true);
+    expect(once(g, "a", DAY + 1, true)).toBe(true);
+    expect(g.admit("a", DAY + 2, true)).toMatchObject({ ok: false, status: 429, reason: expect.stringMatching(/Daily/) });
+    expect(once(g, "a", DAY + 86_400_000, true)).toBe(true);
   });
 
   it("caps daily model spend for live attacks only", () => {
@@ -138,6 +148,47 @@ describe("Semaphore", () => {
       }),
       { numRuns: runs(30) },
     );
+  });
+
+  it("hands a released slot to the waiter, so a task arriving after the release still waits", async () => {
+    // A runs, B queues, A finishes, then C arrives: B holds the slot it was handed, so C must queue behind it.
+    const s = new Semaphore(1);
+    let active = 0;
+    let peak = 0;
+    const order: string[] = [];
+    const gates = new Map<string, () => void>();
+    const task = (name: string) =>
+      s.run(async () => {
+        active++;
+        peak = Math.max(peak, active);
+        order.push(`${name} start`);
+        await new Promise<void>((r) => gates.set(name, r));
+        order.push(`${name} end`);
+        active--;
+      });
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const a = task("A");
+    const b = task("B");
+    await tick();
+    expect(order).toEqual(["A start"]);
+    expect(s.inUse).toBe(1);
+    gates.get("A")?.();
+    await a;
+    await tick();
+    expect(order).toEqual(["A start", "A end", "B start"]);
+    expect(s.inUse).toBe(1);
+    const c = task("C");
+    await tick();
+    expect(order).toEqual(["A start", "A end", "B start"]);
+    expect(peak).toBeLessThanOrEqual(1);
+    gates.get("B")?.();
+    await b;
+    await tick();
+    gates.get("C")?.();
+    await c;
+    expect(order).toEqual(["A start", "A end", "B start", "B end", "C start", "C end"]);
+    expect(peak).toBeLessThanOrEqual(1);
+    expect(s.inUse).toBe(0);
   });
 
   it("releases the slot when the task throws, and validates capacity", async () => {

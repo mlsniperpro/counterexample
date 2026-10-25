@@ -152,5 +152,5 @@
   <rect x="24" y="734" width="18" height="14" class="box fast" rx="3"/><text x="50" y="746" class="s">Nemotron 3 Super (Token Factory)</text>
   <rect x="290" y="712" width="18" height="14" class="box ext" rx="3"/><text x="316" y="724" class="s">Tavily</text>
   <rect x="290" y="734" width="18" height="14" class="box cloud" rx="3"/><text x="316" y="746" class="s">Nebius AI Cloud</text>
-  <text x="24" y="772" class="s">No model output is executed: families are interpreted DSL.</text>
+  <text x="24" y="772" class="s">Generator families are interpreted DSL; only the oracle and fix code run, and only in the sandbox.</text>
 </svg>

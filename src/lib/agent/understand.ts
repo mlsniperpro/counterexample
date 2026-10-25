@@ -2,7 +2,8 @@ import { z } from "zod";
 import { parseTypeSpec } from "../core/spec";
 import { ModelOutputError } from "../errors";
 import type { Problem, Solution } from "../problems/types";
-import { parseJsonAnswer, stripThinking } from "./parse";
+import { exactReviver } from "../core/compare";
+import { extractJson, parseJsonAnswer, stripThinking } from "./parse";
 
 const MAX_PARAMS = 6;
 const MAX_EXAMPLES = 10;
@@ -39,6 +40,10 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   if (!entry) throw new ModelOutputError("problem spec: no entry function named, and none found in the code");
   const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(p.type, `params[${i}].type`) }));
   if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
+  // Expected outputs keep integers beyond 2^53 exact, like the harness's outputs they are compared with
+  // (arguments stay plain numbers: inputs are bounded to safe integers anyway).
+  const exact = extractJson(stripThinking(text), exactReviver) as { examples?: { output?: unknown }[] };
+  const examples = a.examples.map((e, i) => ({ ...e, output: exact.examples?.[i]?.output ?? e.output }));
   return {
     entry,
     problem: {
@@ -47,7 +52,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
       statement,
       params,
       returns: a.returns,
-      examples: a.examples,
+      examples,
       compare: a.compare,
       timeLimitMs: 1000,
       memoryLimitMb: 256,

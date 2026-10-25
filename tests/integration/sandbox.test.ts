@@ -148,10 +148,15 @@ describe("sandbox HTTP API", () => {
     const small = createSandboxServer({ maxConcurrent: 1, maxQueue: 0, uidBase: UID_BASE + 4 });
     const u = await listen(small);
     try {
-      const slow = { source_code: b64("import time\ntime.sleep(0.5)"), language_id: 71, stdin: b64(""), cpu_time_limit: 2, wall_time_limit: 3 };
+      const slow = { source_code: b64("import time\ntime.sleep(2)"), language_id: 71, stdin: b64(""), cpu_time_limit: 2, wall_time_limit: 6 };
       const send = () => fetch(`${u}/submissions?base64_encoded=true&wait=true`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(slow) });
       const first = send();
-      await new Promise((r) => setTimeout(r, 100));
+      // Send the second only once the first holds the slot: a fixed delay is not enough on a loaded machine.
+      const deadline = Date.now() + 10_000;
+      while ((await (await fetch(`${u}/health`)).json()).active !== 1) {
+        if (Date.now() > deadline) throw new Error("the first submission never took the sandbox's slot");
+        await new Promise((r) => setTimeout(r, 10));
+      }
       const second = await send();
       expect(second.status).toBe(503);
       expect(second.headers.get("retry-after")).toBe("1");
