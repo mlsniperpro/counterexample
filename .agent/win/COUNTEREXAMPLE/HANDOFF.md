@@ -2,10 +2,30 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
-RESUME update:
-- All round-7 UI/test findings are now finished and proven: the run state machine is in `src/app/run-state.ts` and `src/app/attack-run.ts`, with mutation-tested coverage; axe reports 0 violations on all 20 combinations of 5 built-ins x 1280/390 px x light/dark; `pnpm test` passes 318/318.
-- Round 7 is logged in reaudit.md and WIN-CHECKLIST.md.
-- In flight: the HARD benchmark tier (a subagent is editing bench/solutions, the catalog, src/fixtures/replay.ts and maybe spec.ts). If you find it half-done, check `git status` and finish it, or drop it.
+Current state (2026-10-25 14:10 UTC):
+- Pushed:
+  - Round 7, all of it.
+  - Round 8 core fixes, `def52a7`.
+  - The HARD benchmark tier, `a74fb68`: 3 problems and 8 bugs that need targeted worst-case inputs. Routed finds 8/8 and both ablations 0/8. Overall 38/38 found, 0 false alarms.
+  - SUBMISSION.md results.
+- In flight: the round-8 UI/test fixes, by a Sonnet subagent. Its files are uncommitted under src/app/**, tests/e2e, live-wiring.test.ts, scripts/e2e-smoke.mjs, package.json (an `e2e` script) and checks.sh (adds `pnpm e2e`). If you find them uncommitted and the agent gone: review them, run checks.sh, and commit only if green.
+- Next:
+  1. A full audit round 9 on HEAD, with 4 parallel Sonnet auditors (core, security, judge/docs, UI/tests).
+  2. Repeat until 2 consecutive rounds are clean.
+  3. On the final HEAD:
+     - `pnpm bench --readme`;
+     - `pnpm soak --all --seeds 3 -j 2 --readme`, which writes the README soak table only when clean;
+     - `FC_NUM_RUNS=5000` unit tests;
+     - the sandbox bench, quiet and under load;
+     - a fresh clone.
+  4. Fill break-it.md from the template idea in this file (TESTED_COMMIT = HEAD).
+  5. Fill reaudit.md (AUDITED_COMMIT = HEAD, CLEAN_AUDITS_IN_A_ROW = 2).
+  6. Run the gate, update the PR body (it is stale: old benchmark table, P1 "not built"), and post the final status comment.
+- Evidence already gathered on older commits (re-run on the final one):
+  - the soak on `8155b4b`: 1017 killed, 0 unsound, 0 missed;
+  - `FC_NUM_RUNS=5000` units: 183/183;
+  - the JS harness under a real Node v12.14.0: OK;
+  - the sandbox bench: 12/12, quiet and under load.
 
 ## Latest state (read first)
 - Round 6 is fully fixed and pushed. Commits: `3b0bf80` core, `5d4f6c6` UI and docs, `99ed3a2` security, `a0f7d69` bench results, `91aa3f5` handoff. The sandbox is hardened with a seccomp network deny, per-run memory and file limits and locked dirs. `/health` shows network blocked.
