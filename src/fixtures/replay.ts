@@ -508,6 +508,162 @@ def solve(nums, target):
       ],
     }),
   },
+
+  // Hard tier. No research runs for these (their statements cite no external source), so they have no research fixture.
+  "word-break": {
+    oracle: "Dynamic programming over prefixes: ok[i] says whether s[:i] splits into words. Each prefix is decided once from shorter ones.\n\n" + py(`
+def solve(s, words):
+    n = len(s)
+    ok = [False] * (n + 1)
+    ok[0] = True
+    for i in range(1, n + 1):
+        for j in range(i):
+            if ok[j] and s[j:i] in words:
+                ok[i] = True
+                break
+    return ok[n]`),
+    generators: json({
+      families: [
+        {
+          name: "one-letter-run-no-split",
+          rationale: "The classic worst case: a long run of one letter ending in a letter no word covers, with a dictionary of short runs (a, aa, aaa, ...). Every split of the run is a dead end, so a search that forgets failures is exponential.",
+          count: 60,
+          args: [
+            { kind: "oneOf", options: [{ kind: "const", value: "aaaaaaaaaaaaaaaaaaaab" }, { kind: "const", value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" }, { kind: "const", value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" }, { kind: "const", value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" }, { kind: "const", value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" }] },
+            { kind: "array", of: { kind: "string", alphabet: "a", len: { min: 1, max: 4 } }, len: { min: 2, max: 4 }, distinct: true },
+          ],
+        },
+        {
+          name: "max-length-dense-dictionary",
+          rationale: "Maximum-length strings with many one- and two-letter words: many overlapping splits at full size.",
+          count: 200,
+          args: [
+            { kind: "string", alphabet: "ab", len: { min: 90, max: 100 } },
+            { kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 1, max: 2 } }, len: { min: 1, max: 4 }, distinct: true },
+          ],
+        },
+        {
+          name: "words-longer-than-s",
+          rationale: "No word fits, so the answer is false without any split.",
+          count: 100,
+          args: [
+            { kind: "string", alphabet: "ab", len: { min: 1, max: 5 } },
+            { kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 6, max: 10 } }, len: { min: 1, max: 8 }, distinct: true },
+          ],
+        },
+        {
+          name: "short-general",
+          rationale: "Short strings and dictionaries over both letters, including words that are prefixes of each other.",
+          count: 300,
+          args: [
+            { kind: "string", alphabet: "ab", len: { min: 1, max: 12 } },
+            { kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 1, max: 4 } }, len: { min: 1, max: 5 }, distinct: true },
+          ],
+        },
+      ],
+    }),
+  },
+
+  "decode-ways": {
+    oracle: "Count decodings from the right with exact (unbounded) integers, then reduce once at the end.\n\n" + py(`
+def solve(s):
+    n = len(s)
+    ways = [0] * (n + 1)
+    ways[n] = 1
+    for i in range(n - 1, -1, -1):
+        if s[i] == "0":
+            continue
+        ways[i] = ways[i + 1]
+        if i + 1 < n and 10 <= int(s[i:i + 2]) <= 26:
+            ways[i] += ways[i + 2]
+    return ways[0] % 1000000007`),
+    generators: json({
+      families: [
+        {
+          name: "all-ones-max-length",
+          rationale: "Every adjacent pair is a valid two-digit code, so the count is a Fibonacci number far beyond 2^53 and the modulus matters; also the worst case for exploring decodings one by one.",
+          count: 20,
+          args: [{ kind: "oneOf", options: [{ kind: "string", alphabet: "1", len: { min: 90, max: 100 } }, { kind: "string", alphabet: "2", len: { min: 90, max: 100 } }] }],
+        },
+        {
+          name: "ones-and-twos-long",
+          rationale: "Long strings of 1s and 2s: huge counts with the 26 boundary (27 and above is a single code) mixed in.",
+          count: 200,
+          args: [{ kind: "string", alphabet: "1267", len: { min: 60, max: 100 } }],
+        },
+        {
+          name: "ambiguous-run-dead-end",
+          rationale: "A long run of 1s and 2s (Fibonacci-many partial decodings) that ends in an undecodable tail (00, or 0 after 3): the answer is 0, but only after every partial decoding fails.",
+          count: 20,
+          args: [{ kind: "oneOf", options: [{ kind: "const", value: "11111111111111111111111111111111111111111111111111111111111100" }, { kind: "const", value: "1212121212121212121212121212121212121212121212121212121212121212121212121212121200" }, { kind: "const", value: "222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222100" }, { kind: "const", value: "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111300" }] }],
+        },
+        {
+          name: "low-digits-with-zeros",
+          rationale: "Long strings of 0, 1 and 2: many ambiguous pairs and many zeros, so long stretches decode in many ways or in none (00 kills every decoding).",
+          count: 200,
+          args: [{ kind: "string", alphabet: "012", len: { min: 60, max: 100 } }],
+        },
+        {
+          name: "zero-placement",
+          rationale: "Short strings where 0 starts the string, follows 1 or 2 (10, 20), follows 3 to 9 (30) or repeats (00).",
+          count: 300,
+          args: [{ kind: "string", alphabet: "01239", len: { min: 1, max: 6 } }],
+        },
+        {
+          name: "full-range",
+          rationale: "General coverage over all digits and lengths.",
+          count: 200,
+          args: [{ kind: "string", alphabet: "0123456789", len: { min: 1, max: 100 } }],
+        },
+      ],
+    }),
+  },
+
+  "dag-distances": {
+    oracle: "Every edge goes from a lower to a higher node, so increasing node order is a topological order: relax the edges sorted by source, with Python's unbounded integers.\n\n" + py(`
+def solve(n, edges):
+    dist = [None] * n
+    dist[0] = 0
+    for u, v, w in sorted(edges):
+        if dist[u] is not None:
+            if dist[v] is None or dist[u] + w < dist[v]:
+                dist[v] = dist[u] + w
+    return dist`),
+    generators: json({
+      families: [
+        {
+          name: "path-graph-max-n",
+          rationale: "One chain 0 -> 1 -> ... -> 999 at the maximum size: the deepest possible graph, with distances up to about 10^10, past 32-bit integers and typical INF sentinels.",
+          count: 30,
+          args: [{ kind: "graph", shape: "path", n: { min: 1000, max: 1000 }, m: { min: 999, max: 999 }, weight: { min: 0, max: 10000000 }, dag: true }],
+        },
+        {
+          name: "heavy-chains-with-shortcuts",
+          rationale: "A full chain of heavy edges plus random extra edges (shortcuts and parallel paths) up to the edge limit.",
+          count: 30,
+          args: [{ kind: "graph", shape: "path", n: { min: 300, max: 1000 }, m: { min: 999, max: 2000 }, weight: { min: 5000000, max: 10000000 }, dag: true }],
+        },
+        {
+          name: "dense-max-edges",
+          rationale: "The maximum edge count on few nodes: many parallel edges and competing paths.",
+          count: 60,
+          args: [{ kind: "graph", n: { min: 20, max: 100 }, m: { min: 2000, max: 2000 }, weight: { min: 0, max: 10000000 }, dag: true }],
+        },
+        {
+          name: "sparse-unreachable",
+          rationale: "Many nodes and few edges: most nodes are unreachable and must be null.",
+          count: 60,
+          args: [{ kind: "graph", n: { min: 500, max: 1000 }, m: { min: 0, max: 30 }, weight: { min: 0, max: 10000000 }, dag: true }],
+        },
+        {
+          name: "zero-weights",
+          rationale: "Weight-0 edges make ties between paths of different lengths.",
+          count: 200,
+          args: [{ kind: "graph", n: { min: 1, max: 50 }, m: { min: 0, max: 100 }, weight: { min: 0, max: 0 }, dag: true }],
+        },
+      ],
+    }),
+  },
 };
 
 /** Replay key for a built-in problem whose demo code the user edited (same language as the demo, or another one). */

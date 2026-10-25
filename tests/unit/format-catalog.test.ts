@@ -38,8 +38,8 @@ describe("UI formatting", () => {
 });
 
 describe("problem catalog", () => {
-  it("has 10 problems with unique ids and 5 built-in demos", () => {
-    expect(new Set(PROBLEMS.map((p) => p.id)).size).toBe(10);
+  it("has 13 problems (10 base, 3 hard-tier) with unique ids and 5 built-in demos", () => {
+    expect(new Set(PROBLEMS.map((p) => p.id)).size).toBe(13);
     expect(BUILT_INS).toHaveLength(5);
     expect(getProblem("nope")).toBeUndefined();
   });

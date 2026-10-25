@@ -173,6 +173,59 @@ export const PROBLEMS: Problem[] = [
     timeLimitMs: 300,
     memoryLimitMb: 256,
   },
+  // Hard tier (bench/solutions/hard): large inputs where the bugs live at worst-case sizes or on specific structure.
+  {
+    id: "word-break",
+    title: "Word break",
+    statement:
+      "Given a string `s` of the letters a and b (length 1..100) and a list `words` of 1 to 8 distinct non-empty words over the same letters (each 1..10 letters long), return true if `s` can be split into a sequence of dictionary words. A word may be used any number of times.",
+    params: [
+      { name: "s", type: { kind: "string", alphabet: "ab", len: { min: 1, max: 100 } } },
+      { name: "words", type: { kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 1, max: 10 } }, len: { min: 1, max: 8 }, distinct: true } },
+    ],
+    returns: "true if s splits into words",
+    examples: [
+      { args: ["abba", ["ab", "ba", "b"]], output: true },
+      { args: ["aaab", ["a", "aa"]], output: false },
+      { args: ["babb", ["b", "ab"]], output: true },
+    ],
+    compare: "exact",
+    timeLimitMs: 500,
+    memoryLimitMb: 256,
+  },
+  {
+    id: "decode-ways",
+    title: "Decode ways (mod 10^9 + 7)",
+    statement:
+      "A message of letters was encoded as digits with A = 1, B = 2, ..., Z = 26. Given the digit string `s` (length 1..100), return the number of ways to decode it, modulo 1,000,000,007. A code never starts with 0, so \"06\" cannot be decoded as 6.",
+    params: [{ name: "s", type: { kind: "string", alphabet: "0123456789", len: { min: 1, max: 100 } } }],
+    returns: "number of decodings modulo 1,000,000,007",
+    examples: [
+      { args: ["12"], output: 2 },
+      { args: ["226"], output: 3 },
+      { args: ["06"], output: 0 },
+      { args: ["10"], output: 1 },
+    ],
+    compare: "exact",
+    timeLimitMs: 500,
+    memoryLimitMb: 256,
+  },
+  {
+    id: "dag-distances",
+    title: "Shortest paths in a large DAG",
+    statement:
+      "A directed graph has `n` nodes (0..n-1, 1 <= n <= 1000) and up to 2000 `edges` given as [u, v, w] with u < v (so there are no cycles) and weights 0..10,000,000. Return the list of shortest distances from node 0, with null for unreachable nodes. Distances can exceed 2^31.",
+    params: [{ name: "n, edges", type: { kind: "graph", n: { min: 1, max: 1000 }, m: { min: 0, max: 2000 }, weight: { min: 0, max: 10000000 }, dag: true } }],
+    returns: "distances from node 0 (null if unreachable)",
+    examples: [
+      { args: [3, [[0, 1, 5], [1, 2, 5], [0, 2, 20]]], output: [0, 5, 10] },
+      { args: [2, []], output: [0, null] },
+      { args: [3, [[0, 1, 10000000], [1, 2, 10000000]]], output: [0, 10000000, 20000000] },
+    ],
+    compare: "exact",
+    timeLimitMs: 1000,
+    memoryLimitMb: 256,
+  },
 ];
 
 const DEMO_LANG: Record<string, "python" | "javascript"> = {

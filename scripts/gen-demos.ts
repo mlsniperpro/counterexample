@@ -28,7 +28,9 @@ export function renderDemos(root: string): string {
     const { bug, code } = splitHeader(src);
     return `  ${JSON.stringify(id)}: { code: ${JSON.stringify(code)}, bug: ${JSON.stringify(bug)} },`;
   });
+  // Built-in problems live in the base tier; bench/solutions/hard holds benchmark-only problems.
   const refs = readdirSync(join(root, "bench/solutions"))
+    .filter((id) => id !== "hard")
     .sort()
     .map((id) => {
       const file = readdirSync(join(root, "bench/solutions", id)).find((f) => f.startsWith("correct."));

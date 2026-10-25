@@ -10,21 +10,44 @@ import type { Routing } from "../src/lib/models/config";
 import type { ReplayFixtures } from "../src/lib/models/replay";
 import { splitHeader } from "../scripts/gen-demos";
 
-export type Subject = { key: string; problem: string; name: string; language: Language; buggy: boolean; bug: string; code: string };
+/**
+ * "base": the original 10 problems with small inputs. "hard": problems in
+ * bench/solutions/hard/, whose bugs need worst-case sizes or specific structure
+ * (long single-letter runs, long chains, values past 2^31 or 2^53).
+ */
+export type Tier = "base" | "hard";
+export const TIERS: Tier[] = ["base", "hard"];
 
+export type Subject = { key: string; problem: string; name: string; language: Language; buggy: boolean; bug: string; code: string; tier: Tier };
+
+/** bench/solutions/<problem>/<file> is the base tier; bench/solutions/hard/<problem>/<file> the hard tier (keys start with "hard/"). */
 export function loadSubjects(root: string): Subject[] {
-  const dir = join(root, "bench/solutions");
   const out: Subject[] = [];
-  for (const problem of readdirSync(dir).sort()) {
-    for (const file of readdirSync(join(dir, problem)).sort()) {
-      const language: Language | null = file.endsWith(".py") ? "python" : file.endsWith(".js") ? "javascript" : null;
-      if (!language) throw new Error(`unexpected file in bench/solutions: ${problem}/${file}`);
-      const { kind, bug, code } = splitHeader(readFileSync(join(dir, problem, file), "utf8"));
-      const name = file.replace(/\.(py|js)$/, "");
-      out.push({ key: `${problem}/${name}`, problem, name, language, buggy: kind === "bug", bug, code });
+  const load = (dir: string, tier: Tier, prefix: string) => {
+    for (const problem of readdirSync(dir).sort()) {
+      if (tier === "base" && problem === "hard") continue;
+      for (const file of readdirSync(join(dir, problem)).sort()) {
+        const language: Language | null = file.endsWith(".py") ? "python" : file.endsWith(".js") ? "javascript" : null;
+        if (!language) throw new Error(`unexpected file in bench/solutions: ${prefix}${problem}/${file}`);
+        const { kind, bug, code } = splitHeader(readFileSync(join(dir, problem, file), "utf8"));
+        const name = file.replace(/\.(py|js)$/, "");
+        const key = `${prefix}${problem}/${name}`;
+        if (out.some((x) => x.key === key)) throw new Error(`duplicate benchmark key ${key}: give the files distinct names`);
+        out.push({ key, problem, name, language, buggy: kind === "bug", bug, code, tier });
+      }
     }
-  }
+  };
+  const dir = join(root, "bench/solutions");
+  load(dir, "base", "");
+  load(join(dir, "hard"), "hard", "hard/");
   return out;
+}
+
+/** The problem's correct solution in the same language (the replayed fix must be runnable as that language). */
+export function referenceFor(subjects: Subject[], s: Subject): Subject {
+  const ref = subjects.find((x) => x.problem === s.problem && !x.buggy && x.language === s.language);
+  if (!ref) throw new Error(`no correct ${s.language} solution for ${s.problem}`);
+  return ref;
 }
 
 /**
@@ -36,8 +59,7 @@ export function loadSubjects(root: string): Subject[] {
 export function benchFixtures(subjects: Subject[]): ReplayFixtures {
   const fx: ReplayFixtures = { ...FIXTURES };
   for (const s of subjects.filter((x) => x.buggy)) {
-    const correct = subjects.find((x) => x.problem === s.problem && !x.buggy);
-    if (!correct) throw new Error(`no correct solution for ${s.problem}`);
+    const correct = referenceFor(subjects, s);
     fx[s.key] = { explain: `EXPLANATION: ${s.bug}\n\n\`\`\`${s.language}\n${correct.code}\`\`\`` };
   }
   return fx;
@@ -55,6 +77,7 @@ export const CONFIGS: Config[] = [
 
 export type Row = {
   key: string;
+  tier: Tier;
   buggy: boolean;
   config: ConfigId;
   verdict: Verdict;
@@ -86,14 +109,15 @@ export function median(xs: number[]): number | null {
 
 export type Summary = ReturnType<typeof summarise>;
 
-export function summarise(rows: Row[], config: ConfigId) {
-  const r = rows.filter((x) => x.config === config);
+export function summarise(rows: Row[], config: ConfigId, tier?: Tier) {
+  const r = rows.filter((x) => x.config === config && (tier === undefined || x.tier === tier));
   const buggy = r.filter((x) => x.buggy);
   const correct = r.filter((x) => !x.buggy);
   const found = buggy.filter((x) => x.verdict === "counterexample");
   const total = r.reduce((a, x) => a + x.costUsd, 0);
   return {
     config,
+    tier: tier ?? "all",
     buggy: buggy.length,
     found: found.length,
     correct: correct.length,
@@ -135,15 +159,40 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     ...(s.some((x) => x.unpricedCalls > 0) ? [row("Unpriced model calls (not in cost)", (x) => `${x.unpricedCalls}`)] : []),
     row("Runs ending in error / budget / bad oracle", (x) => `${x.errors}`),
     "",
+    ...TIERS.flatMap((t) => tierTable(rows, t)),
     loadLine(rows.filter((x) => x.config === "routed")),
     "",
-    "| Solution | Expected | Verdict (routed) | Found by family | Minimal counterexample | Fix verified |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Solution | Tier | Expected | Verdict (routed) | Found by family | Minimal counterexample | Fix verified |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows
       .filter((x) => x.config === "routed")
-      .map((x) => `| \`${x.key}\` | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.foundBy ? `${x.foundBy}${x.foundByModel ? " (model)" : ""}` : ""} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
+      .map((x) => `| \`${x.key}\` | ${x.tier} | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.foundBy ? `${x.foundBy}${x.foundByModel ? " (model)" : ""}` : ""} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
   ];
   return lines.join("\n") + "\n";
+}
+
+/** Configurations shown per tier: the routed run and the two ablations without model-designed families. */
+export const TIER_CONFIGS: ConfigId[] = ["routed", "no-model", "random-only"];
+
+/** The same headline rows for one tier only (empty when the run has no subjects of that tier). */
+export function tierTable(rows: Row[], tier: Tier): string[] {
+  const configs = CONFIGS.filter((c) => TIER_CONFIGS.includes(c.id));
+  const s = configs.map((c) => summarise(rows, c.id, tier));
+  const head = s[0];
+  if (!head || head.buggy + head.correct === 0) return [];
+  const row = (label: string, f: (x: Summary) => string) => `| ${label} | ${s.map(f).join(" | ")} |`;
+  return [
+    `**${tier === "hard" ? "Hard tier only" : "Base tier only"}** (\`bench/solutions/${tier === "hard" ? "hard/" : ""}<problem>/\`: ${head.buggy} buggy, ${head.correct} correct; same budgets and seeds as above):`,
+    "",
+    `| Metric | ${configs.map((c) => c.title).join(" | ")} |`,
+    `| --- | ${configs.map(() => "---").join(" | ")} |`,
+    row(`Bugs found (of ${head.buggy} buggy)`, (x) => `${x.found} (${pct(x.found, x.buggy)})`),
+    row(`False alarms (of ${head.correct} correct)`, (x) => `${x.falseAlarms}`),
+    row("Fixes verified by re-attack", (x) => `${x.fixesVerified} of ${x.found}`),
+    row("Bugs first found by a model-designed family", (x) => `${x.foundByModel}`),
+    row("Runs ending in error / budget / bad oracle", (x) => `${x.errors}`),
+    "",
+  ];
 }
 
 const span = (xs: number[]) => `${Math.min(...xs).toLocaleString("en-US")} to ${Math.max(...xs).toLocaleString("en-US")} (median ${(median(xs) ?? 0).toLocaleString("en-US")})`;

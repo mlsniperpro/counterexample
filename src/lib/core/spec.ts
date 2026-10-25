@@ -37,6 +37,12 @@ export type GraphSpec = {
   weight: Range;
   /** Only edges u < v, so there are never cycles (and never negative cycles). */
   dag?: boolean;
+  /**
+   * "path": the first edges form the chain 0 -> 1 -> ... -> n-1 (as far as the
+   * edge count allows), the rest are random. Random edges almost never form a
+   * long chain, so deep graphs need this. Default "random".
+   */
+  shape?: "random" | "path";
 };
 
 export type TypeSpec =
@@ -131,6 +137,7 @@ function genGraph(spec: GraphSpec, rng: Rng): [number, number[][]] {
   const edges: number[][] = [];
   // A DAG needs two distinct nodes per edge; with n = 1 it can have no edges (conforms then rejects m.min > 0).
   if (n < 1 || (spec.dag && n < 2)) return [n, edges];
+  if (spec.shape === "path") for (let u = 0; u + 1 < n && edges.length < m; u++) edges.push([u, u + 1, randInt(rng, spec.weight.min, spec.weight.max)]);
   while (edges.length < m) {
     let u = randInt(rng, 0, n - 1);
     let v = randInt(rng, 0, n - 1);
@@ -262,6 +269,7 @@ const typeSpecSchema: z.ZodType<TypeSpec> = z.lazy(() =>
       m: range(SPEC_LIMITS.maxEdges),
       weight: intRange,
       dag: opt(z.boolean()),
+      shape: opt(z.enum(["random", "path"])),
     }),
   ]),
 );

@@ -1,9 +1,12 @@
 /**
- * Benchmark: 30 known-buggy and 10 correct solutions (bench/solutions), each
- * attacked with routed models (Ultra for oracle + explain, Super for the
- * rest), with Ultra only, and with no model generators (ablation). Writes
- * bench/results/<mode>.{json,md} and, with --readme, the results table in
- * README.md. Every README number comes from here.
+ * Benchmark: the known-buggy and correct solutions in bench/solutions (base
+ * tier) and bench/solutions/hard (hard tier: bugs that need worst-case sizes or
+ * specific structure), each attacked with routed models (Ultra for oracle +
+ * explain, Super for the rest), with Ultra only, and with two ablations
+ * without model generators. The same budgets and seeds apply to every
+ * configuration. Writes bench/results/<mode>.{json,md} (with per-tier tables)
+ * and, with --readme, the results tables in README.md. Every README number
+ * comes from here.
  *
  *   pnpm bench                 # fixture (replay) mode, no keys needed
  *   pnpm bench --live          # Token Factory + Tavily (needs NEBIUS_API_KEY, TAVILY_API_KEY)
@@ -17,7 +20,7 @@ import { showValue } from "../src/lib/core/compare";
 import { makeDeps, resolveMode } from "../src/lib/agent/setup";
 import { RecordingProvider, type ReplayFixtures } from "../src/lib/models/replay";
 import { getProblem } from "../src/lib/problems/catalog";
-import { benchFixtures, CONFIGS, loadSubjects, markdown, replaceSection, summarise, type Row } from "./lib";
+import { benchFixtures, CONFIGS, loadSubjects, markdown, replaceSection, summarise, TIERS, type Row } from "./lib";
 
 const ROOT = join(__dirname, "..");
 
@@ -51,6 +54,7 @@ async function main(args: string[]) {
       if (rec) Object.assign(recorded, rec.recorded);
       rows.push({
         key: s.key,
+        tier: s.tier,
         buggy: s.buggy,
         config: config.id,
         verdict: r.verdict,
@@ -70,7 +74,7 @@ async function main(args: string[]) {
       });
       const ok = s.buggy ? r.verdict === "counterexample" : r.verdict === "no_counterexample";
       const tag = ok ? "ok  " : config.id === "random-only" || config.id === "no-model" ? "miss" : "MISS";
-      console.log(`${tag} ${config.id.padEnd(11)} ${s.key.padEnd(36)} ${r.verdict.padEnd(18)} ${r.counterexample ? JSON.stringify(r.counterexample.args).slice(0, 50) : ""}`);
+      console.log(`${tag} ${config.id.padEnd(11)} ${s.key.padEnd(40)} ${r.verdict.padEnd(18)} ${r.counterexample ? JSON.stringify(r.counterexample.args).slice(0, 50) : ""}`);
     }
   }
   const label = mode === "live" ? "live" : "fixture";
@@ -78,7 +82,7 @@ async function main(args: string[]) {
   if (!only) {
     const outDir = join(ROOT, "bench/results");
     mkdirSync(outDir, { recursive: true });
-    const summary = CONFIGS.map((c) => summarise(rows, c.id));
+    const summary = CONFIGS.flatMap((c) => [summarise(rows, c.id), ...TIERS.map((t) => summarise(rows, c.id, t))]);
     writeFileSync(join(outDir, `${label}.json`), showValue({ mode: label, executor: executorLabel, summary, rows }, 2) + "\n");
     writeFileSync(join(outDir, `${label}.md`), md);
     if (args.includes("--readme")) {

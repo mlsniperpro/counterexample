@@ -12,7 +12,7 @@ Public on YouTube. Screen recording of the deployed preview (or `pnpm dev` in li
 | 1:35–1:55 | Result card: minimal counterexample `solve([2, 3], 4)` expected 2, got -1; "shrunk from `[[8, 9], 16]` (family non-canonical-systems) in 3 steps". | "The mismatch is confirmed on a fresh run, then shrunk with delta debugging to the smallest input that still fails." |
 | 1:55–2:15 | Explanation + fix; "re-attacked on 1,257 inputs: 0 failures". | "Ultra explains the bug in two sentences and proposes a fix, and the fix is re-attacked before we call it fixed." |
 | 2:15–2:30 | **Why Ultra here, Super there** panel: model, tokens, cost, latency per step. Toggle "Ultra for everything" and rerun briefly to show cost go up. | "Ultra where a mistake is expensive, Super where speed wins. It's cheaper and faster than Ultra everywhere." |
-| 2:30–2:42 | Terminal: `pnpm bench` summary table (bugs found, false alarms, cost routed vs Ultra-only). | "On our benchmark of 30 buggy and 10 correct solutions: [read the numbers from bench/results/live.md]." |
+| 2:30–2:42 | Terminal: `pnpm bench` summary table (bugs found, false alarms, cost routed vs Ultra-only). | "On our benchmark of 38 buggy and 16 correct solutions: [read the numbers from bench/results/live.md]." |
 | 2:42–2:50 | Closing card: repo URL, MIT, "Nebius Token Factory + NVIDIA Nemotron". | "Built by the AlgoCracked team, for interview prep and for checking AI-written code before you merge it." |
 
 The numbers above are from the replay run of this demo (`research: force`); read the live run's own numbers off the screen.

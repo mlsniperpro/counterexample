@@ -43,6 +43,38 @@ describe("generation (input DSL)", () => {
     );
   });
 
+  it("path-shaped graphs start with the chain 0 -> 1 -> ... as far as the edge count allows", () => {
+    fc.assert(
+      fc.property(graphSpecArb, fc.integer(), (spec, seed) => {
+        if (spec.kind !== "graph") return;
+        const path: TypeSpec = { ...spec, shape: "path" };
+        const [n, edges] = genArgs([path], mulberry32(seed)) as [number, number[][]];
+        const chain = spec.dag && n < 2 ? 0 : Math.min(n - 1, edges.length);
+        edges.slice(0, chain).forEach((e, i) => expect([e[0], e[1]]).toEqual([i, i + 1]));
+        if (!(spec.dag && n < 2)) expect(edges.length).toBeGreaterThanOrEqual(Math.min(n - 1, spec.m.min));
+        const unsatisfiable = spec.dag === true && n < 2 && spec.m.min > 0;
+        expect(argsConform([n, edges], [path])).toBe(!unsatisfiable);
+      }),
+    );
+  });
+
+  it("a maximal path-shaped graph is one chain through every node (random edges never are)", () => {
+    const spec: TypeSpec = { kind: "graph", shape: "path", n: { min: 1000, max: 1000 }, m: { min: 999, max: 999 }, weight: { min: 0, max: 10 }, dag: true };
+    const [n, edges] = genArgs([spec], mulberry32(5)) as [number, number[][]];
+    expect(n).toBe(1000);
+    expect(edges.map((e) => [e[0], e[1]])).toEqual(Array.from({ length: 999 }, (_, i) => [i, i + 1]));
+    const depth = (es: number[][]) => {
+      const d = new Array<number>(1000).fill(0);
+      for (const [u, v] of [...es].sort((a, b) => a[0]! - b[0]!)) d[v!] = Math.max(d[v!]!, d[u!]! + 1);
+      return Math.max(...d);
+    };
+    expect(depth(edges)).toBe(999);
+    const random = genArgs([{ ...spec, shape: "random" }], mulberry32(5))[1] as number[][];
+    expect(depth(random)).toBeLessThan(100);
+    // The default is unchanged: no shape means random edges, with the same draws as before.
+    expect(genArgs([{ ...spec, shape: undefined }], mulberry32(5))).toEqual(genArgs([{ ...spec, shape: "random" }], mulberry32(5)));
+  });
+
   it("generates conforming inputs for every catalog problem", () => {
     const rng = mulberry32(7);
     for (const p of PROBLEMS) {
@@ -139,6 +171,7 @@ describe("parseTypeSpec (untrusted model output)", () => {
     fails({ kind: "int", min: 0.5, max: 3 }, /int/i);
     fails({ kind: "string", alphabet: "", len: { min: 0, max: 1 } }, /alphabet/);
     fails(null, /expected object|Invalid/i);
+    fails({ kind: "graph", n: { min: 1, max: 2 }, m: { min: 0, max: 1 }, weight: { min: 0, max: 1 }, shape: "star" }, /shape/);
   });
 
   it("bounds what a model may ask for", () => {

@@ -8,8 +8,8 @@
  * - every "no counterexample" verdict gets an independent differential search
  *   (3,000 uniform inputs, a different seed) to count bugs the agent missed.
  *
- *   pnpm soak                        # mutants of the 10 correct solutions, seed 1
- *   pnpm soak --all --seeds 3 -j 4   # mutants of all 40 solutions, seeds 1..3
+ *   pnpm soak                        # mutants of the correct solutions, seed 1
+ *   pnpm soak --all --seeds 3 -j 4   # mutants of all solutions (both tiers), seeds 1..3
  *   add --readme to rewrite the README's soak section
  *
  * Writes bench/results/soak.{json,md}. Exits non-zero if any claim is unsound
@@ -19,7 +19,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { attack } from "../src/lib/agent/run";
 import { makeDeps } from "../src/lib/agent/setup";
-import { outputsEqual } from "../src/lib/core/compare";
+import { FIXTURES } from "../src/fixtures/replay";
+import { extractCode } from "../src/lib/agent/parse";
+import { displayable, outputsEqual } from "../src/lib/core/compare";
 import { hashString, mulberry32 } from "../src/lib/core/rng";
 import { genArgs } from "../src/lib/core/spec";
 import { LocalExecutor } from "../src/lib/exec/local";
@@ -43,12 +45,25 @@ async function runOn(p: Problem, s: Solution, inputs: unknown[][]): Promise<RunO
   return (await executor.run({ language: s.language, code: s.code, entry: s.entry, inputs, timeLimitMs: p.timeLimitMs, memoryLimitMb: p.memoryLimitMb })).outcomes;
 }
 
-/** Independent check of a claimed counterexample against the reference solution. */
+/**
+ * Independent check of a claimed counterexample against the reference solution.
+ * A report clips a huge expected output to its display text, so then the
+ * recorded oracle is re-run on the counterexample: its full output must match
+ * the reported text, and the reference must match its full output.
+ */
 async function confirm(p: Problem, ref: Solution, mutant: Solution, args: unknown[], expected: unknown): Promise<string | null> {
   const [r] = await runOn(p, ref, [args]);
   const [m] = await runOn(p, mutant, [args]);
   if (!r?.ok) return `reference failed on the counterexample: ${show(r)}`;
-  if (!outputsEqual(r.out, expected, p.compare)) return `oracle said ${JSON.stringify(expected)}, reference says ${show(r)}`;
+  let want = expected;
+  if (typeof expected === "string" && displayable(r.out) !== r.out) {
+    const oracle: Solution = { language: "python", code: extractCode(FIXTURES[p.id]?.oracle as string, "python"), entry: "solve" };
+    const [o] = await runOn(p, oracle, [args]);
+    if (!o?.ok) return `oracle failed on a re-run of the counterexample: ${show(o)}`;
+    if (displayable(o.out) !== expected) return "the reported (clipped) expected output does not match a re-run of the oracle";
+    want = o.out;
+  }
+  if (!outputsEqual(r.out, want, p.compare)) return `oracle said ${JSON.stringify(expected)}, reference says ${show(r)}`;
   if (m?.ok && outputsEqual(m.out, r.out, p.compare)) return `mutant agrees with the reference on ${JSON.stringify(args)}`;
   return null;
 }
@@ -73,12 +88,14 @@ async function main(args: string[]) {
   const conc = Number(args[args.indexOf("-j") + 1] ?? 4) || 4;
   const subjects = loadSubjects(ROOT);
   const fixtures = benchFixtures(subjects);
-  const refs = new Map(subjects.filter((s) => !s.buggy).map((s) => [s.problem, s]));
+  const refs = new Map(subjects.filter((s) => !s.buggy).map((s) => [`${s.problem}:${s.language}`, s]));
   const jobs: { subject: Subject; m: ReturnType<typeof mutants>[number]; seed: number }[] = [];
-  for (const subject of subjects.filter((s) => all || !s.buggy)) {
+  const attacked = subjects.filter((s) => all || !s.buggy);
+  const scope = all ? `of all ${attacked.length} benchmark solutions` : `of the ${attacked.length} correct solutions`;
+  for (const subject of attacked) {
     for (const m of mutants(subject.code, subject.language)) for (let seed = 1; seed <= seeds; seed++) jobs.push({ subject, m, seed });
   }
-  console.log(`${jobs.length} attacks (${all ? "all 40 solutions" : "10 correct solutions"}, ${seeds} seed(s), concurrency ${conc})`);
+  console.log(`${jobs.length} attacks (${scope}, ${seeds} seed(s), concurrency ${conc})`);
   const pool = new Semaphore(conc);
   const rows: Row[] = [];
   const t0 = Date.now();
@@ -86,7 +103,8 @@ async function main(args: string[]) {
     jobs.map(({ subject, m, seed }) =>
       pool.run(async () => {
         const problem = getProblem(subject.problem)!;
-        const ref = refs.get(subject.problem)!;
+        // The reference judges outputs; a same-language one doubles as the replayed fix.
+        const ref = refs.get(`${subject.problem}:${subject.language}`)!;
         const refSol: Solution = { language: ref.language, code: ref.code, entry: "solve" };
         const mutant: Solution = { language: subject.language, code: m.code, entry: "solve" };
         const key = `${subject.key}#${m.id}`;
@@ -130,7 +148,7 @@ async function main(args: string[]) {
     wallSeconds: Math.round((Date.now() - t0) / 1000),
   };
   const md = [
-    `Soak run: ${summary.attacks} attacks on ${summary.mutants} mutants (${all ? "of all 40 benchmark solutions" : "of the 10 correct solutions"}), ${seeds} seed(s), replay mode, local executor, ${summary.wallSeconds} s.`,
+    `Soak run: ${summary.attacks} attacks on ${summary.mutants} mutants (${scope}), ${seeds} seed(s), replay mode, local executor, ${summary.wallSeconds} s.`,
     "",
     "| Outcome | Count | Meaning |",
     "| --- | --- | --- |",

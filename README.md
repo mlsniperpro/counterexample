@@ -54,6 +54,7 @@ Every fact carries its URL into the trace and the report. A generator family may
 ## Design choices that matter
 
 - **Generators, not test cases.** The fast model writes input *families* in a small JSON DSL (`src/lib/core/spec.ts`): ints with edge bias, arrays (sorted, distinct, duplicate pools), strings, tuples, DAGs as edge lists. Model output is interpreted, never executed, and every generated input is checked against the problem's declared constraints, so an over-eager generator cannot cause a false alarm.
+- **Deep graphs on request.** A graph family may set `shape: "path"`: its first edges then form the chain 0 → 1 → … → n−1 (as far as its edge count allows) and the rest stay random. Random edges almost never make a long chain (on 1,000 nodes and 10,000 random edges the longest path is about 45 edges), so without it a generator could not ask for the deepest graph a problem allows. Sizes stay under the same DSL caps.
 - **Small scope first.** Right after the examples, a bounded-exhaustive family runs every small input of the declared types. That means all integers near zero plus the bounds, all short strings and arrays over a few values, and all small graphs with up to two edges. This follows the small-scope hypothesis that most bugs have a small counterexample, and it catches bugs random sampling skips (a solution wrong only at `x = 5` out of 2^31).
 - **Mutation on top of generation.** After the model's families, type-aware mutants of the examples and of every input already tried (±1, negation, duplicated or dropped elements, swaps, repeated slices) run as their own family, after EvalPlus. They are filtered by the same validator.
 - **Delta debugging over structured inputs** (`src/lib/core/shrink.ts`): chunk removal, element simplification, binary search on integers, isolated-node removal with relabelling for graphs. Adjacent pairs are removed at every offset, so crossed brackets like `({())}` shrink to `({)}`. A well-founded size measure guarantees termination; the problem's validator keeps every step legal. If the shrink budget runs out first, the report says the input may not be minimal.
@@ -66,7 +67,7 @@ Every fact carries its URL into the trace and the report. A generator family may
 
 ## Benchmark
 
-`bench/solutions/` holds 10 problems with 30 known-buggy solutions (each file's first line documents the bug) and 10 correct ones. `pnpm bench --readme` reruns everything and rewrites the table below; **every number here comes from that script** (`bench/run.ts`, full per-solution results in `bench/results/`).
+`bench/solutions/` holds 13 problems with 38 known-buggy solutions (each file's first line documents the bug) and 16 correct ones, in two tiers. The **base tier** (10 problems, 30 buggy, 10 correct) has small inputs. The **hard tier** (`bench/solutions/hard/`: word break, decode ways and shortest paths in a 1,000-node DAG; 8 buggy and 6 correct, in Python and JavaScript) holds bugs that only show at worst-case sizes or on specific structure: exponential backtracking on a long run of one letter that cannot be split, a memo that forgets failures or treats a cached 0 as missing, a modulus applied only at the end (counts past 2^53), and an `INF = 10**9` sentinel or an `Int32Array` that overflows on a long chain of heavy edges. Every configuration runs with the same budgets and seeds. `pnpm bench --readme` reruns everything and rewrites the table below; **every number here comes from that script** (`bench/run.ts`, full per-solution results in `bench/results/`).
 
 ### Fixture mode (replayed model responses, real execution)
 
@@ -75,26 +76,48 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 
 | Metric | Routed (Ultra + Super) | Ultra only | Ablation: no model families (examples, small-scope, mutations, random) | Ablation: examples + 1000 uniform random inputs only |
 | --- | --- | --- | --- | --- |
-| Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 30 (100%) | 27 (90%) |
-| False alarms (of 10 correct) | 0 | 0 | 0 | 0 |
-| Fixes verified by re-attack | 30 of 30 | 30 of 30 | 30 of 30 | 27 of 27 |
-| Bugs first found by a model-designed family | 6 | 6 | 0 | 0 |
-| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.2 s run to run) | 4.8 s | 10.3 s | 2.3 s | 2.3 s |
-| Model cost per solution | $0.0014 | $0.0027 | $0.0009 | $0.0008 |
-| Model cost, all 40 solutions | $0.0567 | $0.1099 | $0.0350 | $0.0336 |
+| Bugs found (of 38 buggy) | 38 (100%) | 38 (100%) | 30 (79%) | 27 (71%) |
+| False alarms (of 16 correct) | 0 | 0 | 0 | 0 |
+| Fixes verified by re-attack | 38 of 38 | 38 of 38 | 30 of 30 | 27 of 27 |
+| Bugs first found by a model-designed family | 14 | 14 | 0 | 0 |
+| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.2 s run to run) | 5.4 s | 11.2 s | 2.3 s | 2.3 s |
+| Model cost per solution | $0.0016 | $0.0032 | $0.0008 | $0.0008 |
+| Model cost, all 54 solutions | $0.0889 | $0.1712 | $0.0433 | $0.0419 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 | 0 |
 
-Load per attack (routed): 2 to 4 (median 3) model calls and 1,456 to 3,373 (median 2,319.5) sandbox runs, which is at least 31 to 71 (median 49) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
+**Base tier only** (`bench/solutions/<problem>/`: 30 buggy, 10 correct; same budgets and seeds as above):
+
+| Metric | Routed (Ultra + Super) | Ablation: no model families (examples, small-scope, mutations, random) | Ablation: examples + 1000 uniform random inputs only |
+| --- | --- | --- | --- |
+| Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
+| False alarms (of 10 correct) | 0 | 0 | 0 |
+| Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
+| Bugs first found by a model-designed family | 6 | 0 | 0 |
+| Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
+
+**Hard tier only** (`bench/solutions/hard/<problem>/`: 8 buggy, 6 correct; same budgets and seeds as above):
+
+| Metric | Routed (Ultra + Super) | Ablation: no model families (examples, small-scope, mutations, random) | Ablation: examples + 1000 uniform random inputs only |
+| --- | --- | --- | --- |
+| Bugs found (of 8 buggy) | 8 (100%) | 0 (0%) | 0 (0%) |
+| False alarms (of 6 correct) | 0 | 0 | 0 |
+| Fixes verified by re-attack | 8 of 8 | 0 of 0 | 0 of 0 |
+| Bugs first found by a model-designed family | 8 | 0 | 0 |
+| Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
+
+Load per attack (routed): 2 to 4 (median 3) model calls and 1,179 to 5,381 (median 2,462.5) sandbox runs, which is at least 31 to 385 (median 55) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
 <!-- bench:fixture:end -->
 
 How to read this honestly:
 
 - In fixture mode the generator families and oracles are **recorded responses we wrote**, knowing the bug classes. These numbers measure the pipeline (oracle check, generation, sandbox runs, shrinking, re-attack), not Nemotron's judgement. Token counts are estimated from text length and model latency is simulated, so time-to-first-counterexample is dominated by simulated latency (Ultra is slower per token, which is why Ultra-only is slower).
-- The two ablation columns are the useful ones, and they say something we did not expect. **Uniform random inputs alone find 27 of 30**; they miss the int32 midpoint overflow (only `x = 2^31 - 1`), the `x = 0 / 1` bound in integer sqrt, and crossed brackets like `([)]`. **The deterministic families (small-scope, mutations) close that gap on their own: without any model-designed family, 30 of 30 are still found.** In the routed run the model's families are first to break 6 of the 30 (the "Found by family" column), but none of these 30 bugs needs them. Bugs that only show at worst-case sizes or on specific structure are the case model families exist for, and this benchmark does not yet measure it.
+- The two ablation columns are the useful ones. **Base tier:** uniform random inputs alone find 27 of 30; they miss the int32 midpoint overflow (only `x = 2^31 - 1`), the `x = 0 / 1` bound in integer sqrt, and crossed brackets like `([)]`. The deterministic families (small-scope, mutations) close that gap on their own: without any model-designed family, 30 of 30 are still found, so none of the base-tier bugs needs the model's families (they are first to break 6 of the 30 in the routed run).
+- **Hard tier:** the routed run finds 8 of 8, every time first through a model-designed family (`one-letter-run-no-split`, `all-ones-max-length`, `ambiguous-run-dead-end`, `path-graph-max-n`), with 0 false alarms on the 6 correct solutions and all 8 fixes verified. **Both ablations find 0 of 8** with the same budgets: small-scope inputs are too short to time out or overflow, mutations of short inputs stay short, and 1,000 uniform random inputs never produce a 25-letter run with no split, a run of 78 ambiguous digits or a chain of 100+ heavy edges (a random DAG with 1,000 nodes and 2,000 edges has a longest path of 9 to 17 edges in 200 samples). Read this with the first bullet in mind: we wrote these families too, knowing the bug classes, and we picked the hard-tier problems for bugs that uniform random search misses. The families are generic for each problem (the textbook worst cases a model is expected to know, not inputs aimed at one file), but the result shows what targeted families can reach, not that Nemotron writes them; the live benchmark measures that.
+- Timeout counterexamples depend on the machine: the shrinker keeps the smallest input that still times out, so the length of a minimal timeout input (for example 25 letters for plain backtracking) varies a little from run to run.
 
 ### Soak: hundreds of buggy programs, every claim independently checked
 
-`pnpm soak --all --seeds 3 --readme` builds every single-point mutant of the 40 benchmark solutions (relational, arithmetic, logical and literal mutations, as in mutation testing) and attacks each one in replay mode. It then checks every claimed counterexample against the problem's reference solution. Every "no counterexample" verdict gets its own 3,000-input differential search, so a missed bug cannot hide.
+`pnpm soak --all --seeds 3 --readme` builds every single-point mutant of the benchmark solutions (relational, arithmetic, logical and literal mutations, as in mutation testing) and attacks each one in replay mode. It then checks every claimed counterexample against the problem's reference solution. Every "no counterexample" verdict gets its own 3,000-input differential search, so a missed bug cannot hide. That search draws uniform random inputs, which by construction rarely reach hard-tier bugs, so for hard-tier mutants "survived" is weaker evidence than for the base tier. The table below was written before the hard tier existed (40 solutions); rerun the command to refresh it.
 
 <!-- bench:soak-all:start -->
 Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s), replay mode, local executor, 645 s.
@@ -133,7 +156,7 @@ Deployment: a Vercel preview works for the UI; set the env vars above.
 
 ## Load and limits
 
-- **Per attack:** at most 8 model calls on the public endpoint (12 in the library), 60,000 sandbox runs and 50 s of wall clock. That works out to about 300 inputs per family, 2,000 shrink evaluations, 3 oracle attempts and 2 fix attempts. What the 40 benchmark solutions actually use is in the "Load per attack" line of the benchmark results above, written by `pnpm bench --readme`. A pasted statement adds one model call (understanding it), inside the same cap. Generated values are capped by the DSL (lengths up to 10,000; at most 200,000 values per input). The local executor caps process output at 32 MB, and a process pool sized to the CPU count bounds concurrent processes.
+- **Per attack:** at most 8 model calls on the public endpoint (12 in the library), 60,000 sandbox runs and 50 s of wall clock. That works out to about 300 inputs per family, 2,000 shrink evaluations, 3 oracle attempts and 2 fix attempts. What the 54 benchmark solutions actually use is in the "Load per attack" line of the benchmark results above, written by `pnpm bench --readme`. A pasted statement adds one model call (understanding it), inside the same cap. Generated values are capped by the DSL (lengths up to 10,000; at most 200,000 values per input). The local executor caps process output at 32 MB, and a process pool sized to the CPU count bounds concurrent processes.
 - **Per server instance:** `MAX_CONCURRENT_ATTACKS` (default 4), per IP `RATE_LIMIT_PER_HOUR` (default 10) and `ATTACKS_PER_IP_PER_DAY` (default 30) for live attacks and `REPLAY_RATE_LIMIT_PER_HOUR` (default 120) for replay attacks, which cost no model money, and `DAILY_SPEND_CAP_USD` (default $2) across all live attacks. The IP table is capped at 10,000 entries. Client IPs come from forwarding headers only on Vercel (`VERCEL=1`: `x-real-ip`, which the platform sets) or behind a proxy that appends to `X-Forwarded-For` (`TRUST_PROXY_HEADERS=1`: the right-most entry only, since the client controls the rest); anywhere else those headers could be spoofed, so all clients share one bucket. The daily spend cap reserves a worst-case cost for each attack when it is admitted and settles the real cost when it ends, so concurrent attacks cannot overshoot it. Request bodies over 88 KB are refused before they are read in full. If the client disconnects, the attack stops at its next model call or sandbox run.
 - **Expected load and where it breaks first:** a hackathon demo, with tens of concurrent users at most. The first limit hit is the sandbox. Each attack sends several Judge0 submissions (the measured count is in "Load per attack" above), so a shared Judge0 instance saturates first. Judge0 limits CPU time per submission, not per input (a submission of n inputs gets n times the per-input limit, and never more inputs than fit in its 15 s cap), so a slow input is caught as a timeout of its submission, confirmed by running it alone, and the rest are resubmitted; the concurrency cap turns that into a fast 503 instead of a pile-up. Next come the guards: they live in memory, so with N serverless instances the effective limits are N times higher. A shared store (Redis or Vercel KV) is the fix, and it is the one change needed before a real launch. Token Factory cost is capped per day; Token Factory latency (not measured yet; see `BLOCKED.md`) sets the wall-clock floor.
 
@@ -146,7 +169,7 @@ src/lib/models    Token Factory client, replay + recording providers, routing, p
 src/lib/agent     run.ts (orchestrator), stages, families, judge, model calls, prompts, parsers, budgets, trace, guards
 src/lib/net       postJson: timeouts, retries with backoff, idempotency key
 src/lib/research  Tavily client and research trigger
-src/fixtures      replay fixtures for the 10 problems
+src/fixtures      replay fixtures for the 13 problems
 tests/unit        pure functions, fast-check property tests (seeded; FC_SEED=n to explore)
 tests/integration executors, providers (mocked HTTP), API route, failure paths, fixtures vs sandbox
 tests/e2e         the whole loop in replay mode

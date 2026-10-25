@@ -34,7 +34,7 @@ Legend:
   Evidence: `docs/screenshots/` (390 px; no horizontal overflow, no page errors).
 - [x] **Potential impact:**
   - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through model-designed families (both ablations find 0 of 8) (`bench/results/fixture.md`).
-  - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 1,071 attacks on 357 mutants (`bench/results/soak-all.md`).
+  - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 503 attacks on 503 mutants of all 54 solutions, 1 seed (`bench/results/soak-all.md`; the README table is the earlier 3-seed run on the 40 base-tier solutions: 1,071 attacks, 0 unsound, 0 missed).
 - [x] **Best use of Tavily (bonus):** research covers the problem's sources and the documentation of risky APIs. One search and one cited summary per question; families may cite only this run's facts; the report shows which families research shaped. Evidence: `tests/unit/plan.test.ts`, e2e test "on request, researches the documentation of risky APIs…", replay fixtures checked against MDN and the Python docs.
 - [P] **Live Tavily run:** `TavilyClient` is proven over real HTTP (fake server) and by `pnpm preflight`. Needs `TAVILY_API_KEY` (BLOCKED.md).
 

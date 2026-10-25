@@ -37,7 +37,7 @@ export const typeSpecArb: fc.Arbitrary<TypeSpec> = fc.letrec<{ spec: TypeSpec }>
 })).spec;
 
 export const graphSpecArb = fc
-  .record({ n: rangeArb(1, 8), m: rangeArb(0, 12), weight: rangeArb(-5, 10), dag: fc.boolean() })
+  .record({ n: rangeArb(1, 8), m: rangeArb(0, 12), weight: rangeArb(-5, 10), dag: fc.boolean(), shape: fc.constantFrom<"random" | "path" | undefined>(undefined, "random", "path") })
   .map((r): TypeSpec => ({ kind: "graph", ...r }));
 
 /** Arbitrary JSON-like values (what solutions return). */

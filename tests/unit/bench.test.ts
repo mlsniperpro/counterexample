@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { benchFixtures, CONFIGS, loadSubjects, markdown, median, replaceSection, summarise, type Row } from "../../bench/lib";
+import { benchFixtures, CONFIGS, loadSubjects, markdown, median, referenceFor, replaceSection, summarise, tierTable, type Row } from "../../bench/lib";
 import { splitHeader } from "../../scripts/gen-demos";
 
 describe("benchmark library", () => {
@@ -17,13 +17,26 @@ describe("benchmark library", () => {
     expect(median([1, 2, 3, 10])).toBe(2.5);
   });
 
-  it("loads 30 buggy and 10 correct subjects, each with a documented bug", () => {
+  it("loads 30 buggy and 10 correct base subjects and 8 buggy and 6 correct hard ones, each bug documented", () => {
     const subjects = loadSubjects(process.cwd());
-    expect(subjects.filter((s) => s.buggy)).toHaveLength(30);
-    expect(subjects.filter((s) => !s.buggy)).toHaveLength(10);
+    const base = subjects.filter((s) => s.tier === "base");
+    const hard = subjects.filter((s) => s.tier === "hard");
+    expect(base.filter((s) => s.buggy)).toHaveLength(30);
+    expect(base.filter((s) => !s.buggy)).toHaveLength(10);
+    expect(hard.filter((s) => s.buggy)).toHaveLength(8);
+    expect(hard.filter((s) => !s.buggy)).toHaveLength(6);
+    expect(new Set(subjects.map((s) => s.key)).size).toBe(subjects.length);
+    expect(hard.every((s) => s.key.startsWith("hard/"))).toBe(true);
+    // Both languages in the hard tier, buggy and correct.
+    expect(new Set(hard.filter((s) => s.buggy).map((s) => s.language))).toEqual(new Set(["python", "javascript"]));
     for (const s of subjects.filter((x) => x.buggy)) expect(s.bug.length).toBeGreaterThan(30);
     const fx = benchFixtures(subjects);
     expect(fx["isqrt/bug-a"]?.explain).toMatch(/^EXPLANATION: [\s\S]*```javascript\n/);
+    // The replayed fix is the correct solution in the buggy solution's own language.
+    for (const s of hard.filter((x) => x.buggy)) {
+      expect(referenceFor(subjects, s).language).toBe(s.language);
+      expect(fx[s.key]?.explain).toContain("```" + s.language + "\n" + referenceFor(subjects, s).code);
+    }
   });
 
   it("splitHeader requires a BUG or CORRECT header", () => {
@@ -33,8 +46,8 @@ describe("benchmark library", () => {
   });
 
   it("summarises found bugs, false alarms and cost per configuration", () => {
-    const row = (key: string, buggy: boolean, verdict: Row["verdict"], config: Row["config"] = "routed"): Row => ({
-      key, buggy, config, verdict, ttfcMs: verdict === "counterexample" ? 1000 : null, costUsd: 0.01, unpricedCalls: 0, modelCalls: 4, runs: 20, timeLimitMs: 300, inputs: 10, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,
+    const row = (key: string, buggy: boolean, verdict: Row["verdict"], config: Row["config"] = "routed", tier: Row["tier"] = "base"): Row => ({
+      key, tier, buggy, config, verdict, ttfcMs: verdict === "counterexample" ? 1000 : null, costUsd: 0.01, unpricedCalls: 0, modelCalls: 4, runs: 20, timeLimitMs: 300, inputs: 10, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,
     });
     const rows = [row("a", true, "counterexample"), row("b", true, "no_counterexample"), row("c", false, "counterexample"), row("d", false, "no_counterexample"), row("a", true, "error", "ultra-only")];
     const s = summarise(rows, "routed");
@@ -44,7 +57,31 @@ describe("benchmark library", () => {
     const md = markdown(rows, "fixture", "Local");
     expect(md).toContain(`| Metric | ${CONFIGS.map((c) => c.title).join(" | ")} |`);
     expect(md).toContain("| Bugs found (of 2 buggy) | 1 (50%) | 0 (0%) | 0 (n/a) |");
-    expect(md).toContain("| `c` | correct | counterexample |");
+    expect(md).toContain("| `c` | base | correct | counterexample |");
+  });
+
+  it("reports each tier separately for the routed run and both ablations", () => {
+    const row = (key: string, tier: Row["tier"], buggy: boolean, verdict: Row["verdict"], config: Row["config"]): Row => ({
+      key, tier, buggy, config, verdict, ttfcMs: null, costUsd: 0, unpricedCalls: 0, modelCalls: 1, runs: 1, timeLimitMs: 300, inputs: 1, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,
+    });
+    const rows = [
+      row("a", "base", true, "counterexample", "routed"),
+      row("h1", "hard", true, "counterexample", "routed"),
+      row("h2", "hard", true, "counterexample", "routed"),
+      row("hc", "hard", false, "no_counterexample", "routed"),
+      row("h1", "hard", true, "no_counterexample", "no-model"),
+      row("h2", "hard", true, "counterexample", "no-model"),
+      row("h1", "hard", true, "no_counterexample", "random-only"),
+    ];
+    expect(summarise(rows, "routed", "hard")).toMatchObject({ tier: "hard", buggy: 2, found: 2, correct: 1, falseAlarms: 0, fixesVerified: 2 });
+    expect(summarise(rows, "no-model", "hard")).toMatchObject({ buggy: 2, found: 1 });
+    expect(summarise(rows, "routed", "base")).toMatchObject({ buggy: 1, found: 1, correct: 0 });
+    const t = tierTable(rows, "hard").join("\n");
+    expect(t).toContain("2 buggy, 1 correct");
+    expect(t).toContain("| Bugs found (of 2 buggy) | 2 (100%) | 1 (50%) | 0 (0%) |");
+    expect(t).not.toContain("Ultra only");
+    expect(tierTable(rows.filter((x) => x.tier === "base"), "hard")).toEqual([]);
+    expect(markdown(rows, "fixture", "Local")).toContain("**Hard tier only**");
   });
 
   it("replaces only the marked README section", () => {
