@@ -58,6 +58,7 @@ async function main(args: string[]) {
         unpricedCalls: r.stats.unpricedCalls,
         modelCalls: r.stats.modelCalls,
         runs: r.stats.runs,
+        timeLimitMs: problem.timeLimitMs,
         inputs: r.stats.inputsTested,
         minimal: r.counterexample?.args,
         fixVerified: r.fix?.verified,

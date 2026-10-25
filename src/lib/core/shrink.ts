@@ -47,14 +47,25 @@ function intCandidates(x: number): number[] {
   return [...new Set(out)].filter((y) => y !== x);
 }
 
-/** ddmin-style removals: drop chunks of size n/2, n/4, ..., 1. */
+/**
+ * ddmin-style removals: drop aligned chunks of size n/2, n/4, ..., then every
+ * contiguous run of length 2 and 1 at any offset. The unaligned small runs
+ * matter for paired structure: in "({())}" the failing core "({)}" is reached
+ * only by removing the "()" at offset 2, which no aligned chunk covers. The
+ * result is 1-minimal for single and adjacent-pair removals, at O(n)
+ * extra candidates per round.
+ */
 function* removals<T>(xs: T[]): Generator<T[]> {
   const n = xs.length;
-  for (let size = Math.max(1, Math.floor(n / 2)); size >= 1; size = Math.floor(size / 2)) {
+  for (let size = Math.floor(n / 2); size > 2; size = Math.floor(size / 2)) {
     for (let start = 0; start < n; start += size) {
       yield [...xs.slice(0, start), ...xs.slice(start + size)];
     }
-    if (size === 1) break;
+  }
+  for (const size of [2, 1]) {
+    for (let start = 0; start + size <= n; start++) {
+      yield [...xs.slice(0, start), ...xs.slice(start + size)];
+    }
   }
 }
 

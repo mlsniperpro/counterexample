@@ -1,4 +1,5 @@
 import type { Report } from "@/lib/agent/types";
+import { showValue } from "@/lib/core/compare";
 import type { SharedReport } from "@/lib/share";
 
 /** Pure formatting helpers shared by the UI components (unit-tested). */
@@ -25,7 +26,7 @@ export const VERDICT: Record<Report["verdict"], string> = {
 export function toMarkdown(r: SharedReport): string {
   const lines = [`# Counterexample report: ${r.problem.title}`, "", `**Verdict:** ${VERDICT[r.verdict]}. ${r.message}`, ""];
   if (r.counterexample) {
-    lines.push("## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${JSON.stringify(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
+    lines.push(r.counterexample.shrinkExhausted ? "## Counterexample (shrinking stopped early, may not be minimal)" : "## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${showValue(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
   }
   if (r.explanation) lines.push("## Why", "", r.explanation, "");
   if (r.fix) lines.push(`## Fix (${r.fix.verified ? "verified" : "NOT verified"} on ${r.fix.reattackInputs} inputs)`, "", "```" + r.solution.language, r.fix.code.trim(), "```", "");

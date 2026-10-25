@@ -93,6 +93,8 @@ export type Counterexample = {
   original: { args: unknown[]; family: string };
   shrinkSteps: number;
   shrinkEvals: number;
+  /** True when shrinking stopped on its evaluation budget (or its result did not re-fail), so the input may not be minimal. */
+  shrinkExhausted: boolean;
 };
 
 export type Report = {

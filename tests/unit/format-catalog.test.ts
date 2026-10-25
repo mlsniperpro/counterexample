@@ -23,7 +23,7 @@ describe("UI formatting", () => {
       solution: { language: "python", code: "x", entry: "solve" },
       setup: { provider: "replay", executor: "Local", research: "none", routing: "routed", reasoningModel: "u", fastModel: "s" },
       families: [],
-      counterexample: { args: [[0], 0], expected: 0, got: "-1", original: { args: [[0], 0], family: "f" }, shrinkSteps: 0, shrinkEvals: 0 },
+      counterexample: { args: [[0], 0], expected: 0, got: "-1", original: { args: [[0], 0], family: "f" }, shrinkSteps: 0, shrinkEvals: 0, shrinkExhausted: false },
       explanation: "Because.",
       fix: { code: "def solve(): pass\n", verified: true, attempts: 1, reattackInputs: 10, reattackMismatches: 0 },
       stats: { modelCalls: 2, runs: 5, inputsTested: 3, wallMs: 1, timeToFirstCounterexampleMs: 1, costUsd: 0.001, unpricedCalls: 0, simulatedModelMs: 0 },

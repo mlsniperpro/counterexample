@@ -39,7 +39,7 @@ export async function attack(input: AttackInput | StatementInput, deps: AgentDep
     const e = explainAbort(ctx, caught);
     const kept = report.counterexample !== undefined;
     report.verdict = kept ? "counterexample" : e instanceof BudgetExceeded ? "budget_exhausted" : "error";
-    report.message = `${kept ? "Found a minimal counterexample, then " : ""}${errorMessage(e)} (during ${ctx.stage})`;
+    report.message = `${kept ? "Found a counterexample, then " : ""}${errorMessage(e)} (during ${ctx.stage})`;
     ctx.tracer.emit(ctx.stage, "warn", report.message, { error: e instanceof Error ? e.name : "unknown" });
   }
   return finish(ctx);

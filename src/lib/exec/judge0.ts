@@ -37,6 +37,18 @@ const unb64 = (s: string | null | undefined) => (s ? Buffer.from(s, "base64").to
 /** Inputs sent per Judge0 submission by default. */
 export const JUDGE0_INPUTS_PER_SUBMISSION = 200;
 
+/** Judge0 CE's default max_cpu_time_limit; a submission asking for more is rejected or cut. */
+const MAX_CPU_SECONDS = 15;
+
+/**
+ * Inputs per submission such that every input keeps its full time limit
+ * inside the submission's CPU cap (plus the 0.5 s start-up allowance), so
+ * a chunk is never cut short by the cap alone.
+ */
+export function chunkLimit(chunkSize: number, timeLimitMs: number): number {
+  return Math.max(1, Math.min(chunkSize, Math.floor(((MAX_CPU_SECONDS - 0.5) * 1000) / Math.max(1, timeLimitMs))));
+}
+
 /**
  * Runs code on any Judge0-compatible API (self-hosted Judge0 CE, or RapidAPI).
  * Judge0 has no per-input timeout, so each chunk gets chunk*limit of CPU time;
@@ -88,7 +100,8 @@ export class Judge0Executor implements Executor {
     const { outcomes, processes } = await runWithRestarts(
       req.inputs,
       (chunk) => this.submit(source, req, chunk),
-      this.cfg.chunkSize,
+      chunkLimit(this.cfg.chunkSize, req.timeLimitMs),
+      true,
     );
     return { outcomes, processes, wallMs: Date.now() - t0 };
   }
@@ -109,7 +122,7 @@ export class Judge0Executor implements Executor {
 
   private async submit(source: string, req: RunRequest, chunk: unknown[][]): Promise<ChunkResult> {
     const languageId = this.cfg.languageIds?.[req.language] ?? DEFAULT_LANGS[req.language];
-    const cpuSeconds = Math.min(15, Math.max(1, (req.timeLimitMs * chunk.length) / 1000 + 0.5));
+    const cpuSeconds = Math.min(MAX_CPU_SECONDS, Math.max(1, (req.timeLimitMs * chunk.length) / 1000 + 0.5));
     const body = {
       source_code: b64(source),
       language_id: languageId,

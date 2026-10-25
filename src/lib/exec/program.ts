@@ -1,3 +1,4 @@
+import { exactReviver } from "../core/compare";
 import type { Language, ChunkResult, RunOutcome } from "./types";
 
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -98,7 +99,7 @@ export function parseLines(stdout: string): RunOutcome[] {
     const at = raw.indexOf("\x1eCX");
     if (at < 0) return;
     try {
-      const rec = JSON.parse(raw.slice(at + 3));
+      const rec = JSON.parse(raw.slice(at + 3), exactReviver);
       if (rec.ok) out.push({ ok: true, out: rec.out, ms: Number(rec.ms) || 0 });
       else out.push({ ok: false, error: "runtime", message: String(rec.message ?? "error") });
     } catch {
@@ -112,11 +113,17 @@ export function parseLines(stdout: string): RunOutcome[] {
  * Run all inputs through repeated chunk invocations. When a process times out
  * or crashes mid-chunk, the input right after the last reported line is
  * blamed and the run restarts after it, so one bad input never loses the rest.
+ * With `sharedTimeLimit` (an executor whose time limit covers the whole chunk,
+ * like Judge0), a timeout in a multi-input chunk is only blamed on that input
+ * after it also times out alone: the shared budget can run out on slow but
+ * legal runs of earlier inputs, and blaming an innocent input would turn a
+ * correct solution into a false alarm.
  */
 export async function runWithRestarts(
   inputs: unknown[][],
   runChunk: (chunk: unknown[][]) => Promise<ChunkResult>,
   maxChunk = Infinity,
+  sharedTimeLimit = false,
 ): Promise<{ outcomes: RunOutcome[]; processes: number }> {
   const outcomes: RunOutcome[] = [];
   let processes = 0;
@@ -130,16 +137,29 @@ export async function runWithRestarts(
       break;
     }
     outcomes.push(...res.lines.slice(0, chunk.length));
-    if (res.lines.length < chunk.length) {
-      if (res.end === "ok") {
-        outcomes.push({ ok: false, error: "internal", message: res.message || "missing output line" });
-      } else {
-        outcomes.push({
-          ok: false,
-          error: res.end === "timeout" ? "timeout" : "runtime",
-          message: res.message || res.end,
-        });
+    if (res.lines.length >= chunk.length) continue;
+    let end = res.end;
+    let message = res.message;
+    if (sharedTimeLimit && end === "timeout" && chunk.length > 1) {
+      const blamed = chunk[res.lines.length] as unknown[];
+      const solo = await runChunk([blamed]);
+      processes++;
+      const line = solo.lines[0];
+      if (line) {
+        outcomes.push(line);
+        continue;
       }
+      if (solo.end === "compile") {
+        outcomes.push({ ok: false, error: "compile", message: solo.message });
+        continue;
+      }
+      end = solo.end;
+      message = solo.message;
+    }
+    if (end === "ok") {
+      outcomes.push({ ok: false, error: "internal", message: message || "missing output line" });
+    } else {
+      outcomes.push({ ok: false, error: end === "timeout" ? "timeout" : "runtime", message: message || end });
     }
   }
   return { outcomes, processes };

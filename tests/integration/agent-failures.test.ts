@@ -113,7 +113,7 @@ describe("agent failure paths (replay mode)", () => {
   });
 
   it("only calls it a compile error when every example failed to load", () => {
-    const hit = (family: string, got: string) => ({ args: [], family, j: { status: "mismatch" as const, got } });
+    const hit = (family: string, got: string) => ({ args: [], family, j: { status: "mismatch" as const, got }, confirmed: true });
     expect(isCompileFailure([hit("examples", "compile: SyntaxError"), hit("examples", "compile: SyntaxError")], 2)).toBe(true);
     expect(isCompileFailure([hit("examples", "compile: SyntaxError")], 2)).toBe(false);
     expect(isCompileFailure([hit("big", "compile: killed"), hit("big", "compile: killed")], 2)).toBe(false);

@@ -1,7 +1,60 @@
 export type CompareMode = "exact" | "unordered" | "float";
 
+/**
+ * Integers beyond 2^53 cannot be held exactly in a JS number, so the harness
+ * output parser keeps them as marker strings carrying their exact digits
+ * (see `exactReviver`). Without this, two answers that differ only in their
+ * low digits (the overflow bugs this tool exists to find) would compare equal.
+ */
+const BIG = "\u0000int:";
+const BIG_RE = /"\\u0000int:(-?\d+)"/g;
+
+/** JSON.parse reviver: unsafe integer literals become exact marker strings. Needs source-text access (Node 21+); without it values stay numbers. */
+export function exactReviver(_key: string, value: unknown, ctx?: { source?: string }): unknown {
+  if (typeof value === "number" && Number.isInteger(value) && !Number.isSafeInteger(value) && ctx?.source && /^-?\d+$/.test(ctx.source)) {
+    return BIG + ctx.source;
+  }
+  return value;
+}
+
+/** The exact digits of an unsafe integer held as a number, in the same marker form, so number and marker forms compare alike. */
+function normalise(x: unknown): unknown {
+  if (typeof x === "number" && Number.isInteger(x) && !Number.isSafeInteger(x)) return BIG + BigInt(x).toString();
+  return x === undefined ? null : x;
+}
+
+/** Canonical text: object keys sorted (insertion order is not part of a JSON value), big integers exact. */
 function canon(v: unknown): string {
-  return JSON.stringify(v, (_k, x) => (x === undefined ? null : x));
+  return JSON.stringify(v, (_k, x) => {
+    const y = normalise(x);
+    if (y && typeof y === "object" && !Array.isArray(y)) {
+      const o = y as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]));
+    }
+    return y;
+  });
+}
+
+/** JSON text for display, with big integers written as plain digits. */
+export function showValue(v: unknown): string {
+  const s = JSON.stringify(v, (_k, x) => normalise(x));
+  return s === undefined ? "undefined" : s.replace(BIG_RE, "$1");
+}
+
+/** Longest output text kept for display, traces, reports and prompts; a solution can print megabytes. */
+export const OUTPUT_TEXT_CAP = 2000;
+
+/** Clip display text to OUTPUT_TEXT_CAP, marking the cut. */
+export function clipText(s: string, cap = OUTPUT_TEXT_CAP): string {
+  if (s.length <= cap) return s;
+  const keep = cap - 40;
+  return `${s.slice(0, keep)} [truncated, ${s.length - keep} more chars]`;
+}
+
+/** A value whose display text fits the cap, else its clipped display text (a string). Comparison always uses the full value. */
+export function displayable(v: unknown): unknown {
+  const text = showValue(v);
+  return text.length <= OUTPUT_TEXT_CAP ? v : clipText(text);
 }
 
 /** Compare two JSON outputs under a problem's comparison mode. */
@@ -16,10 +69,14 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
   return canon(a) === canon(b);
 }
 
+const asFloat = (x: unknown): unknown => (typeof x === "string" && x.startsWith(BIG) ? Number(x.slice(BIG.length)) : x);
+
 function floatEq(a: unknown, b: unknown): boolean {
-  if (typeof a === "number" && typeof b === "number") {
-    return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  const fa = asFloat(a);
+  const fb = asFloat(b);
+  if (typeof fa === "number" && typeof fb === "number") {
+    return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
-  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => floatEq(x, b[i]));
-  return canon(a) === canon(b);
+  if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));
+  return canon(fa) === canon(fb);
 }

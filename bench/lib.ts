@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIXTURES } from "../src/fixtures/replay";
 import type { Verdict } from "../src/lib/agent/types";
-import { JUDGE0_INPUTS_PER_SUBMISSION } from "../src/lib/exec/judge0";
+import { RUN_CHUNK } from "../src/lib/agent/stages";
+import { chunkLimit, JUDGE0_INPUTS_PER_SUBMISSION } from "../src/lib/exec/judge0";
 import type { Language } from "../src/lib/exec/types";
 import type { Routing } from "../src/lib/models/config";
 import type { ReplayFixtures } from "../src/lib/models/replay";
@@ -62,6 +63,8 @@ export type Row = {
   modelCalls: number;
   /** Sandbox runs (one program on one input). */
   runs: number;
+  /** The problem's per-input time limit, which sets the inputs per Judge0 submission. */
+  timeLimitMs: number;
   inputs: number;
   minimal?: unknown[];
   fixVerified?: boolean;
@@ -116,7 +119,7 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     row(`Bugs found (of ${head?.buggy ?? 0} buggy)`, (x) => `${x.found} (${pct(x.found, x.buggy)})`),
     row(`False alarms (of ${head?.correct ?? 0} correct)`, (x) => `${x.falseAlarms}`),
     row("Fixes verified by re-attack", (x) => `${x.fixesVerified} of ${x.found}`),
-    row("Median time to first counterexample", (x) => sec(x.medianTtfcMs)),
+    row("Median time to first counterexample (wall clock, varies by about ±0.2 s run to run)", (x) => sec(x.medianTtfcMs)),
     row("Model cost per solution", (x) => usd(x.costPerSolutionUsd)),
     row(`Model cost, all ${n} solutions`, (x) => usd(x.totalCostUsd)),
     ...(s.some((x) => x.unpricedCalls > 0) ? [row("Unpriced model calls (not in cost)", (x) => `${x.unpricedCalls}`)] : []),
@@ -138,7 +141,9 @@ const span = (xs: number[]) => `${Math.min(...xs).toLocaleString("en-US")} to ${
 /** Per-attack load of the routed configuration, for the README's "Load and limits". */
 export function loadLine(rows: Row[]): string {
   if (!rows.length) return "Load per attack: no runs.";
-  return `Load per attack (routed): ${span(rows.map((x) => x.modelCalls))} model calls and ${span(rows.map((x) => x.runs))} sandbox runs, which is ${span(rows.map((x) => Math.ceil(x.runs / JUDGE0_INPUTS_PER_SUBMISSION)))} Judge0 submissions at ${JUDGE0_INPUTS_PER_SUBMISSION} inputs per submission (a lower bound: a timeout or crash splits a submission).`;
+  // The agent sends at most RUN_CHUNK inputs per program per batch, and Judge0 takes fewer when the time limit is long.
+  const perSub = (x: Row) => Math.min(RUN_CHUNK, chunkLimit(JUDGE0_INPUTS_PER_SUBMISSION, x.timeLimitMs));
+  return `Load per attack (routed): ${span(rows.map((x) => x.modelCalls))} model calls and ${span(rows.map((x) => x.runs))} sandbox runs, which is at least ${span(rows.map((x) => Math.ceil(x.runs / perSub(x))))} Judge0 submissions (up to ${RUN_CHUNK} inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).`;
 }
 
 /** Replace the text between <!-- bench:<label>:start --> and <!-- bench:<label>:end --> in a README. */

@@ -18,6 +18,22 @@ describe("shrinker", () => {
     expect(r.steps).toBeGreaterThan(0);
   });
 
+  it("removes an adjacent pair at any offset, so crossed brackets shrink to their core", async () => {
+    // A counting-only bracket check (the classic bug) accepts crossed pairs; the correct check does not.
+    const counts = (t: string) => [..."([{"].every((o, k) => [...t].filter((c) => c === o).length === [...t].filter((c) => c === ")]}"[k]).length);
+    const nested = (t: string) => {
+      const st: string[] = [];
+      for (const c of t) {
+        if ("([{".includes(c)) st.push(c);
+        else if (st.pop() !== "([{"[")]}".indexOf(c)]) return false;
+      }
+      return st.length === 0;
+    };
+    const fails = (a: unknown[]) => counts(a[0] as string) !== nested(a[0] as string);
+    const r = await shrink(["({())}"], { isValid: () => true, stillFails: pred(fails) });
+    expect(r.minimal).toEqual(["({)}"]);
+  });
+
   it("shrinks integers towards zero but keeps the failure", async () => {
     const r = await shrink([1_000_003], { isValid: () => true, stillFails: pred((a) => (a[0] as number) >= 1000) });
     expect(r.minimal).toEqual([1000]);

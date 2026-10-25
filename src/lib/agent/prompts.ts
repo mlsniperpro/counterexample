@@ -1,3 +1,4 @@
+import { showValue } from "../core/compare";
 import { SPEC_LIMITS } from "../core/spec";
 import type { Problem, Solution } from "../problems/types";
 import type { ChatMessage } from "../models/types";
@@ -78,7 +79,7 @@ export function explainPrompt(
     { role: "system", content: SYSTEM },
     {
       role: "user",
-      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => JSON.stringify(a)).join(", ")}) should return ${JSON.stringify(expected)} but returned ${got}.
+      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => JSON.stringify(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.
 
 Problem: ${p.title}
 ${p.statement}

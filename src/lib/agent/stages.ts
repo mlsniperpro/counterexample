@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { outputsEqual } from "../core/compare";
+import { outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
 import { smallScopeInputs } from "../core/smallscope";
 import { argsConform } from "../core/spec";
@@ -21,6 +21,8 @@ const MUTANTS = 300;
 const SMALL_SCOPE = 300;
 const BASELINE = 100;
 const BASELINE_ONLY = 1000;
+/** Hits re-checked (smallest first) when confirming a mismatch before shrinking. */
+export const CONFIRM_HITS = 4;
 
 const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
 const call = (args: unknown[]) => `solve(${args.map((a) => JSON.stringify(a)).join(", ")})`;
@@ -102,7 +104,15 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
   for (let a = 0; a < ctx.limits.maxOracleAttempts; a++) {
     ctx.report.oracle = { code: ctx.judge.oracleCode, attempts: a + 1 };
     const text = await ctx.models.call("oracle", "reasoning", "oracle", oraclePrompt(problem, feedback), ctx.replayKey, a);
-    ctx.judge.oracleCode = extractCode(text, "python");
+    try {
+      ctx.judge.oracleCode = extractCode(text, "python");
+    } catch (e) {
+      // A prose-only answer is a failed attempt, not a failed attack: retry with feedback while attempts remain.
+      if (!(e instanceof ModelOutputError)) throw e;
+      feedback = "Your answer had no fenced ```python code block. Reply with the complete oracle in one python code block.";
+      ctx.tracer.emit("oracle", "warn", `Oracle answer had no code block on attempt ${a + 1}`);
+      continue;
+    }
     ctx.report.oracle.code = ctx.judge.oracleCode;
     const outs = await ctx.judge.exec("oracle", "oracle", ctx.judge.oracle(), problem.examples.map((e) => e.args));
     const bad = problem.examples.flatMap((e, i) => {
@@ -167,7 +177,33 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
   return plan;
 }
 
-export type Hit = { args: unknown[]; j: Judgement; family: string };
+/** `confirmed`: the mismatch reproduced on a fresh re-run. */
+export type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean };
+
+/**
+ * Re-judge the smallest new hits on a fresh run before trusting them: a
+ * sandbox can time out or crash for reasons that are not the solution's
+ * (load, a shared time budget), and a bug must reproduce before it is
+ * claimed. Returns the confirmed hits (with their fresh judgement) followed by
+ * the unchecked rest, or nothing when none of the re-checked hits reproduced
+ * (the unchecked ones are then dropped too, and the run goes on).
+ */
+async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit[]> {
+  const bySize = [...found].sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length);
+  const checked = bySize.slice(0, CONFIRM_HITS);
+  const again = await ctx.judge.compare("run", ctx.input.solution, checked.map((h) => h.args));
+  const confirmed = checked.flatMap((h, i) => {
+    const j = again[i];
+    return j && j.status === "mismatch" ? [{ ...h, j, confirmed: true }] : [];
+  });
+  const flaky = checked.length - confirmed.length;
+  if (flaky) {
+    ctx.tracer.emit("run", "warn", `${flaky} mismatch(es) did not reproduce on a re-run (flaky execution, e.g. an overloaded sandbox) and were dropped`, {
+      inputs: checked.filter((h) => !confirmed.some((c) => c.args === h.args)).map((h) => h.args),
+    });
+  }
+  return confirmed.length ? [...confirmed, ...bySize.slice(CONFIRM_HITS)] : [];
+}
 
 function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
   // Generation is synchronous: check the deadline between families.
@@ -217,10 +253,12 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
       st.tested += chunk.length;
       ctx.inputsTested += chunk.length;
       st.oracleSkipped += judged.filter((j) => j.status === "oracle_error").length;
-      const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name }] : []));
-      st.mismatches += found.length;
-      if (found.length) {
-        hits = found;
+      const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name, confirmed: false }] : []));
+      if (!found.length) continue;
+      const kept = await confirmHits(ctx, found);
+      st.mismatches += kept.length;
+      if (kept.length) {
+        hits = kept;
         ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
       }
     }
@@ -244,11 +282,19 @@ export function isCompileFailure(hits: Hit[], examples: number): boolean {
   return examples > 0 && hits.length === examples && hits.every((h) => h.family === "examples" && h.j.got.startsWith("compile:"));
 }
 
-/** Delta-debug the smallest hit down to a minimal counterexample. */
+/**
+ * Delta-debug the smallest confirmed hit down to a minimal counterexample.
+ * The confirmed, unshrunk hit is recorded first, so a budget or cancellation
+ * during shrinking still keeps a real counterexample.
+ */
 export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Counterexample> {
-  const first = [...hits].sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length)[0];
-  if (!first) throw new Error("shrinkStage needs at least one hit");
+  const first = hits.filter((h) => h.confirmed).sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length)[0];
+  if (!first) throw new Error("shrinkStage needs at least one confirmed hit");
   startStage(ctx, "shrink", `Shrinking a counterexample from ${first.family} (delta debugging)`);
+  const original = { args: first.args, family: first.family };
+  ctx.report.counterexample = { args: first.args, expected: first.j.expected, got: first.j.got, original, shrinkSteps: 0, shrinkEvals: 0, shrinkExhausted: true };
+  ctx.report.verdict = "counterexample";
+  ctx.report.message = "Found a counterexample (not yet shrunk).";
   const specs = specsOf(ctx);
   const shrunk = await shrink(first.args, {
     isValid: (a) => argsConform(a, specs),
@@ -257,25 +303,29 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
     // Small batches: only the first still-failing candidate matters, and each hanging candidate costs a full time limit.
     batchSize: 16,
   });
-  // The last accepted candidate already failed; re-judge once to report expected vs got for it.
-  const [final] = await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]);
+  // Re-judge the result to report expected vs got for it; if it does not fail again, keep the confirmed original.
+  const [final] = shrunk.steps ? await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]) : [first.j];
+  const reproduced = final?.status === "mismatch";
+  if (!reproduced) ctx.tracer.emit("shrink", "warn", "The shrunk input did not fail again on a re-run; reporting the confirmed original input instead");
   const cx: Counterexample = {
-    args: shrunk.minimal,
-    expected: final?.expected,
-    got: final?.got ?? "",
-    original: { args: first.args, family: first.family },
-    shrinkSteps: shrunk.steps,
+    args: reproduced ? shrunk.minimal : first.args,
+    expected: reproduced ? final.expected : first.j.expected,
+    got: reproduced ? final.got : first.j.got,
+    original,
+    shrinkSteps: reproduced ? shrunk.steps : 0,
     shrinkEvals: shrunk.evals,
+    shrinkExhausted: shrunk.exhausted || !reproduced,
   };
   ctx.report.counterexample = cx;
-  ctx.report.verdict = "counterexample";
-  ctx.report.message = "Found a minimal counterexample.";
-  ctx.tracer.emit("shrink", "counterexample", `Minimal counterexample: ${call(cx.args)} expected ${JSON.stringify(cx.expected)}, got ${cx.got}`, {
+  ctx.report.message = cx.shrinkExhausted ? "Found a counterexample. Shrinking stopped early, so it may not be minimal." : "Found a minimal counterexample.";
+  const label = cx.shrinkExhausted ? "Counterexample (shrink budget exhausted, may not be minimal)" : "Minimal counterexample";
+  ctx.tracer.emit("shrink", "counterexample", `${label}: ${call(cx.args)} expected ${showValue(cx.expected)}, got ${cx.got}`, {
     args: cx.args,
     expected: cx.expected,
     got: cx.got,
     steps: cx.shrinkSteps,
     evals: cx.shrinkEvals,
+    exhausted: cx.shrinkExhausted,
   });
   return cx;
 }
@@ -317,7 +367,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     });
     if (verified) return;
     const worst = bad.sort((x, y) => JSON.stringify(x.args).length - JSON.stringify(y.args).length)[0];
-    if (worst) feedback = `${call(worst.args)} should return ${JSON.stringify(worst.j.expected)} but your fix returned ${worst.j.got}.`;
+    if (worst) feedback = `${call(worst.args)} should return ${showValue(worst.j.expected)} but your fix returned ${worst.j.got}.`;
   }
 }
 

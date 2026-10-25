@@ -1,4 +1,4 @@
-import { outputsEqual } from "../core/compare";
+import { clipText, displayable, outputsEqual, showValue } from "../core/compare";
 import { ExecutorError } from "../errors";
 import type { Executor, Language, RunOutcome } from "../exec/types";
 import type { Problem, Solution } from "../problems/types";
@@ -7,9 +7,11 @@ import type { Stage, Tracer } from "./trace";
 
 export const ORACLE_LANGUAGE: Language = "python";
 
+/** `expected` is for display (clipped when huge); comparisons use the full outputs. */
 export type Judgement = { status: "agree" | "mismatch" | "oracle_error"; expected?: unknown; got: string };
 
-export const showOutcome = (o: RunOutcome): string => (o.ok ? JSON.stringify(o.out) : `${o.error}: ${o.message}`);
+/** Display text of an outcome, clipped: a solution's output can be megabytes, and it flows into the trace, the report and model prompts. */
+export const showOutcome = (o: RunOutcome): string => clipText(o.ok ? showValue(o.out) : `${o.error}: ${o.message}`);
 
 /** Runs programs in the sandbox (charging the run budget) and compares a target against the oracle. */
 export class Judge {
@@ -60,7 +62,7 @@ export class Judge {
       if (!o || !s) throw new ExecutorError(`executor returned ${sol.length}/${ora.length} outcomes for ${inputs.length} inputs`);
       if (!o.ok) return { status: "oracle_error", got: showOutcome(s) };
       const agree = s.ok && outputsEqual(s.out, o.out, this.problem.compare);
-      return { status: agree ? "agree" : "mismatch", expected: o.out, got: showOutcome(s) };
+      return { status: agree ? "agree" : "mismatch", expected: displayable(o.out), got: showOutcome(s) };
     });
   }
 }

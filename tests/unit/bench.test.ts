@@ -34,7 +34,7 @@ describe("benchmark library", () => {
 
   it("summarises found bugs, false alarms and cost per configuration", () => {
     const row = (key: string, buggy: boolean, verdict: Row["verdict"], config: Row["config"] = "routed"): Row => ({
-      key, buggy, config, verdict, ttfcMs: verdict === "counterexample" ? 1000 : null, costUsd: 0.01, unpricedCalls: 0, modelCalls: 4, runs: 20, inputs: 10, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,
+      key, buggy, config, verdict, ttfcMs: verdict === "counterexample" ? 1000 : null, costUsd: 0.01, unpricedCalls: 0, modelCalls: 4, runs: 20, timeLimitMs: 300, inputs: 10, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,
     });
     const rows = [row("a", true, "counterexample"), row("b", true, "no_counterexample"), row("c", false, "counterexample"), row("d", false, "no_counterexample"), row("a", true, "error", "ultra-only")];
     const s = summarise(rows, "routed");
