@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ConfigError } from "../errors";
+import { priceFor, type Price } from "../models/pricing";
 
 /**
  * Public-deployment guards: per-IP hourly and daily attack limits, a global
@@ -48,6 +49,33 @@ type Usage = { recent: number[]; day: string; today: number };
  */
 export const LEASE_MS = 120_000;
 
+/**
+ * Worst-case tokens of one model call, for the spend reservation: completions
+ * are capped at NebiusProvider's max_tokens (4096); prompts are bounded by the
+ * request caps (28,000 characters of statement and code) plus the agent's own
+ * prompts and research text, taken as at most 32,000 tokens.
+ */
+export const RESERVE_PROMPT_TOKENS = 32_000;
+export const RESERVE_COMPLETION_TOKENS = 4_096;
+
+/**
+ * The most one attack can spend: every allowed model call at worst-case
+ * tokens on the dearest of the models it may use (an unpriced model at
+ * UNPRICED_CALL_USD). Reserved at admit so concurrent attacks cannot overshoot the cap.
+ */
+export function worstCaseAttackUsd(maxModelCalls: number, models: string[], prices: Record<string, Price>, unpricedCallUsd: number): number {
+  const perCall = Math.max(
+    0,
+    ...models.map((m) => {
+      const p = priceFor(m, prices);
+      return p ? (RESERVE_PROMPT_TOKENS * p.in + RESERVE_COMPLETION_TOKENS * p.out) / 1e6 : unpricedCallUsd;
+    }),
+  );
+  return maxModelCalls * perCall;
+}
+
+type Lease = { start: number; reservedUsd: number; day: string };
+
 export type GuardDecision = { ok: true; ticket: number } | { ok: false; status: 429 | 503; reason: string; retryAfterS: number };
 
 const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
@@ -55,14 +83,17 @@ const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
 export class Guard {
   private readonly usage = new Map<string, Usage>();
   private spend = { day: "", usd: 0 };
-  /** Active attacks: ticket to start time. */
-  private readonly leases = new Map<number, number>();
+  /** Active attacks: ticket to start time and the spend reserved for it (already counted in spend). */
+  private readonly leases = new Map<number, Lease>();
   private nextTicket = 1;
 
   constructor(readonly config: GuardConfig) {}
 
-  /** Admit one attack from this IP now, or say why not. On success the caller must call done(). */
-  admit(ip: string, now: number, live: boolean): GuardDecision {
+  /**
+   * Admit one attack from this IP now, or say why not. On success the caller must call done().
+   * A live attack reserves `reserveUsd` (its worst case) against the daily cap until done() settles it.
+   */
+  admit(ip: string, now: number, live: boolean, reserveUsd = 0): GuardDecision {
     const u = this.touch(ip, now);
     if (u.recent.length >= this.config.RATE_LIMIT_PER_HOUR) {
       const oldest = u.recent[0] ?? now;
@@ -71,34 +102,49 @@ export class Guard {
     if (u.today >= this.config.ATTACKS_PER_IP_PER_DAY) {
       return { ok: false, status: 429, reason: "Daily limit reached for your address.", retryAfterS: secondsToMidnightUtc(now) };
     }
-    if (live && !this.spendAllowed(now)) {
+    if (live && !this.spendAllowed(now, reserveUsd)) {
       return { ok: false, status: 503, reason: "Today's model budget for this demo is spent.", retryAfterS: secondsToMidnightUtc(now) };
     }
-    for (const [t, start] of this.leases) if (now - start > LEASE_MS) this.leases.delete(t);
+    // An expired lease keeps its reservation: the killed attack may have spent it.
+    for (const [t, l] of this.leases) if (now - l.start > LEASE_MS) this.leases.delete(t);
     if (this.leases.size >= this.config.MAX_CONCURRENT_ATTACKS) {
       return { ok: false, status: 503, reason: "The server is busy with other attacks.", retryAfterS: 10 };
     }
     u.recent.push(now);
     u.today++;
     const ticket = this.nextTicket++;
-    this.leases.set(ticket, now);
+    const reservedUsd = live ? reserveUsd : 0;
+    this.spend.usd += reservedUsd;
+    this.leases.set(ticket, { start: now, reservedUsd, day: this.spend.day });
     return { ok: true, ticket };
   }
 
-  /** Release the slot and charge what the attack spent (unpriced calls at UNPRICED_CALL_USD each). Idempotent per ticket for the slot. */
+  /**
+   * Release the slot and settle the spend: the reservation is replaced by what the attack spent (unpriced
+   * calls at UNPRICED_CALL_USD each). A reservation from an earlier UTC day is not refunded from today's total.
+   */
   done(ticket: number, spent: { costUsd: number; unpricedCalls: number }, now: number): void {
+    const lease = this.leases.get(ticket);
     this.leases.delete(ticket);
     this.rollSpend(now);
-    this.spend.usd += spent.costUsd + spent.unpricedCalls * this.config.UNPRICED_CALL_USD;
+    const refund = lease && lease.day === this.spend.day ? lease.reservedUsd : 0;
+    this.spend.usd = Math.max(0, this.spend.usd - refund) + spent.costUsd + spent.unpricedCalls * this.config.UNPRICED_CALL_USD;
   }
 
   get activeAttacks(): number {
     return this.leases.size;
   }
 
-  spendAllowed(now: number): boolean {
+  /** Whether today's spend (reservations included) is under the cap, with room for `reserveUsd` more. */
+  spendAllowed(now: number, reserveUsd = 0): boolean {
     this.rollSpend(now);
-    return this.spend.usd < this.config.DAILY_SPEND_CAP_USD;
+    return this.spend.usd < this.config.DAILY_SPEND_CAP_USD && this.spend.usd + reserveUsd <= this.config.DAILY_SPEND_CAP_USD;
+  }
+
+  /** Today's spend, reservations of running attacks included. */
+  spentUsd(now: number): number {
+    this.rollSpend(now);
+    return this.spend.usd;
   }
 
   get trackedIps(): number {

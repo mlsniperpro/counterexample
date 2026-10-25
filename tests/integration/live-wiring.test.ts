@@ -2,7 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { attack } from "@/lib/agent/run";
 import { makeDeps } from "@/lib/agent/setup";
 import { POST } from "@/app/api/attack/route";
-import { PUBLIC_BUDGETS, resetGuardForTests } from "@/lib/agent/api";
+import { getGuard, PUBLIC_BUDGETS, resetGuardForTests } from "@/lib/agent/api";
+import { worstCaseAttackUsd } from "@/lib/agent/guard";
+import { modelConfigFromEnv } from "@/lib/models/config";
+import { priceTable } from "@/lib/models/pricing";
 import { preflight } from "@/lib/preflight";
 import { BUILT_INS } from "@/lib/problems/catalog";
 import { fakeEnv, startFakes, type Fakes } from "../fakes/services";
@@ -94,6 +97,49 @@ describe("POST /api/attack in live mode (fake services)", () => {
       expect(customReport.stages[0]).toMatchObject({ stage: "understand", purpose: "understand" });
       expect(customReport.stats.modelCalls).toBe(customReport.stages.reduce((n: number, s: { calls: number }) => n + s.calls, 0));
       expect(customReport.stats.modelCalls).toBeLessThanOrEqual(PUBLIC_BUDGETS.maxModelCalls);
+    } finally {
+      process.env = saved;
+      resetGuardForTests();
+    }
+  });
+});
+
+describe("POST /api/attack spend cap (fake priced Token Factory)", () => {
+  it("reserves the worst case at admit, then charges what the attack actually spent", async () => {
+    const saved = { ...process.env };
+    Object.assign(process.env, fakeEnv(fakes));
+    delete process.env.REPLAY;
+    process.env.VERCEL = "1";
+    const models = modelConfigFromEnv(process.env);
+    const reserve = worstCaseAttackUsd(PUBLIC_BUDGETS.maxModelCalls, [models.reasoningModel, models.fastModel], priceTable(process.env), 0.05);
+    expect(reserve).toBeGreaterThan(0);
+    // Room for exactly one attack's reservation: once its real (priced, non-zero) cost is charged, the next one cannot fit.
+    process.env.DAILY_SPEND_CAP_USD = String(reserve + 1e-9);
+    resetGuardForTests();
+    const isqrt = BUILT_INS.find((x) => x.problem.id === "isqrt")!;
+    const post = (ip: string) =>
+      POST(
+        new Request("http://x/api/attack", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-real-ip": ip },
+          body: JSON.stringify({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }),
+        }),
+      );
+    try {
+      const first = await post("7.7.8.1");
+      expect(first.status).toBe(200);
+      // While it runs, its reservation fills the cap: a concurrent attack is refused.
+      expect(getGuard().spentUsd(Date.now())).toBeCloseTo(reserve, 9);
+      const concurrent = await post("7.7.8.2");
+      expect(concurrent.status).toBe(503);
+      const report = (await first.text()).trim().split("\n").map((l) => JSON.parse(l)).at(-1).report;
+      expect(report.stats.costUsd).toBeGreaterThan(0);
+      // Settled: the reservation is replaced by the actual cost.
+      expect(getGuard().spentUsd(Date.now())).toBeCloseTo(report.stats.costUsd, 9);
+      expect(getGuard().activeAttacks).toBe(0);
+      const next = await post("7.7.8.3");
+      expect(next.status).toBe(503);
+      expect((await next.json()).error).toMatch(/model budget/);
     } finally {
       process.env = saved;
       resetGuardForTests();

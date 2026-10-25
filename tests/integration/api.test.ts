@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/attack/route";
-import { attackBodySchema, clientIp, problemsPayload, resetGuardForTests } from "@/lib/agent/api";
+import { attackBodySchema, clientIp, getGuard, MAX_BODY_BYTES, problemsPayload, readJsonBody, resetGuardForTests } from "@/lib/agent/api";
 import { BUILT_INS } from "@/lib/problems/catalog";
 
 const saved = { ...process.env };
@@ -8,6 +8,7 @@ beforeEach(() => {
   // Always replay here, even if a key happens to be set in the environment.
   process.env.REPLAY = "1";
   delete process.env.RATE_LIMIT_PER_HOUR;
+  delete process.env.MAX_CONCURRENT_ATTACKS;
   resetGuardForTests();
 });
 afterEach(() => {
@@ -111,7 +112,64 @@ describe("POST /api/attack (replay mode)", () => {
     const h = new Headers({ "x-real-ip": "1.1.1.1", "x-forwarded-for": "2.2.2.2, 3.3.3.3" });
     expect(clientIp(h, {})).toBe("untrusted-proxy");
     expect(clientIp(h, { VERCEL: "1" })).toBe("1.1.1.1");
-    expect(clientIp(new Headers({ "x-forwarded-for": "2.2.2.2, 3.3.3.3" }), { TRUST_PROXY_HEADERS: "1" })).toBe("2.2.2.2");
+    // Behind a generic proxy only the right-most entry (the one the proxy appended) is trusted; x-real-ip may be the client's own.
+    expect(clientIp(h, { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
+    expect(clientIp(new Headers({ "x-real-ip": "1.1.1.1" }), { TRUST_PROXY_HEADERS: "1" })).toBe("unknown");
+    expect(clientIp(new Headers({ "x-forwarded-for": "3.3.3.3" }), { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
+  });
+
+  it("cannot pick its own rate-limit bucket behind a proxy by sending forwarding headers", () => {
+    // The client sends spoofed values; the proxy appends the real address.
+    const spoofed = (n: number) => new Headers({ "x-real-ip": `6.6.6.${n}`, "x-forwarded-for": `6.6.6.${n}, 4.4.4.4` });
+    expect(new Set([1, 2, 3].map((n) => clientIp(spoofed(n), { TRUST_PROXY_HEADERS: "1" })))).toEqual(new Set(["4.4.4.4"]));
+  });
+
+  it("on Vercel uses the address the platform sets (x-real-ip, else x-vercel-forwarded-for, else x-forwarded-for)", () => {
+    expect(clientIp(new Headers({ "x-real-ip": "1.1.1.1", "x-forwarded-for": "1.1.1.1" }), { VERCEL: "1" })).toBe("1.1.1.1");
+    expect(clientIp(new Headers({ "x-vercel-forwarded-for": "5.5.5.5" }), { VERCEL: "1" })).toBe("5.5.5.5");
+    expect(clientIp(new Headers({ "x-forwarded-for": "5.5.5.6" }), { VERCEL: "1" })).toBe("5.5.5.6");
+    expect(clientIp(new Headers(), { VERCEL: "1" })).toBe("unknown");
+  });
+
+  it("refuses an oversized body with 413 before reading it, and stops reading a stream past the cap", async () => {
+    const declared = await POST(new Request("http://x/api/attack", { method: "POST", headers: { "content-length": String(MAX_BODY_BYTES + 1), "x-real-ip": "1.2.3.4" }, body: "{}" }));
+    expect(declared.status).toBe(413);
+    // No Content-Length: a stream that would go on for 400 MB is cancelled just past the cap.
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled += 16_384;
+        if (pulled > 400 * 1024 * 1024) c.close();
+        else c.enqueue(new Uint8Array(16_384).fill(0x20));
+      },
+    });
+    const streamed = await POST(new Request("http://x/api/attack", { method: "POST", body: endless, duplex: "half" } as RequestInit & { duplex: "half" }));
+    expect(streamed.status).toBe(413);
+    expect(pulled).toBeLessThan(MAX_BODY_BYTES + 3 * 16_384);
+    expect((await streamed.json()).error).toMatch(/over \d+ bytes/);
+  });
+
+  it("still reads the largest valid body: statement and code at their caps", async () => {
+    const body = { statement: "é".repeat(8_000), code: "€".repeat(20_000), language: "python" };
+    const req = new Request("http://x", { method: "POST", body: JSON.stringify(body) });
+    const read = await readJsonBody(req);
+    expect(read).toEqual({ ok: true, value: body });
+    expect(attackBodySchema.safeParse(body).success).toBe(true);
+    expect(await readJsonBody(new Request("http://x", { method: "POST", body: "{nope" }))).toEqual({ ok: true, value: null });
+  });
+
+  it("frees its concurrency slot when the attack finishes", async () => {
+    process.env.MAX_CONCURRENT_ATTACKS = "1";
+    resetGuardForTests();
+    const first = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(first.status).toBe(200);
+    expect(getGuard().activeAttacks).toBe(1); // held while the stream runs
+    await first.text();
+    expect(getGuard().activeAttacks).toBe(0);
+    const second = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(second.status).toBe(200);
+    await second.text();
+    expect(getGuard().activeAttacks).toBe(0);
   });
 
   it("returns 503 with the reason when the server is misconfigured", async () => {

@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { runs } from "../helpers";
-import { Guard, guardConfig, LEASE_MS, MAX_TRACKED_IPS } from "@/lib/agent/guard";
+import { Guard, guardConfig, LEASE_MS, MAX_TRACKED_IPS, RESERVE_COMPLETION_TOKENS, RESERVE_PROMPT_TOKENS, worstCaseAttackUsd } from "@/lib/agent/guard";
 import { ConfigError } from "@/lib/errors";
 import { Semaphore } from "@/lib/limit";
 
@@ -58,6 +58,40 @@ describe("Guard", () => {
     const g = new Guard(cfg({ DAILY_SPEND_CAP_USD: 0.1, UNPRICED_CALL_USD: 0.05 }));
     expect(once(g, "a", DAY, true, { costUsd: 0, unpricedCalls: 2 })).toBe(true);
     expect(g.spendAllowed(DAY)).toBe(false);
+  });
+
+  it("reserves each live attack's worst case at admit, so concurrent attacks cannot overshoot the cap", () => {
+    const g = new Guard(cfg({ DAILY_SPEND_CAP_USD: 1, MAX_CONCURRENT_ATTACKS: 4 }));
+    const tickets = [1, 2, 3, 4].map((i) => g.admit(`ip${i}`, DAY, true, 0.3));
+    // Three reservations fit under $1; a fourth would make $1.20.
+    expect(tickets.map((t) => t.ok)).toEqual([true, true, true, false]);
+    expect(tickets[3]).toMatchObject({ status: 503, reason: expect.stringMatching(/budget/) });
+    expect(g.spentUsd(DAY)).toBeCloseTo(0.9);
+    // Replay attacks reserve nothing.
+    expect(once(g, "replay", DAY, false)).toBe(true);
+    // done() replaces each reservation with the actual cost.
+    for (const t of tickets) if (t.ok) g.done(t.ticket, { costUsd: 0.1, unpricedCalls: 0 }, DAY);
+    expect(g.spentUsd(DAY)).toBeCloseTo(0.3);
+    expect(g.admit("ip5", DAY, true, 0.3).ok).toBe(true);
+  });
+
+  it("keeps an expired lease's reservation, and does not refund yesterday's reservation from today", () => {
+    const g = new Guard(cfg({ DAILY_SPEND_CAP_USD: 1, MAX_CONCURRENT_ATTACKS: 4 }));
+    const leaked = g.admit("a", DAY, true, 0.6);
+    expect(leaked.ok).toBe(true);
+    expect(g.admit("b", DAY + LEASE_MS + 1, true, 0.6).ok).toBe(false); // the killed attack may have spent it
+    const late = DAY + 12 * 3_600_000; // after UTC midnight
+    if (leaked.ok) g.done(leaked.ticket, { costUsd: 0.2, unpricedCalls: 0 }, late);
+    expect(g.spentUsd(late)).toBeCloseTo(0.2);
+  });
+
+  it("prices the worst case from the call budget, the token caps and the dearest model", () => {
+    const prices = { ultra: { in: 1, out: 3 }, fast: { in: 0.3, out: 0.9 } };
+    const perUltraCall = (RESERVE_PROMPT_TOKENS * 1 + RESERVE_COMPLETION_TOKENS * 3) / 1e6;
+    expect(worstCaseAttackUsd(8, ["ultra", "fast"], prices, 0.05)).toBeCloseTo(8 * perUltraCall);
+    expect(worstCaseAttackUsd(8, ["FAST"], prices, 0.05)).toBeCloseTo((8 * (RESERVE_PROMPT_TOKENS * 0.3 + RESERVE_COMPLETION_TOKENS * 0.9)) / 1e6);
+    // An unpriced model is reserved at the flat unpriced rate per call.
+    expect(worstCaseAttackUsd(8, ["mystery"], prices, 0.05)).toBeCloseTo(0.4);
   });
 
   it("caps concurrent attacks, frees the slot on done(), and reclaims leaked slots after the lease", () => {

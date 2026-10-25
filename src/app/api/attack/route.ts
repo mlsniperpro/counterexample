@@ -1,9 +1,10 @@
-import { attackBodySchema, clientIp, getGuard, PUBLIC_BUDGETS } from "@/lib/agent/api";
-import type { Guard } from "@/lib/agent/guard";
+import { attackBodySchema, clientIp, getGuard, MAX_BODY_BYTES, PUBLIC_BUDGETS, readJsonBody } from "@/lib/agent/api";
+import { worstCaseAttackUsd, type Guard } from "@/lib/agent/guard";
 import { attack, type AttackInput, type StatementInput } from "@/lib/agent/run";
 import { makeDeps, resolveMode, type Mode } from "@/lib/agent/setup";
 import type { TraceEvent } from "@/lib/agent/trace";
 import { ConfigError, errorMessage } from "@/lib/errors";
+import { priceTable } from "@/lib/models/pricing";
 import { editedKey } from "@/fixtures/replay";
 import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
 
@@ -13,7 +14,10 @@ const json = (status: number, error: string, headers: Record<string, string> = {
 
 /** POST /api/attack streams NDJSON: one {"type":"mode"} line, {"type":"event"} lines, then one {"type":"report"} (or {"type":"error"}) line. */
 export async function POST(req: Request) {
-  const parsed = attackBodySchema.safeParse(await req.json().catch(() => null));
+  // Bounded read first: an oversized body is refused before it is buffered, parsed or rate-limited.
+  const read = await readJsonBody(req);
+  if (!read.ok) return json(413, `Request body is over ${MAX_BODY_BYTES} bytes.`);
+  const parsed = attackBodySchema.safeParse(read.value);
   if (!parsed.success) return json(400, parsed.error.issues.map((i) => i.message).join(" "));
   const body = parsed.data;
 
@@ -33,7 +37,9 @@ export async function POST(req: Request) {
   if (body.problemId !== undefined && !builtIn) return json(400, `Unknown problem "${body.problemId}".`);
   if (!builtIn && mode === "replay") return json(400, "Replay mode (no NEBIUS_API_KEY on the server) only covers the built-in problems.");
 
-  const admitted = guard.admit(clientIp(req.headers), Date.now(), mode === "live");
+  // Reserve the attack's worst-case spend now, so concurrent attacks cannot together overshoot the daily cap.
+  const reserveUsd = worstCaseAttackUsd(PUBLIC_BUDGETS.maxModelCalls, [deps.models.reasoningModel, deps.models.fastModel], deps.prices ?? priceTable(), guard.config.UNPRICED_CALL_USD);
+  const admitted = guard.admit(clientIp(req.headers), Date.now(), mode === "live", reserveUsd);
   if (!admitted.ok) return json(admitted.status, `${admitted.reason} Retry in ${admitted.retryAfterS}s.`, { "retry-after": String(admitted.retryAfterS) });
   const { ticket } = admitted;
   const spent = { costUsd: 0, unpricedCalls: 0 };

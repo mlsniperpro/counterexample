@@ -41,6 +41,8 @@ function send(res: ServerResponse, status: number, json: unknown) {
   res.end(JSON.stringify(json));
 }
 
+let nextUidBlock = 0;
+
 export async function startFakes(opts: FakeOptions = {}): Promise<Fakes> {
   const keys = opts.keys ?? { nebius: "nb-test", tavily: "tv-test", judge0: "j0-test" };
   const models = opts.models ?? ["nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "meta/other-model"];
@@ -97,7 +99,8 @@ export async function startFakes(opts: FakeOptions = {}): Promise<Fakes> {
       reply(500, { error: String(e) });
     }
   });
-  const sandbox = createSandboxServer({ token: keys.judge0 });
+  // Its own uid range (runs are killed by uid), so parallel test processes cannot kill each other's runs.
+  const sandbox = createSandboxServer({ token: keys.judge0, uidBase: 3_000_000 + (process.pid % 100_000) * 64 + (nextUidBlock++ % 4) * 16 });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   await new Promise<void>((r) => sandbox.listen(0, "127.0.0.1", r));
   const port = (server.address() as AddressInfo).port;
