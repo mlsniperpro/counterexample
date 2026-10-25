@@ -5,12 +5,12 @@ Mode: **fixture** (replayed model responses; token counts estimated from text le
 | Bugs found (of 30 buggy) | 30 (100%) | 30 (100%) | 27 (90%) |
 | False alarms (of 10 correct) | 0 | 0 | 0 |
 | Fixes verified by re-attack | 30 of 30 | 30 of 30 | 27 of 27 |
-| Median time to first counterexample | 4.8 s | 10.2 s | 2.2 s |
+| Median time to first counterexample (wall clock, varies by about ±0.2 s run to run) | 4.8 s | 10.3 s | 2.2 s |
 | Model cost per solution | $0.0014 | $0.0027 | $0.0008 |
 | Model cost, all 40 solutions | $0.0567 | $0.1099 | $0.0336 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 
-Load per attack (routed): 2 to 4 (median 3) model calls and 1,454 to 3,365 (median 2,338.5) sandbox runs, which is 8 to 17 (median 12) Judge0 submissions at 200 inputs per submission (a lower bound: a timeout or crash splits a submission).
+Load per attack (routed): 2 to 4 (median 3) model calls and 1,456 to 3,373 (median 2,319.5) sandbox runs, which is at least 31 to 71 (median 49) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
 
 | Solution | Expected | Verdict (routed) | Minimal counterexample | Fix verified |
 | --- | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ Load per attack (routed): 2 to 4 (median 3) model calls and 1,454 to 3,365 (medi
 | `two-sum-count/bug-b` | bug | counterexample | `[[0,0,0],0]` | yes |
 | `two-sum-count/bug-c` | bug | counterexample | `[[0,0],0]` | yes |
 | `two-sum-count/correct` | correct | no_counterexample |  |  |
-| `valid-parentheses/bug-a` | bug | counterexample | `["({())}"]` | yes |
+| `valid-parentheses/bug-a` | bug | counterexample | `["({)}"]` | yes |
 | `valid-parentheses/bug-b` | bug | counterexample | `["("]` | yes |
 | `valid-parentheses/bug-c` | bug | counterexample | `[")"]` | yes |
 | `valid-parentheses/correct` | correct | no_counterexample |  |  |

@@ -9,9 +9,9 @@
       "correct": 10,
       "falseAlarms": 0,
       "fixesVerified": 30,
-      "medianTtfcMs": 4797,
-      "totalCostUsd": 0.05674980000000001,
-      "costPerSolutionUsd": 0.0014187450000000003,
+      "medianTtfcMs": 4840,
+      "totalCostUsd": 0.05674880000000001,
+      "costPerSolutionUsd": 0.0014187200000000003,
       "unpricedCalls": 0,
       "errors": 0
     },
@@ -22,9 +22,9 @@
       "correct": 10,
       "falseAlarms": 0,
       "fixesVerified": 30,
-      "medianTtfcMs": 10240.5,
-      "totalCostUsd": 0.10986299999999993,
-      "costPerSolutionUsd": 0.0027465749999999985,
+      "medianTtfcMs": 10272,
+      "totalCostUsd": 0.10986199999999993,
+      "costPerSolutionUsd": 0.002746549999999998,
       "unpricedCalls": 0,
       "errors": 0
     },
@@ -35,9 +35,9 @@
       "correct": 10,
       "falseAlarms": 0,
       "fixesVerified": 27,
-      "medianTtfcMs": 2185,
-      "totalCostUsd": 0.033580799999999994,
-      "costPerSolutionUsd": 0.0008395199999999998,
+      "medianTtfcMs": 2237,
+      "totalCostUsd": 0.03357979999999999,
+      "costPerSolutionUsd": 0.0008394949999999998,
       "unpricedCalls": 0,
       "errors": 0
     }
@@ -48,11 +48,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7448,
+      "ttfcMs": 7386,
       "costUsd": 0.0020311,
       "unpricedCalls": 0,
       "modelCalls": 4,
-      "runs": 2672,
+      "runs": 2674,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -61,7 +62,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 405,
+      "wallMs": 276,
       "message": "Found a minimal counterexample."
     },
     {
@@ -69,11 +70,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7262,
+      "ttfcMs": 7307,
       "costUsd": 0.0020247999999999998,
       "unpricedCalls": 0,
       "modelCalls": 4,
-      "runs": 2926,
+      "runs": 2960,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -83,7 +85,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 480,
+      "wallMs": 574,
       "message": "Found a minimal counterexample."
     },
     {
@@ -91,11 +93,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7546,
+      "ttfcMs": 7883,
       "costUsd": 0.0020207999999999997,
       "unpricedCalls": 0,
       "modelCalls": 4,
       "runs": 2722,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -104,7 +107,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 8948,
+      "wallMs": 9024,
       "message": "Found a minimal counterexample."
     },
     {
@@ -117,8 +120,9 @@
       "unpricedCalls": 0,
       "modelCalls": 3,
       "runs": 3050,
+      "timeLimitMs": 300,
       "inputs": 1524,
-      "wallMs": 901,
+      "wallMs": 971,
       "message": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -126,11 +130,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 6451,
+      "ttfcMs": 6488,
       "costUsd": 0.0017883999999999999,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3365,
+      "runs": 3373,
+      "timeLimitMs": 300,
       "inputs": 367,
       "minimal": [
         [
@@ -140,7 +145,7 @@
         4
       ],
       "fixVerified": true,
-      "wallMs": 506,
+      "wallMs": 541,
       "message": "Found a minimal counterexample."
     },
     {
@@ -148,11 +153,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 6298,
+      "ttfcMs": 6312,
       "costUsd": 0.0017937,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2307,
+      "runs": 2313,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -161,7 +167,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 298,
+      "wallMs": 231,
       "message": "Found a minimal counterexample."
     },
     {
@@ -169,11 +175,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 6244,
+      "ttfcMs": 6279,
       "costUsd": 0.0017594,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2387,
+      "runs": 2325,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -195,8 +202,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2795,
+      "timeLimitMs": 300,
       "inputs": 1396,
-      "wallMs": 899,
+      "wallMs": 934,
       "message": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -204,17 +212,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4200,
+      "ttfcMs": 4211,
       "costUsd": 0.0012883,
       "unpricedCalls": 0,
       "modelCalls": 3,
       "runs": 1728,
+      "timeLimitMs": 300,
       "inputs": 29,
       "minimal": [
         2147483647
       ],
       "fixVerified": true,
-      "wallMs": 567,
+      "wallMs": 407,
       "message": "Found a minimal counterexample."
     },
     {
@@ -222,17 +231,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4242,
+      "ttfcMs": 4228,
       "costUsd": 0.0012822,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1538,
+      "runs": 1540,
+      "timeLimitMs": 300,
       "inputs": 29,
       "minimal": [
         0
       ],
       "fixVerified": true,
-      "wallMs": 300,
+      "wallMs": 197,
       "message": "Found a minimal counterexample."
     },
     {
@@ -240,17 +250,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4138,
+      "ttfcMs": 4166,
       "costUsd": 0.001206,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1454,
+      "runs": 1456,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         3
       ],
       "fixVerified": true,
-      "wallMs": 243,
+      "wallMs": 249,
       "message": "Found a minimal counterexample."
     },
     {
@@ -263,8 +274,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2040,
+      "timeLimitMs": 300,
       "inputs": 1019,
-      "wallMs": 929,
+      "wallMs": 789,
       "message": "No mismatch on 1019 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -272,17 +284,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4255,
+      "ttfcMs": 4330,
       "costUsd": 0.0014167,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2121,
+      "runs": 2133,
+      "timeLimitMs": 300,
       "inputs": 107,
       "minimal": [
         "baab"
       ],
       "fixVerified": true,
-      "wallMs": 348,
+      "wallMs": 392,
       "message": "Found a minimal counterexample."
     },
     {
@@ -290,17 +303,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4377,
+      "ttfcMs": 4409,
       "costUsd": 0.0014006000000000001,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2625,
+      "runs": 2631,
+      "timeLimitMs": 300,
       "inputs": 241,
       "minimal": [
         "babc"
       ],
       "fixVerified": true,
-      "wallMs": 423,
+      "wallMs": 407,
       "message": "Found a minimal counterexample."
     },
     {
@@ -308,17 +322,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4239,
+      "ttfcMs": 4278,
       "costUsd": 0.0014271000000000002,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1681,
+      "runs": 1687,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         "a"
       ],
       "fixVerified": true,
-      "wallMs": 262,
+      "wallMs": 269,
       "message": "Found a minimal counterexample."
     },
     {
@@ -331,8 +346,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2051,
+      "timeLimitMs": 300,
       "inputs": 1024,
-      "wallMs": 894,
+      "wallMs": 825,
       "message": "No mismatch on 1024 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -340,11 +356,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4501,
+      "ttfcMs": 4538,
       "costUsd": 0.00141,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2154,
+      "runs": 2160,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -353,7 +370,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 181,
+      "wallMs": 206,
       "message": "Found a minimal counterexample."
     },
     {
@@ -361,11 +378,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4513,
+      "ttfcMs": 4580,
       "costUsd": 0.0014151,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2152,
+      "runs": 2154,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -374,7 +392,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 206,
+      "wallMs": 242,
       "message": "Found a minimal counterexample."
     },
     {
@@ -382,11 +400,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4535,
+      "ttfcMs": 4572,
       "costUsd": 0.0014303000000000002,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2312,
+      "runs": 2314,
+      "timeLimitMs": 300,
       "inputs": 130,
       "minimal": [
         [
@@ -396,7 +415,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 219,
+      "wallMs": 224,
       "message": "Found a minimal counterexample."
     },
     {
@@ -409,8 +428,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2740,
+      "timeLimitMs": 300,
       "inputs": 1369,
-      "wallMs": 798,
+      "wallMs": 782,
       "message": "No mismatch on 1369 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -418,11 +438,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4274,
+      "ttfcMs": 4302,
       "costUsd": 0.0012601000000000001,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2199,
+      "runs": 2203,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -430,7 +451,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 224,
+      "wallMs": 227,
       "message": "Found a minimal counterexample."
     },
     {
@@ -438,11 +459,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4236,
+      "ttfcMs": 4280,
       "costUsd": 0.0012807,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2365,
+      "runs": 2371,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -451,7 +473,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 311,
+      "wallMs": 378,
       "message": "Found a minimal counterexample."
     },
     {
@@ -459,11 +481,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4265,
+      "ttfcMs": 4322,
       "costUsd": 0.0012461,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2203,
+      "runs": 2209,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -472,7 +495,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 203,
+      "wallMs": 240,
       "message": "Found a minimal counterexample."
     },
     {
@@ -485,8 +508,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2291,
+      "timeLimitMs": 300,
       "inputs": 1144,
-      "wallMs": 675,
+      "wallMs": 702,
       "message": "No mismatch on 1144 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -494,11 +518,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7057,
+      "ttfcMs": 7105,
       "costUsd": 0.0019479999999999996,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2496,
+      "runs": 2504,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -513,7 +538,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 272,
+      "wallMs": 350,
       "message": "Found a minimal counterexample."
     },
     {
@@ -521,11 +546,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7057,
+      "ttfcMs": 7109,
       "costUsd": 0.0019652999999999997,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2620,
+      "runs": 2624,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -540,7 +566,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 392,
+      "wallMs": 476,
       "message": "Found a minimal counterexample."
     },
     {
@@ -548,11 +574,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 7136,
+      "ttfcMs": 7206,
       "costUsd": 0.0019648,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3056,
+      "runs": 3074,
+      "timeLimitMs": 300,
       "inputs": 106,
       "minimal": [
         [
@@ -567,7 +594,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 414,
+      "wallMs": 554,
       "message": "Found a minimal counterexample."
     },
     {
@@ -580,8 +607,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2640,
+      "timeLimitMs": 300,
       "inputs": 1319,
-      "wallMs": 1002,
+      "wallMs": 1107,
       "message": "No mismatch on 1319 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -589,11 +617,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5321,
+      "ttfcMs": 5366,
       "costUsd": 0.0016711,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2688,
+      "runs": 2704,
+      "timeLimitMs": 300,
       "inputs": 171,
       "minimal": [
         3,
@@ -616,7 +645,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 329,
+      "wallMs": 411,
       "message": "Found a minimal counterexample."
     },
     {
@@ -624,11 +653,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5280,
+      "ttfcMs": 5307,
       "costUsd": 0.0016004,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2110,
+      "runs": 2116,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         2,
@@ -641,7 +671,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 225,
+      "wallMs": 246,
       "message": "Found a minimal counterexample."
     },
     {
@@ -649,11 +679,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5266,
+      "ttfcMs": 5299,
       "costUsd": 0.0016094999999999998,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2130,
+      "runs": 2132,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         3,
@@ -666,7 +697,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 234,
+      "wallMs": 267,
       "message": "Found a minimal counterexample."
     },
     {
@@ -679,8 +710,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2214,
+      "timeLimitMs": 300,
       "inputs": 1106,
-      "wallMs": 733,
+      "wallMs": 800,
       "message": "No mismatch on 1106 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -688,11 +720,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5059,
+      "ttfcMs": 5100,
       "costUsd": 0.0014376,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2398,
+      "runs": 2400,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -701,7 +734,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 203,
+      "wallMs": 217,
       "message": "Found a minimal counterexample."
     },
     {
@@ -709,11 +742,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5196,
+      "ttfcMs": 5234,
       "costUsd": 0.0014875,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3110,
+      "runs": 3112,
+      "timeLimitMs": 300,
       "inputs": 302,
       "minimal": [
         [
@@ -724,7 +758,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 343,
+      "wallMs": 355,
       "message": "Found a minimal counterexample."
     },
     {
@@ -732,11 +766,12 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 5096,
+      "ttfcMs": 5137,
       "costUsd": 0.0014551999999999998,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2584,
+      "runs": 2586,
+      "timeLimitMs": 300,
       "inputs": 130,
       "minimal": [
         [
@@ -746,7 +781,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 240,
+      "wallMs": 255,
       "message": "Found a minimal counterexample."
     },
     {
@@ -759,8 +794,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2910,
+      "timeLimitMs": 300,
       "inputs": 1454,
-      "wallMs": 834,
+      "wallMs": 958,
       "message": "No mismatch on 1454 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -768,17 +804,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 4051,
-      "costUsd": 0.0012732999999999998,
+      "ttfcMs": 4207,
+      "costUsd": 0.0012723,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3185,
+      "runs": 3215,
+      "timeLimitMs": 300,
       "inputs": 425,
       "minimal": [
-        "({())}"
+        "({)}"
       ],
       "fixVerified": true,
-      "wallMs": 618,
+      "wallMs": 834,
       "message": "Found a minimal counterexample."
     },
     {
@@ -786,17 +823,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 3769,
+      "ttfcMs": 3838,
       "costUsd": 0.0012601000000000001,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1523,
+      "runs": 1529,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         "("
       ],
       "fixVerified": true,
-      "wallMs": 232,
+      "wallMs": 285,
       "message": "Found a minimal counterexample."
     },
     {
@@ -804,17 +842,18 @@
       "buggy": true,
       "config": "routed",
       "verdict": "counterexample",
-      "ttfcMs": 3769,
+      "ttfcMs": 3828,
       "costUsd": 0.0012771,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1523,
+      "runs": 1529,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         ")"
       ],
       "fixVerified": true,
-      "wallMs": 235,
+      "wallMs": 244,
       "message": "Found a minimal counterexample."
     },
     {
@@ -827,8 +866,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 1891,
+      "timeLimitMs": 300,
       "inputs": 944,
-      "wallMs": 812,
+      "wallMs": 819,
       "message": "No mismatch on 944 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -836,11 +876,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 18519,
+      "ttfcMs": 18580,
       "costUsd": 0.004528,
       "unpricedCalls": 0,
       "modelCalls": 4,
-      "runs": 2672,
+      "runs": 2674,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -849,7 +890,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 171,
+      "wallMs": 228,
       "message": "Found a minimal counterexample."
     },
     {
@@ -857,11 +898,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 18485,
+      "ttfcMs": 18539,
       "costUsd": 0.004521,
       "unpricedCalls": 0,
       "modelCalls": 4,
-      "runs": 2926,
+      "runs": 2960,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -871,7 +913,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 487,
+      "wallMs": 601,
       "message": "Found a minimal counterexample."
     },
     {
@@ -879,11 +921,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 18785,
+      "ttfcMs": 19130,
       "costUsd": 0.004517,
       "unpricedCalls": 0,
       "modelCalls": 4,
       "runs": 2722,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -892,7 +935,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 8968,
+      "wallMs": 9010,
       "message": "Found a minimal counterexample."
     },
     {
@@ -905,8 +948,9 @@
       "unpricedCalls": 0,
       "modelCalls": 3,
       "runs": 3050,
+      "timeLimitMs": 300,
       "inputs": 1524,
-      "wallMs": 973,
+      "wallMs": 997,
       "message": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -914,11 +958,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 13277,
+      "ttfcMs": 13321,
       "costUsd": 0.003264,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3365,
+      "runs": 3373,
+      "timeLimitMs": 300,
       "inputs": 367,
       "minimal": [
         [
@@ -928,7 +973,7 @@
         4
       ],
       "fixVerified": true,
-      "wallMs": 446,
+      "wallMs": 524,
       "message": "Found a minimal counterexample."
     },
     {
@@ -936,11 +981,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 13127,
+      "ttfcMs": 13162,
       "costUsd": 0.003284,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2307,
+      "runs": 2313,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -949,7 +995,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 223,
+      "wallMs": 220,
       "message": "Found a minimal counterexample."
     },
     {
@@ -957,11 +1003,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 13095,
+      "ttfcMs": 13125,
       "costUsd": 0.003242,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2387,
+      "runs": 2325,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -970,7 +1017,7 @@
         2
       ],
       "fixVerified": true,
-      "wallMs": 327,
+      "wallMs": 277,
       "message": "Found a minimal counterexample."
     },
     {
@@ -983,8 +1030,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2795,
+      "timeLimitMs": 300,
       "inputs": 1396,
-      "wallMs": 898,
+      "wallMs": 902,
       "message": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -992,17 +1040,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 9515,
+      "ttfcMs": 9550,
       "costUsd": 0.002465,
       "unpricedCalls": 0,
       "modelCalls": 3,
       "runs": 1728,
+      "timeLimitMs": 300,
       "inputs": 29,
       "minimal": [
         2147483647
       ],
       "fixVerified": true,
-      "wallMs": 449,
+      "wallMs": 414,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1014,13 +1063,14 @@
       "costUsd": 0.002461,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1538,
+      "runs": 1540,
+      "timeLimitMs": 300,
       "inputs": 29,
       "minimal": [
         0
       ],
       "fixVerified": true,
-      "wallMs": 253,
+      "wallMs": 178,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1028,17 +1078,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 9489,
+      "ttfcMs": 9539,
       "costUsd": 0.002361,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1454,
+      "runs": 1456,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         3
       ],
       "fixVerified": true,
-      "wallMs": 250,
+      "wallMs": 314,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1051,8 +1102,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2040,
+      "timeLimitMs": 300,
       "inputs": 1019,
-      "wallMs": 899,
+      "wallMs": 903,
       "message": "No mismatch on 1019 judged inputs across 8 families. That is evidence, not proof."
     },
     {
@@ -1060,17 +1112,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8449,
+      "ttfcMs": 8483,
       "costUsd": 0.00241,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2121,
+      "runs": 2133,
+      "timeLimitMs": 300,
       "inputs": 107,
       "minimal": [
         "baab"
       ],
       "fixVerified": true,
-      "wallMs": 329,
+      "wallMs": 384,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1078,17 +1131,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8636,
+      "ttfcMs": 8628,
       "costUsd": 0.002382,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2625,
+      "runs": 2631,
+      "timeLimitMs": 300,
       "inputs": 241,
       "minimal": [
         "babc"
       ],
       "fixVerified": true,
-      "wallMs": 507,
+      "wallMs": 451,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1096,17 +1150,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8430,
+      "ttfcMs": 8459,
       "costUsd": 0.002426,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1681,
+      "runs": 1687,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         "a"
       ],
       "fixVerified": true,
-      "wallMs": 297,
+      "wallMs": 265,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1119,8 +1174,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2051,
+      "timeLimitMs": 300,
       "inputs": 1024,
-      "wallMs": 844,
+      "wallMs": 888,
       "message": "No mismatch on 1024 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1128,11 +1184,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 9844,
+      "ttfcMs": 9882,
       "costUsd": 0.002621,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2154,
+      "runs": 2160,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1141,7 +1198,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 187,
+      "wallMs": 222,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1149,11 +1206,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 9840,
+      "ttfcMs": 9878,
       "costUsd": 0.002624,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2152,
+      "runs": 2154,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1162,7 +1220,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 183,
+      "wallMs": 203,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1170,11 +1228,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 9876,
+      "ttfcMs": 9904,
       "costUsd": 0.002649,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2312,
+      "runs": 2314,
+      "timeLimitMs": 300,
       "inputs": 130,
       "minimal": [
         [
@@ -1184,7 +1243,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 220,
+      "wallMs": 224,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1197,8 +1256,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2740,
+      "timeLimitMs": 300,
       "inputs": 1369,
-      "wallMs": 772,
+      "wallMs": 822,
       "message": "No mismatch on 1369 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1206,11 +1266,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8597,
+      "ttfcMs": 8658,
       "costUsd": 0.002259,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2199,
+      "runs": 2203,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -1218,7 +1279,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 197,
+      "wallMs": 238,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1226,11 +1287,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8567,
+      "ttfcMs": 8612,
       "costUsd": 0.002281,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2365,
+      "runs": 2371,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -1239,7 +1301,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 303,
+      "wallMs": 354,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1247,11 +1309,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 8600,
+      "ttfcMs": 8648,
       "costUsd": 0.002245,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2203,
+      "runs": 2209,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -1260,7 +1323,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 198,
+      "wallMs": 235,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1273,8 +1336,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2291,
+      "timeLimitMs": 300,
       "inputs": 1144,
-      "wallMs": 706,
+      "wallMs": 805,
       "message": "No mismatch on 1144 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1282,11 +1346,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 13997,
+      "ttfcMs": 14045,
       "costUsd": 0.003453,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2496,
+      "runs": 2504,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -1301,7 +1366,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 326,
+      "wallMs": 362,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1309,11 +1374,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 13982,
+      "ttfcMs": 14035,
       "costUsd": 0.003464,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2620,
+      "runs": 2624,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -1328,7 +1394,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 454,
+      "wallMs": 584,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1336,11 +1402,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 14091,
+      "ttfcMs": 14126,
       "costUsd": 0.003467,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3056,
+      "runs": 3074,
+      "timeLimitMs": 300,
       "inputs": 106,
       "minimal": [
         [
@@ -1355,7 +1422,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 468,
+      "wallMs": 545,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1368,8 +1435,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2640,
+      "timeLimitMs": 300,
       "inputs": 1319,
-      "wallMs": 1027,
+      "wallMs": 1086,
       "message": "No mismatch on 1319 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1377,11 +1445,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 10678,
+      "ttfcMs": 10738,
       "costUsd": 0.0029219999999999997,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2688,
+      "runs": 2704,
+      "timeLimitMs": 300,
       "inputs": 171,
       "minimal": [
         3,
@@ -1404,7 +1473,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 352,
+      "wallMs": 415,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1412,11 +1481,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 10605,
+      "ttfcMs": 10644,
       "costUsd": 0.0028239999999999997,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2110,
+      "runs": 2116,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         2,
@@ -1429,7 +1499,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 196,
+      "wallMs": 215,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1437,11 +1507,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 10634,
+      "ttfcMs": 10640,
       "costUsd": 0.0028239999999999997,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2130,
+      "runs": 2132,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         3,
@@ -1454,7 +1525,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 297,
+      "wallMs": 308,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1467,8 +1538,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2214,
+      "timeLimitMs": 300,
       "inputs": 1106,
-      "wallMs": 730,
+      "wallMs": 861,
       "message": "No mismatch on 1106 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1476,11 +1548,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 11111,
+      "ttfcMs": 11135,
       "costUsd": 0.002755,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2398,
+      "runs": 2400,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1489,7 +1562,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 211,
+      "wallMs": 206,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1497,11 +1570,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 11239,
+      "ttfcMs": 11311,
       "costUsd": 0.002828,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3110,
+      "runs": 3112,
+      "timeLimitMs": 300,
       "inputs": 302,
       "minimal": [
         [
@@ -1512,7 +1586,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 338,
+      "wallMs": 396,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1520,11 +1594,12 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 11128,
+      "ttfcMs": 11173,
       "costUsd": 0.002788,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2584,
+      "runs": 2586,
+      "timeLimitMs": 300,
       "inputs": 130,
       "minimal": [
         [
@@ -1534,7 +1609,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 245,
+      "wallMs": 232,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1547,8 +1622,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2910,
+      "timeLimitMs": 300,
       "inputs": 1454,
-      "wallMs": 922,
+      "wallMs": 953,
       "message": "No mismatch on 1454 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1556,17 +1632,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 7497,
-      "costUsd": 0.002142,
+      "ttfcMs": 7620,
+      "costUsd": 0.0021409999999999997,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 3185,
+      "runs": 3215,
+      "timeLimitMs": 300,
       "inputs": 425,
       "minimal": [
-        "({())}"
+        "({)}"
       ],
       "fixVerified": true,
-      "wallMs": 565,
+      "wallMs": 738,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1574,17 +1651,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 7248,
+      "ttfcMs": 7269,
       "costUsd": 0.002119,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1523,
+      "runs": 1529,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         "("
       ],
       "fixVerified": true,
-      "wallMs": 264,
+      "wallMs": 245,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1592,17 +1670,18 @@
       "buggy": true,
       "config": "ultra-only",
       "verdict": "counterexample",
-      "ttfcMs": 7235,
+      "ttfcMs": 7287,
       "costUsd": 0.00215,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 1523,
+      "runs": 1529,
+      "timeLimitMs": 300,
       "inputs": 43,
       "minimal": [
         ")"
       ],
       "fixVerified": true,
-      "wallMs": 226,
+      "wallMs": 247,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1615,8 +1694,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 1891,
+      "timeLimitMs": 300,
       "inputs": 944,
-      "wallMs": 797,
+      "wallMs": 776,
       "message": "No mismatch on 944 judged inputs across 7 families. That is evidence, not proof."
     },
     {
@@ -1624,22 +1704,21 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3278,
-      "costUsd": 0.0012262,
+      "ttfcMs": 3313,
+      "costUsd": 0.0012252,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 4630,
+      "runs": 4308,
+      "timeLimitMs": 300,
       "inputs": 450,
       "minimal": [
         [
-          -5463,
-          0,
-          1
+          -5463
         ],
         -5463
       ],
       "fixVerified": true,
-      "wallMs": 1226,
+      "wallMs": 982,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1647,11 +1726,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3031,
+      "ttfcMs": 3095,
       "costUsd": 0.0012171999999999999,
       "unpricedCalls": 0,
       "modelCalls": 3,
-      "runs": 2280,
+      "runs": 2314,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -1661,7 +1741,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 445,
+      "wallMs": 591,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1669,11 +1749,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3330,
+      "ttfcMs": 3660,
       "costUsd": 0.0012132,
       "unpricedCalls": 0,
       "modelCalls": 3,
       "runs": 2078,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -1682,7 +1763,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 8966,
+      "wallMs": 9008,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1695,8 +1776,9 @@
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2006,
+      "timeLimitMs": 300,
       "inputs": 1002,
-      "wallMs": 628,
+      "wallMs": 563,
       "message": "No mismatch on 1002 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1704,11 +1786,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2899,
+      "ttfcMs": 2926,
       "costUsd": 0.001156,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2493,
+      "runs": 2501,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -1718,7 +1801,7 @@
         6
       ],
       "fixVerified": true,
-      "wallMs": 418,
+      "wallMs": 470,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1726,11 +1809,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2894,
+      "ttfcMs": 2920,
       "costUsd": 0.001155,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2283,
+      "runs": 2285,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -1739,7 +1823,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 241,
+      "wallMs": 266,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1747,11 +1831,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2857,
+      "ttfcMs": 2891,
       "costUsd": 0.001124,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2119,
+      "runs": 2057,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -1760,7 +1845,7 @@
         2
       ],
       "fixVerified": true,
-      "wallMs": 303,
+      "wallMs": 283,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1773,8 +1858,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1981,
+      "timeLimitMs": 300,
       "inputs": 989,
-      "wallMs": 598,
+      "wallMs": 593,
       "message": "No mismatch on 989 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1787,8 +1873,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 2006,
+      "timeLimitMs": 300,
       "inputs": 1002,
-      "wallMs": 712,
+      "wallMs": 769,
       "message": "No mismatch on 1002 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1801,8 +1888,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 2006,
+      "timeLimitMs": 300,
       "inputs": 1002,
-      "wallMs": 704,
+      "wallMs": 692,
       "message": "No mismatch on 1002 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1810,17 +1898,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 1513,
+      "ttfcMs": 1550,
       "costUsd": 0.000711,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2036,
+      "runs": 2038,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         3
       ],
       "fixVerified": true,
-      "wallMs": 242,
+      "wallMs": 256,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1833,8 +1922,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 2006,
+      "timeLimitMs": 300,
       "inputs": 1002,
-      "wallMs": 707,
+      "wallMs": 785,
       "message": "No mismatch on 1002 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1842,17 +1932,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2192,
+      "ttfcMs": 2237,
       "costUsd": 0.000991,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2077,
+      "runs": 2073,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         "abba"
       ],
       "fixVerified": true,
-      "wallMs": 364,
+      "wallMs": 409,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1860,17 +1951,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2185,
+      "ttfcMs": 2251,
       "costUsd": 0.00098,
       "unpricedCalls": 0,
       "modelCalls": 2,
       "runs": 2085,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
-        "bcbd"
+        "bcba"
       ],
       "fixVerified": true,
-      "wallMs": 407,
+      "wallMs": 432,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1878,17 +1970,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2185,
+      "ttfcMs": 2218,
       "costUsd": 0.000999,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1997,
+      "runs": 2003,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         "a"
       ],
       "fixVerified": true,
-      "wallMs": 249,
+      "wallMs": 244,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1901,8 +1994,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1737,
+      "timeLimitMs": 300,
       "inputs": 867,
-      "wallMs": 664,
+      "wallMs": 658,
       "message": "No mismatch on 867 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1910,11 +2004,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 1902,
+      "ttfcMs": 1944,
       "costUsd": 0.0008910000000000001,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2234,
+      "runs": 2242,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1923,7 +2018,7 @@
         1
       ],
       "fixVerified": true,
-      "wallMs": 271,
+      "wallMs": 347,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1931,11 +2026,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 1878,
+      "ttfcMs": 1938,
       "costUsd": 0.0008979999999999999,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2272,
+      "runs": 2248,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1944,7 +2040,7 @@
         -7
       ],
       "fixVerified": true,
-      "wallMs": 235,
+      "wallMs": 282,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1952,11 +2048,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 1892,
+      "ttfcMs": 1912,
       "costUsd": 0.000908,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2312,
+      "runs": 2320,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -1966,7 +2063,7 @@
         9
       ],
       "fixVerified": true,
-      "wallMs": 332,
+      "wallMs": 335,
       "message": "Found a minimal counterexample."
     },
     {
@@ -1979,8 +2076,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1884,
+      "timeLimitMs": 300,
       "inputs": 941,
-      "wallMs": 571,
+      "wallMs": 523,
       "message": "No mismatch on 941 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -1988,11 +2086,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2154,
+      "ttfcMs": 2174,
       "costUsd": 0.0008320000000000001,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2275,
+      "runs": 2279,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -2000,7 +2099,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 298,
+      "wallMs": 292,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2008,11 +2107,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2120,
+      "ttfcMs": 2149,
       "costUsd": 0.000852,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2133,
+      "runs": 2139,
+      "timeLimitMs": 300,
       "inputs": 3,
       "minimal": [
         [
@@ -2021,7 +2121,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 353,
+      "wallMs": 356,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2029,11 +2129,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2151,
+      "ttfcMs": 2199,
       "costUsd": 0.0008179999999999999,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2429,
+      "runs": 2437,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         [
@@ -2042,7 +2143,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 382,
+      "wallMs": 480,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2055,8 +2156,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1983,
+      "timeLimitMs": 300,
       "inputs": 990,
-      "wallMs": 589,
+      "wallMs": 698,
       "message": "No mismatch on 990 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -2064,11 +2166,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3641,
+      "ttfcMs": 3705,
       "costUsd": 0.001303,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1770,
+      "runs": 1778,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -2083,7 +2186,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 261,
+      "wallMs": 398,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2091,11 +2194,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3650,
+      "ttfcMs": 3712,
       "costUsd": 0.001323,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1894,
+      "runs": 1898,
+      "timeLimitMs": 300,
       "inputs": 2,
       "minimal": [
         [
@@ -2110,7 +2214,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 397,
+      "wallMs": 546,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2118,11 +2222,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 3698,
+      "ttfcMs": 3765,
       "costUsd": 0.001321,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2158,
+      "runs": 2168,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -2137,7 +2242,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 493,
+      "wallMs": 612,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2150,8 +2255,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1708,
+      "timeLimitMs": 300,
       "inputs": 853,
-      "wallMs": 611,
+      "wallMs": 657,
       "message": "No mismatch on 853 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -2159,11 +2265,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2639,
+      "ttfcMs": 2709,
       "costUsd": 0.001134,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2076,
+      "runs": 2098,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         3,
@@ -2186,7 +2293,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 369,
+      "wallMs": 546,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2194,11 +2301,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2640,
+      "ttfcMs": 2684,
       "costUsd": 0.001079,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1936,
+      "runs": 1950,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         3,
@@ -2216,7 +2324,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 261,
+      "wallMs": 355,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2224,11 +2332,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2672,
+      "ttfcMs": 2697,
       "costUsd": 0.001089,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1952,
+      "runs": 1960,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         3,
@@ -2241,7 +2350,7 @@
         ]
       ],
       "fixVerified": true,
-      "wallMs": 351,
+      "wallMs": 400,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2254,8 +2363,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1648,
+      "timeLimitMs": 300,
       "inputs": 823,
-      "wallMs": 498,
+      "wallMs": 507,
       "message": "No mismatch on 823 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -2263,11 +2373,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2094,
+      "ttfcMs": 2123,
       "costUsd": 0.000873,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2144,
+      "runs": 2152,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -2276,7 +2387,7 @@
         8
       ],
       "fixVerified": true,
-      "wallMs": 249,
+      "wallMs": 269,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2284,11 +2395,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2090,
+      "ttfcMs": 2128,
       "costUsd": 0.000913,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2186,
+      "runs": 2198,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -2299,7 +2411,7 @@
         0
       ],
       "fixVerified": true,
-      "wallMs": 279,
+      "wallMs": 359,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2307,11 +2419,12 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2077,
+      "ttfcMs": 2139,
       "costUsd": 0.000884,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 2120,
+      "runs": 2128,
+      "timeLimitMs": 300,
       "inputs": 66,
       "minimal": [
         [
@@ -2321,7 +2434,7 @@
         8
       ],
       "fixVerified": true,
-      "wallMs": 224,
+      "wallMs": 288,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2334,8 +2447,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1888,
+      "timeLimitMs": 300,
       "inputs": 943,
-      "wallMs": 546,
+      "wallMs": 643,
       "message": "No mismatch on 943 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -2348,8 +2462,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1633,
+      "timeLimitMs": 300,
       "inputs": 815,
-      "wallMs": 669,
+      "wallMs": 714,
       "message": "No mismatch on 815 judged inputs across 2 families. That is evidence, not proof."
     },
     {
@@ -2357,17 +2472,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2096,
+      "ttfcMs": 2143,
       "costUsd": 0.000892,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1845,
+      "runs": 1851,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         "("
       ],
       "fixVerified": true,
-      "wallMs": 232,
+      "wallMs": 254,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2375,17 +2491,18 @@
       "buggy": true,
       "config": "random-only",
       "verdict": "counterexample",
-      "ttfcMs": 2099,
+      "ttfcMs": 2166,
       "costUsd": 0.0009029999999999999,
       "unpricedCalls": 0,
       "modelCalls": 2,
-      "runs": 1845,
+      "runs": 1851,
+      "timeLimitMs": 300,
       "inputs": 67,
       "minimal": [
         "}"
       ],
       "fixVerified": true,
-      "wallMs": 240,
+      "wallMs": 275,
       "message": "Found a minimal counterexample."
     },
     {
@@ -2398,8 +2515,9 @@
       "unpricedCalls": 0,
       "modelCalls": 1,
       "runs": 1633,
+      "timeLimitMs": 300,
       "inputs": 815,
-      "wallMs": 572,
+      "wallMs": 605,
       "message": "No mismatch on 815 judged inputs across 2 families. That is evidence, not proof."
     }
   ]
