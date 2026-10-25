@@ -38,6 +38,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
   const [shared, setShared] = useState<SharedReport | null>(null);
+  /** The link the shared report came from: its identity, so a second link starts a fresh ReportView (no stale "Copied" note or open full fix). */
+  const [sharedKey, setSharedKey] = useState("");
   /** Why a share link could not be opened; shown at the top, where the shared report would be. */
   const [shareError, setShareError] = useState("");
   const [shareNote, setShareNote] = useState("");
@@ -51,6 +53,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       decodeReport(hash)
         .then((r) => {
           setShared(r);
+          setSharedKey(hash);
           setShareError("");
         })
         .catch((e: Error) => {
@@ -199,7 +202,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
               Close
             </button>
           </div>
-          <ReportView r={shared} onCopy={() => navigator.clipboard.writeText(toMarkdown(shared))} />
+          <ReportView key={sharedKey} r={shared} onCopy={() => navigator.clipboard.writeText(toMarkdown(shared))} />
         </div>
       )}
 

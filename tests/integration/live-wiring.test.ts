@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { attack } from "@/lib/agent/run";
 import { makeDeps } from "@/lib/agent/setup";
 import { POST } from "@/app/api/attack/route";
@@ -58,91 +58,102 @@ describe("live path over real HTTP (fake Token Factory, Tavily and Judge0)", () 
   });
 });
 
-describe("POST /api/attack in live mode (fake services)", () => {
-  it("streams a live report, including a custom statement turned into a spec by the fast model", async () => {
-    const saved = { ...process.env };
-    Object.assign(process.env, fakeEnv(fakes));
-    delete process.env.REPLAY;
-    process.env.VERCEL = "1";
-    resetGuardForTests();
-    try {
-      const isqrt = BUILT_INS.find((x) => x.problem.id === "isqrt")!;
-      const res = await POST(
-        new Request("http://x/api/attack", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-real-ip": "7.7.7.7" },
-          body: JSON.stringify({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript", research: "force" }),
-        }),
-      );
-      const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
-      expect(lines[0]).toMatchObject({ type: "mode", mode: "live", executor: expect.stringMatching(/^Judge0/) });
-      const report = lines.at(-1).report;
-      expect(report).toMatchObject({ verdict: "counterexample", setup: { provider: "nebius", research: "tavily" } });
-      expect(report.counterexample.args).toEqual([2147483647]);
-      expect(report.stats.costUsd).toBeGreaterThan(0);
+/** Two full attacks, or one under heavy CPU load, can outlast the 60 s default; an overrun must fail on its own terms. */
+const ATTACK_TIMEOUT = 180_000;
 
-      // A pasted statement (no problemId): the fast model turns it into a typed spec first.
-      const custom = await POST(
-        new Request("http://x/api/attack", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-real-ip": "7.7.7.8" },
-          body: JSON.stringify({ statement: isqrt.problem.statement, code: isqrt.demo.code, language: "javascript" }),
-        }),
-      );
-      const customReport = (await custom.text()).trim().split("\n").map((l) => JSON.parse(l)).at(-1).report;
-      expect(customReport.problem).toEqual({ id: "custom", title: "Integer square root" });
-      expect(customReport.verdict).toBe("counterexample");
-      expect(customReport.counterexample.args).toEqual([2147483647]);
-      // The understand call is part of the attack: traced, priced, and counted in its call budget.
-      expect(customReport.stages[0]).toMatchObject({ stage: "understand", purpose: "understand" });
-      expect(customReport.stats.modelCalls).toBe(customReport.stages.reduce((n: number, s: { calls: number }) => n + s.calls, 0));
-      expect(customReport.stats.modelCalls).toBeLessThanOrEqual(PUBLIC_BUDGETS.maxModelCalls);
-    } finally {
-      process.env = saved;
-      resetGuardForTests();
-    }
+/** Point the route at the fake services in live mode. Every change is undone by afterEach, even when a test times out or throws. */
+function liveEnv(extra: Record<string, string> = {}) {
+  for (const [k, v] of Object.entries({ ...fakeEnv(fakes), ...extra })) vi.stubEnv(k, v);
+  vi.stubEnv("REPLAY", undefined);
+  vi.stubEnv("VERCEL", "1");
+  resetGuardForTests();
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  resetGuardForTests();
+});
+
+const isqrt = () => BUILT_INS.find((x) => x.problem.id === "isqrt")!;
+const postAttack = (ip: string, body: unknown) =>
+  POST(new Request("http://x/api/attack", { method: "POST", headers: { "content-type": "application/json", "x-real-ip": ip }, body: JSON.stringify(body) }));
+const builtInBody = () => ({ problemId: "isqrt", code: isqrt().demo.code, language: "javascript" });
+const readLines = async (res: Response) => (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+
+describe("POST /api/attack in live mode (fake services)", () => {
+  it("streams a live report for a built-in problem, with research", { timeout: ATTACK_TIMEOUT }, async () => {
+    liveEnv();
+    const res = await postAttack("7.7.7.7", { ...builtInBody(), research: "force" });
+    const lines = await readLines(res);
+    expect(lines[0]).toMatchObject({ type: "mode", mode: "live", executor: expect.stringMatching(/^Judge0/) });
+    const report = lines.at(-1).report;
+    expect(report).toMatchObject({ verdict: "counterexample", setup: { provider: "nebius", research: "tavily" } });
+    expect(report.counterexample.args).toEqual([2147483647]);
+    expect(report.stats.costUsd).toBeGreaterThan(0);
+  });
+
+  it("turns a pasted statement into a spec with the fast model, inside the attack's budget", { timeout: ATTACK_TIMEOUT }, async () => {
+    liveEnv();
+    const custom = await postAttack("7.7.7.8", { statement: isqrt().problem.statement, code: isqrt().demo.code, language: "javascript" });
+    const customReport = (await readLines(custom)).at(-1).report;
+    expect(customReport.problem).toEqual({ id: "custom", title: "Integer square root" });
+    expect(customReport.verdict).toBe("counterexample");
+    expect(customReport.counterexample.args).toEqual([2147483647]);
+    // The understand call is part of the attack: traced, priced, and counted in its call budget.
+    expect(customReport.stages[0]).toMatchObject({ stage: "understand", purpose: "understand" });
+    expect(customReport.stats.modelCalls).toBe(customReport.stages.reduce((n: number, s: { calls: number }) => n + s.calls, 0));
+    expect(customReport.stats.modelCalls).toBeLessThanOrEqual(PUBLIC_BUDGETS.maxModelCalls);
   });
 });
 
-describe("POST /api/attack spend cap (fake priced Token Factory)", () => {
-  it("reserves the worst case at admit, then charges what the attack actually spent", async () => {
-    const saved = { ...process.env };
-    Object.assign(process.env, fakeEnv(fakes));
-    delete process.env.REPLAY;
-    process.env.VERCEL = "1";
+describe("POST /api/attack spend cap (fake Token Factory)", () => {
+  it("reserves the worst case at admit, then charges what the attack actually spent", { timeout: ATTACK_TIMEOUT }, async () => {
+    liveEnv();
     const models = modelConfigFromEnv(process.env);
     const reserve = worstCaseAttackUsd(PUBLIC_BUDGETS.maxModelCalls, [models.reasoningModel, models.fastModel], priceTable(process.env), 0.05);
     expect(reserve).toBeGreaterThan(0);
     // Room for exactly one attack's reservation: once its real (priced, non-zero) cost is charged, the next one cannot fit.
-    process.env.DAILY_SPEND_CAP_USD = String(reserve + 1e-9);
+    vi.stubEnv("DAILY_SPEND_CAP_USD", String(reserve + 1e-9));
     resetGuardForTests();
-    const isqrt = BUILT_INS.find((x) => x.problem.id === "isqrt")!;
-    const post = (ip: string) =>
-      POST(
-        new Request("http://x/api/attack", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-real-ip": ip },
-          body: JSON.stringify({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }),
-        }),
-      );
-    try {
-      const first = await post("7.7.8.1");
-      expect(first.status).toBe(200);
-      // While it runs, its reservation fills the cap: a concurrent attack is refused.
-      expect(getGuard().spentUsd(Date.now())).toBeCloseTo(reserve, 9);
-      const concurrent = await post("7.7.8.2");
-      expect(concurrent.status).toBe(503);
-      const report = (await first.text()).trim().split("\n").map((l) => JSON.parse(l)).at(-1).report;
-      expect(report.stats.costUsd).toBeGreaterThan(0);
-      // Settled: the reservation is replaced by the actual cost.
-      expect(getGuard().spentUsd(Date.now())).toBeCloseTo(report.stats.costUsd, 9);
-      expect(getGuard().activeAttacks).toBe(0);
-      const next = await post("7.7.8.3");
-      expect(next.status).toBe(503);
-      expect((await next.json()).error).toMatch(/model budget/);
-    } finally {
-      process.env = saved;
-      resetGuardForTests();
-    }
+    const first = await postAttack("7.7.8.1", builtInBody());
+    expect(first.status).toBe(200);
+    // While it runs, its reservation fills the cap: a concurrent attack is refused.
+    expect(getGuard().spentUsd(Date.now())).toBeCloseTo(reserve, 9);
+    const concurrent = await postAttack("7.7.8.2", builtInBody());
+    expect(concurrent.status).toBe(503);
+    const report = (await readLines(first)).at(-1).report;
+    expect(report.stats.costUsd).toBeGreaterThan(0);
+    // Settled: the reservation is replaced by the actual cost.
+    expect(getGuard().spentUsd(Date.now())).toBeCloseTo(report.stats.costUsd, 9);
+    expect(getGuard().activeAttacks).toBe(0);
+    const next = await postAttack("7.7.8.3", builtInBody());
+    expect(next.status).toBe(503);
+    expect((await next.json()).error).toMatch(/model budget/);
+  });
+
+  it("charges UNPRICED_CALL_USD for every call to a model with no known price, so an unpriced model cannot dodge the cap", { timeout: ATTACK_TIMEOUT }, async () => {
+    const UNPRICED = 0.07;
+    // "meta/other-model" is served by the fake but has no entry in the price table.
+    liveEnv({ MODEL_REASONING: "meta/other-model", MODEL_FAST: "meta/other-model", UNPRICED_CALL_USD: String(UNPRICED) });
+    const models = modelConfigFromEnv(process.env);
+    const reserve = worstCaseAttackUsd(PUBLIC_BUDGETS.maxModelCalls, [models.reasoningModel, models.fastModel], priceTable(process.env), UNPRICED);
+    expect(reserve).toBeCloseTo(PUBLIC_BUDGETS.maxModelCalls * UNPRICED, 9);
+    // The cap holds one attack's reservation and nothing more.
+    vi.stubEnv("DAILY_SPEND_CAP_USD", String(reserve + 1e-9));
+    resetGuardForTests();
+
+    const first = await postAttack("7.7.9.1", builtInBody());
+    expect(first.status).toBe(200);
+    const report = (await readLines(first)).at(-1).report;
+    // Every call was unpriced: no dollars in the report, but calls the guard must count.
+    expect(report.stats.costUsd).toBe(0);
+    expect(report.stats.unpricedCalls).toBeGreaterThan(0);
+    expect(report.stats.unpricedCalls).toBe(report.stats.modelCalls);
+    expect(getGuard().activeAttacks).toBe(0);
+    expect(getGuard().spentUsd(Date.now())).toBeCloseTo(report.stats.unpricedCalls * UNPRICED, 9);
+    // The charge, not the cost, fills the cap: the next live request is refused.
+    const next = await postAttack("7.7.9.2", builtInBody());
+    expect(next.status).toBe(503);
+    expect((await next.json()).error).toMatch(/model budget/);
   });
 });

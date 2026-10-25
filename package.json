@@ -12,6 +12,7 @@
     "bench": "tsx bench/run.ts",
     "gen:demos": "tsx scripts/gen-demos.ts",
     "screenshots": "node scripts/screenshots.mjs",
+    "e2e": "node scripts/e2e-smoke.mjs",
     "soak": "tsx bench/soak.ts",
     "preflight": "tsx scripts/preflight.ts",
     "sandbox": "node sandbox/server.mjs"

@@ -5,7 +5,7 @@ import { showValue } from "@/lib/core/compare";
 import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
 import { copyNote } from "./clipboard";
-import { fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
+import { ellipsize, fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
 
 type Props = {
   r: SharedReport;
@@ -35,16 +35,13 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
           </button>
         </div>
       </div>
-      {shareNote && (
-        <p className="small muted" role="status">
-          {shareNote}
-        </p>
-      )}
-      {copied && (
-        <p className="small muted" role="status">
-          {copied}
-        </p>
-      )}
+      {/* Live regions stay mounted and only their text changes: a region inserted together with its text is often not announced. */}
+      <p className="small muted live" role="status">
+        {shareNote}
+      </p>
+      <p className="small muted live" role="status">
+        {copied}
+      </p>
       {shareLink && <input className="share-link" readOnly value={shareLink} aria-label="Shareable report link" onFocus={(e) => e.currentTarget.select()} />}
       <p className="muted">{r.message}</p>
 
@@ -63,7 +60,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
             </div>
           </div>
           <p className="muted small">
-            Shrunk from <code>{fmtArgs(r.counterexample.original.args).slice(0, 120)}</code> (family {r.counterexample.original.family}) in {r.counterexample.shrinkSteps} steps,{" "}
+            Shrunk from <code>{ellipsize(fmtArgs(r.counterexample.original.args), 120)}</code> (family {r.counterexample.original.family}) in {r.counterexample.shrinkSteps} steps,{" "}
             {r.counterexample.shrinkEvals} candidate runs.
           </p>
         </div>
@@ -229,6 +226,7 @@ function FixView({ before, after }: { before: string; after: string }) {
             <span className="sign" aria-hidden="true">
               {l.op === "add" ? "+" : l.op === "del" ? "-" : " "}
             </span>
+            {l.op !== "same" && <span className="sr-only">{l.op === "add" ? "added: " : "removed: "}</span>}
             {l.text || " "}
           </div>
         ))}

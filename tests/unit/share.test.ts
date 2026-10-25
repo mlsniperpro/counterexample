@@ -8,6 +8,7 @@ import { BUILT_INS } from "@/lib/problems/catalog";
 import { decodeReport, encodeReport, fragmentBudget, fromBase64Url, isShareFragment, MAX_LINK_CHARS, SHARE_PREFIX, ShareLinkError, toBase64Url, toShared, type SharedReport } from "@/lib/share";
 
 const deflate = async (text: string) => new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
+const deflateBytes = async (bytes: Uint8Array) => new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
 const linkFor = async (json: unknown) => SHARE_PREFIX + toBase64Url(await deflate(typeof json === "string" ? json : JSON.stringify(json)));
 
 let real: SharedReport;
@@ -105,6 +106,20 @@ describe("share links (report in the URL fragment)", () => {
       expect(err, hash.slice(0, 40)).toBeInstanceOf(ShareLinkError);
       expect((err as Error).message).toMatch(re);
     }
+  });
+
+  it("rejects invalid UTF-8 instead of silently decoding it to U+FFFD", async () => {
+    const r = await realReport();
+    const bytes = new TextEncoder().encode(JSON.stringify({ ...r, message: "before-MARK-after" }));
+    const at = new TextDecoder().decode(bytes).indexOf("MARK");
+    bytes[at] = 0xff; // never valid in UTF-8; the rest is a valid report, so only strict decoding can catch it
+    const link = SHARE_PREFIX + toBase64Url(await deflateBytes(bytes));
+    const err = await decodeReport(link).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ShareLinkError);
+    expect((err as Error).message).toMatch(/not valid JSON/);
+    // The same bytes with the bad byte replaced by a letter are accepted: the report itself is fine.
+    bytes[at] = 0x4d;
+    expect((await decodeReport(SHARE_PREFIX + toBase64Url(await deflateBytes(bytes)))).message).toBe("before-MARK-after");
   });
 
   it("stops a decompression bomb before it inflates", async () => {

@@ -11,6 +11,13 @@ export type AttackRunDeps = {
   timeoutMs?: number;
 };
 
+/** Why the server refused the request, in words: its own `error` text if it sent some, else the HTTP status (statusText is empty over HTTP/2). */
+async function refusal(res: Response): Promise<string> {
+  const j: unknown = await res.json().catch(() => null);
+  const error = typeof j === "object" && j !== null ? (j as { error?: unknown }).error : undefined;
+  return typeof error === "string" && error.trim() ? error : `The server returned HTTP ${res.status}.`;
+}
+
 /**
  * POST /api/attack and read its stream to the end, turning however it ended
  * into a RunOutcome for runReducer. Never throws. Whatever ends the run (the
@@ -27,10 +34,8 @@ export async function attackRun({ controller: ac, body, onMsg, fetchImpl = fetch
       body: JSON.stringify(body),
       signal: ac.signal,
     });
-    if (!res.ok || !res.body) {
-      const j: { error?: string } = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(j.error ?? res.statusText);
-    }
+    if (!res.ok) throw new Error(await refusal(res));
+    if (!res.body) throw new Error("The server sent an empty response.");
     return await readAttackStream(res.body, onMsg);
   } catch (e) {
     return { thrown: e, abortReason: ac.signal.aborted ? ac.signal.reason : undefined };

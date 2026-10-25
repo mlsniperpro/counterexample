@@ -15,7 +15,16 @@ export function fixSummary(f: { verified: boolean; reattackInputs: number; reatt
   return `no failure on ${judged} judged inputs${unjudged}, but the re-attack was incomplete`;
 }
 
-export const fmtArgs = (a: unknown[]) => a.map((x) => JSON.stringify(x)).join(", ");
+/** Arguments as text; showValue writes the exact big integers (exactReviver's markers) as plain digits. */
+export const fmtArgs = (a: unknown[]) => a.map((x) => showValue(x)).join(", ");
+
+/** At most `max` characters of `s`, with "…" marking a cut (never splitting a surrogate pair). */
+export function ellipsize(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const last = cut.charCodeAt(cut.length - 1);
+  return `${last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut}…`;
+}
 
 export const ms = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
 

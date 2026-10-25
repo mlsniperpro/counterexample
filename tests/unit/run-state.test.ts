@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { ReportNoTrace } from "@/app/format";
-import { CANCEL_NOTE, CANCELLED, initialRun, runReducer, TIMED_OUT, TIMEOUT_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
+import { CANCEL_NOTE, CANCELLED, initialRun, NO_DETAILS_MESSAGE, runReducer, TIMED_OUT, TIMEOUT_MESSAGE, UNREACHABLE_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
 import { CUT_MESSAGE, type StreamMsg } from "@/app/stream";
 
 const ev = (seq: number): TraceEvent => ({ seq, t: seq, stage: "run", kind: "info", msg: `e${seq}` }) as TraceEvent;
@@ -26,9 +26,13 @@ describe("runReducer (the attack run's state machine)", () => {
   });
 
   it("clears the previous run's trace, report and messages on start", () => {
-    const before = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), msg(1, { type: "report", report }), { type: "finish", runId: 1, outcome: { complete: false } });
-    expect(before.error).toBe(CUT_MESSAGE);
+    const before = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), msg(1, { type: "report", report }));
+    expect(before).toMatchObject({ report, error: "" });
+    expect(before.events).toHaveLength(1);
     expect(runReducer(before, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true });
+    const failed = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), { type: "finish", runId: 1, outcome: { complete: false } });
+    expect(failed.error).toBe(CUT_MESSAGE);
+    expect(runReducer(failed, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true });
   });
 
   it("ignores every message and the finish of a superseded run", () => {
@@ -90,5 +94,42 @@ describe("runReducer (the attack run's state machine)", () => {
       outcome: { complete: false },
     });
     expect(s).toEqual(initialRun);
+  });
+
+  it("maps a TypeError (a reset or failed connection) to the cut message after a message arrived, and to 'could not reach' before any", () => {
+    const reset = { thrown: new TypeError("network error") };
+    const before = play({ type: "start", runId: 1 }, { type: "finish", runId: 1, outcome: reset });
+    expect(before).toMatchObject({ running: false, error: UNREACHABLE_MESSAGE });
+    const fetchFail = play({ type: "start", runId: 1 }, { type: "finish", runId: 1, outcome: { thrown: new TypeError("Failed to fetch") } });
+    expect(fetchFail.error).toBe(UNREACHABLE_MESSAGE);
+    for (const first of [msg(1, { type: "mode", executor: "local" }), msg(1, { type: "event", event: ev(0) })]) {
+      const after = play({ type: "start", runId: 1 }, first, { type: "finish", runId: 1, outcome: reset });
+      expect(after.error, first.type).toBe(CUT_MESSAGE);
+    }
+    // A timeout still wins over the TypeError a torn-down fetch can throw.
+    const timed = play({ type: "start", runId: 1 }, { type: "finish", runId: 1, outcome: { thrown: new TypeError("x"), abortReason: TIMED_OUT } });
+    expect(timed.error).toBe(TIMEOUT_MESSAGE);
+  });
+
+  it("never shows an empty error: an error line or thrown error without text gets a readable one", () => {
+    expect(play({ type: "start", runId: 1 }, msg(1, { type: "error", error: "" })).error).toBe(NO_DETAILS_MESSAGE);
+    expect(play({ type: "start", runId: 1 }, msg(1, { type: "error", error: "  " })).error).toBe(NO_DETAILS_MESSAGE);
+    const thrown = play({ type: "start", runId: 1 }, { type: "finish", runId: 1, outcome: { thrown: new Error("") } });
+    expect(thrown.error).not.toBe("");
+  });
+
+  it("treats the report as terminal: running stops, and a later error, timeout, cut or cancel cannot touch the report", () => {
+    const done = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), msg(1, { type: "report", report }));
+    expect(done).toMatchObject({ runId: 0, running: false, report, error: "", note: "", status: "Survived the attack. 0 mismatches." });
+    const after = [
+      msg(1, { type: "error", error: "late error" }),
+      msg(1, { type: "event", event: ev(9) }),
+      { type: "finish", runId: 1, outcome: { thrown: abortError(), abortReason: TIMED_OUT } },
+      { type: "finish", runId: 1, outcome: { thrown: new TypeError("network error") } },
+      { type: "finish", runId: 1, outcome: { complete: false } },
+      { type: "cancel" },
+    ] satisfies RunAction[];
+    for (const a of after) expect(runReducer(done, a), a.type).toBe(done);
+    expect(done.events).toHaveLength(1);
   });
 });

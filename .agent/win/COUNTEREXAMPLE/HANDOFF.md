@@ -2,29 +2,39 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
-Current state (2026-10-25 14:10 UTC):
-- Pushed:
-  - Round 7, all of it.
-  - Round 8 core fixes, `def52a7`.
-  - The HARD benchmark tier, `a74fb68`: 3 problems and 8 bugs that need targeted worst-case inputs. Routed finds 8/8 and both ablations 0/8. Overall 38/38 found, 0 false alarms.
-  - SUBMISSION.md results.
-- In flight: the round-8 UI/test fixes, by a Sonnet subagent. Its files are uncommitted under src/app/**, tests/e2e, live-wiring.test.ts, scripts/e2e-smoke.mjs, package.json (an `e2e` script) and checks.sh (adds `pnpm e2e`). If you find them uncommitted and the agent gone: review them, run checks.sh, and commit only if green.
-- Next:
-  1. A full audit round 9 on HEAD, with 4 parallel Sonnet auditors (core, security, judge/docs, UI/tests).
-  2. Repeat until 2 consecutive rounds are clean.
-  3. On the final HEAD:
+WIND DOWN (2026-10-25 ~14:20 UTC, owner request): the lease is released; the work moves to a fresh session.
+- Pushed and green:
+  - all of rounds 6-7;
+  - round 8 core fixes, `def52a7`;
+  - the HARD benchmark tier, `a74fb68` (routed 8/8, both ablations 0/8; overall 38/38 found, 0 false alarms);
+  - the SUBMISSION results.
+- In flight, committed as WIP in this handoff commit, NOT verified: the round-8 UI/test fixes by a stopped Sonnet subagent. Files:
+  - src/app/{attack-run,attack-ui,format,report-view,run-state,stream}.ts(x), src/app/globals.css, new src/app/error.tsx;
+  - tests/unit/{attack-run,run-state,share,stream,format,report-view}.test.ts, tests/app-fixtures.ts;
+  - tests/e2e/agent-replay.test.ts, tests/integration/live-wiring.test.ts;
+  - new scripts/e2e-smoke.mjs, package.json (an `e2e` script), .agent/win/COUNTEREXAMPLE/checks.sh (adds `pnpm e2e`).
+  
+  FIRST: run `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm e2e`. A typecheck error was seen earlier in tests/unit/report-view.test.ts:29 ("'shown' is possibly 'undefined'"). Then check each of the round-8 UI findings in reaudit.md ("Round 8 … UI and tests") against the code, finish what is missing, and fix until green.
+- Round 9 audits (core, security, judge) were started on `c16be41` and stopped before reporting: there are no findings to carry over. Rerun them.
+- Next, in order:
+  1. Make the UI WIP green and complete.
+  2. Run a full audit round with 4 parallel Sonnet auditors (core, security, judge/docs, UI/tests); verify each finding, then fix it.
+  3. Repeat until 2 consecutive clean rounds.
+  4. Evidence on the final HEAD:
      - `pnpm bench --readme`;
-     - `pnpm soak --all --seeds 3 -j 2 --readme`, which writes the README soak table only when clean;
-     - `FC_NUM_RUNS=5000` unit tests;
-     - the sandbox bench, quiet and under load;
-     - a fresh clone.
-  4. Fill break-it.md from the template idea in this file (TESTED_COMMIT = HEAD).
-  5. Fill reaudit.md (AUDITED_COMMIT = HEAD, CLEAN_AUDITS_IN_A_ROW = 2).
-  6. Run the gate, update the PR body (it is stale: old benchmark table, P1 "not built"), and post the final status comment.
-- Evidence already gathered on older commits (re-run on the final one):
-  - the soak on `8155b4b`: 1017 killed, 0 unsound, 0 missed;
-  - `FC_NUM_RUNS=5000` units: 183/183;
-  - the JS harness under a real Node v12.14.0: OK;
+     - `pnpm soak --all --seeds 3 -j 2 --readme`;
+     - `FC_NUM_RUNS=5000 pnpm exec vitest run tests/unit --testTimeout 3600000`;
+     - the sandbox bench (`docker run … counterexample-sandbox`, then `JUDGE0_URL=http://localhost:2358 JUDGE0_TOKEN=x pnpm bench --only binary-search`), quiet and under load;
+     - a fresh clone;
+     - axe-core.
+  5. Write break-it.md (TESTED_COMMIT) and reaudit.md (AUDITED_COMMIT, CLEAN_AUDITS_IN_A_ROW=2).
+  6. Run the gate and push.
+  7. Rewrite the PR #1 body (it is stale: old benchmark table, P1 "not built", no rounds 4-8) and post the final status comment.
+- Evidence gathered on older commits (re-run on the final one):
+  - the soak on `8155b4b`: 1017 killed, 0 unsound, 0 missed, 54 survived;
+  - the 1-seed soak with the hard tier: 479 killed, 0 unsound, 0 missed;
+  - `FC_NUM_RUNS=5000` unit tests: 183/183;
+  - the JS harness under a real Node v12.14.0: BigInt digits OK;
   - the sandbox bench: 12/12, quiet and under load.
 
 ## Latest state (read first)

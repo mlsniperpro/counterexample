@@ -19,3 +19,6 @@ pnpm bench --only binary-search
 
 # Production build.
 pnpm build
+
+# Browser smoke test of the UI wiring (attack, cancel, share link, 390 px) against that build.
+pnpm e2e

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { attack, type Report } from "@/lib/agent/run";
 import { makeDeps } from "@/lib/agent/setup";
 import { Tracer, type TraceEvent } from "@/lib/agent/trace";
@@ -14,9 +14,13 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
   let bs: Report;
   const streamed: TraceEvent[] = [];
 
-  it("binary search: researches, finds and shrinks the off-by-one, verifies the fix", async () => {
+  // Built once for the tests below, so each of them also passes when run alone (-t).
+  beforeAll(async () => {
     const b = builtIn("binary-search");
     bs = await attack({ problem: b.problem, solution: b.demo }, { ...deps(), onEvent: (e) => streamed.push(e) });
+  });
+
+  it("binary search: researches, finds and shrinks the off-by-one, verifies the fix", () => {
     expect(bs.verdict).toBe("counterexample");
     expect(bs.counterexample?.args).toEqual([[0], 0]);
     expect(bs.counterexample?.expected).toBe(0);
