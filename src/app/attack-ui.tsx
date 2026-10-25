@@ -4,13 +4,13 @@ import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "reac
 import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
 import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared, type SharedReport } from "@/lib/share";
+import { attackRun } from "./attack-run";
 import { fmtArgs, ms, toMarkdown } from "./format";
 import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
 import { buildAttackBody } from "./request";
-import { CANCELLED, CLIENT_TIMEOUT_MS, initialRun, runReducer, TIMED_OUT, type RunOutcome } from "./run-state";
+import { CANCELLED, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
-import { readAttackStream } from "./stream";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
@@ -108,34 +108,18 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     const ac = new AbortController();
     abort.current = ac;
     const runId = ++lastRun.current;
-    const timer = setTimeout(() => ac.abort(TIMED_OUT), CLIENT_TIMEOUT_MS);
     dispatch({ type: "start", runId });
     setShareNote("");
     setShareLink("");
     setShared(null);
     setShareError("");
     clearShareHash();
-    let outcome: RunOutcome;
-    try {
-      const res = await fetch("/api/attack", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(buildAttackBody({ problemId: pid === CUSTOM ? null : pid, statement, code, language, ultraOnly, researchWeb })),
-        signal: ac.signal,
-      });
-      if (!res.ok || !res.body) {
-        const j = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(j.error ?? res.statusText);
-      }
-      outcome = await readAttackStream(res.body, (msg) => dispatch({ type: "msg", runId, msg }));
-    } catch (e) {
-      outcome = { thrown: e, abortReason: ac.signal.aborted ? ac.signal.reason : undefined };
-    } finally {
-      clearTimeout(timer);
-      // Whatever ended the run (a bad line, an error), the request goes too, so the server frees its slot.
-      ac.abort();
-      if (abort.current === ac) abort.current = null;
-    }
+    const outcome = await attackRun({
+      controller: ac,
+      body: buildAttackBody({ problemId: pid === CUSTOM ? null : pid, statement, code, language, ultraOnly, researchWeb }),
+      onMsg: (msg) => dispatch({ type: "msg", runId, msg }),
+    });
+    if (abort.current === ac) abort.current = null;
     dispatch({ type: "finish", runId, outcome });
   }
 
@@ -146,7 +130,15 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   };
   const shareReport = async () => {
     if (!report) return;
-    const enc = await encodeReport(report, fragmentBudget(window.location.origin, window.location.pathname));
+    let enc: Awaited<ReturnType<typeof encodeReport>>;
+    try {
+      enc = await encodeReport(report, fragmentBudget(window.location.origin, window.location.pathname));
+    } catch (e) {
+      // No CompressionStream (an old browser): say so rather than leave an unhandled rejection.
+      setShareLink("");
+      setShareNote(`This browser could not build a report link (${e instanceof Error ? e.message : String(e)}). Use Copy report instead.`);
+      return;
+    }
     if (!enc.ok) {
       setShareLink("");
       // Same content a link would carry (no trace, no oracle code), as a file instead.

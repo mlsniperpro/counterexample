@@ -1,6 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
-Updated 2026-10-25 by session_01Q1oMvNAnBQBDukXyvqyhQZ at WIND DOWN (owner request). Lease released.
+Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
+
+RESUME update:
+- All round-7 UI/test findings are now finished and proven: the run state machine is in `src/app/run-state.ts` and `src/app/attack-run.ts`, with mutation-tested coverage; axe reports 0 violations on all 20 combinations of 5 built-ins x 1280/390 px x light/dark; `pnpm test` passes 318/318.
+- Round 7 is logged in reaudit.md and WIN-CHECKLIST.md.
+- In flight: the HARD benchmark tier (a subagent is editing bench/solutions, the catalog, src/fixtures/replay.ts and maybe spec.ts). If you find it half-done, check `git status` and finish it, or drop it.
 
 ## Latest state (read first)
 - Round 6 is fully fixed and pushed. Commits: `3b0bf80` core, `5d4f6c6` UI and docs, `99ed3a2` security, `a0f7d69` bench results, `91aa3f5` handoff. The sandbox is hardened with a seccomp network deny, per-run memory and file limits and locked dirs. `/health` shows network blocked.
