@@ -117,6 +117,7 @@ Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successo
 - Everything else is in the PR "Decisions" section.
 
 ## Commands
+- Owner rule (2026-10-25, keep across hand-offs): every subagent launched with the Agent tool uses model "sonnet" and effort "high". That covers auditors, reviewers, fixers, researchers and soak/log watchers. The main session keeps integration, self-review of the diff, deciding which findings are real (verify each Sonnet finding before fixing it, and never drop one unchecked), and the gate.
 - Install: `pnpm install`
 - Test: `pnpm lint && pnpm typecheck && pnpm test`
 - Run (replay, no keys): `pnpm dev`
