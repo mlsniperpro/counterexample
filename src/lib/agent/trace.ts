@@ -1,3 +1,4 @@
+import { showValue } from "../core/compare";
 export type Stage = "understand" | "research" | "oracle" | "attack" | "run" | "shrink" | "explain" | "reattack" | "report";
 
 export type TraceEvent = {
@@ -5,7 +6,7 @@ export type TraceEvent = {
   /** ms since the attack started (wall clock). */
   t: number;
   stage: Stage;
-  kind: "stage_start" | "stage_end" | "model_call" | "exec" | "research" | "info" | "warn" | "counterexample" | "result";
+  kind: "stage_start" | "model_call" | "exec" | "research" | "info" | "warn" | "counterexample" | "result";
   msg: string;
   data?: Record<string, unknown>;
 };
@@ -28,6 +29,7 @@ export class Tracer {
 
   /** The trace as JSON Lines (trace.jsonl). */
   jsonl(): string {
-    return this.events.map((e) => JSON.stringify(e)).join("\n") + "\n";
+    // showValue, not JSON.stringify: big integers are written as their exact digits, not as the internal marker.
+    return this.events.map((e) => showValue(e)).join("\n") + "\n";
   }
 }

@@ -9,7 +9,7 @@ import type { ChunkResult, Executor, RunRequest, RunResult } from "./types";
 
 const STARTUP_GRACE_MS = 3000;
 /** Output beyond this is not read: the process is killed and the chunk counts as a crash. */
-export const MAX_STDOUT_BYTES = 32 * 1024 * 1024;
+const MAX_STDOUT_BYTES = 32 * 1024 * 1024;
 const MAX_STDERR_BYTES = 20_000;
 const RECORD = "\x1eCX";
 /** After the program exits and its process group is killed, how long to wait for its pipes to close. */

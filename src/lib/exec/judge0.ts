@@ -4,7 +4,7 @@ import { DEFAULT_RETRY, postJson, type HttpDeps, type RetryPolicy } from "../net
 import { buildProgram, parseLines, reachedReady, runWithRestarts } from "./program";
 import type { ChunkResult, Executor, Language, RunRequest, RunResult } from "./types";
 
-export type Judge0Config = {
+type Judge0Config = {
   baseUrl: string;
   /** Sent as X-Auth-Token (self-hosted), "Authorization: Bearer" (auth "bearer", e.g. a Nebius endpoint) or X-RapidAPI-Key when rapidApiHost is set. */
   token?: string;
@@ -29,7 +29,7 @@ const judge0ResponseSchema = z.object({
 });
 
 /** wait=true holds the connection until the run finishes, so allow for the wall-time limit plus queueing. */
-export const JUDGE0_RETRY: RetryPolicy = { ...DEFAULT_RETRY, timeoutMs: 45_000 };
+const JUDGE0_RETRY: RetryPolicy = { ...DEFAULT_RETRY, timeoutMs: 45_000 };
 
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
 const unb64 = (s: string | null | undefined) => (s ? Buffer.from(s, "base64").toString("utf8") : "");

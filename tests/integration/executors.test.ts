@@ -33,6 +33,20 @@ describe("LocalExecutor (dev only)", () => {
     expect(py.outcomes.every((o, i) => o.ok && outputsEqual(o.out, (r.outcomes[i] as { out: unknown }).out))).toBe(true);
   });
 
+  it("writes a JavaScript number beyond 2^53 as its exact digits, so it compares equal to Python's exact integer", async () => {
+    const js = buildProgram("javascript", "function solve(x) { return 2 ** x; }", "solve");
+    // The generated program carries the escape itself (a NUL marker the harness strips again), not a raw control character.
+    expect(js).toContain('"\\u0000BIG" + BigInt(v).toString()');
+    const run = (language: "python" | "javascript", code: string) => local.run({ ...base, language, code, inputs: [[60]] }).then((r) => (r.outcomes[0] as { out: unknown }).out);
+    const jsOut = await run("javascript", "function solve(x) { return 2 ** x; }");
+    expect(showValue(jsOut)).toBe("1152921504606846976");
+    expect(outputsEqual(jsOut, await run("python", "def solve(x):\n    return 1 << x\n"))).toBe(true);
+    expect(outputsEqual(jsOut, await run("python", "def solve(x):\n    return (1 << x) + 1\n"))).toBe(false);
+    // Safe integers, floats and nested values keep their plain form.
+    const mixed = await local.run({ ...base, language: "javascript", code: "function solve() { return [2 ** 53 - 1, 1.5, -(2 ** 60), 1e21]; }", inputs: [[]] });
+    expect(showValue((mixed.outcomes[0] as { out: unknown }).out)).toBe("[9007199254740991,1.5,-1152921504606846976,1000000000000000000000]");
+  });
+
   it("times JavaScript inputs with perf_hooks, which Judge0 CE's default Node 12 has (it has no global performance)", () => {
     const js = buildProgram("javascript", "function solve(x) { return x; }", "solve");
     expect(js).toContain('require("perf_hooks").performance');

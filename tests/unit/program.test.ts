@@ -123,6 +123,62 @@ describe("runWithRestarts with a time limit shared by the chunk (Judge0)", () =>
     expect(f.chunks).toEqual([[0, 1, 2], [1], [2]]);
   });
 
+  it("re-runs a crash in a shared chunk alone before blaming the next input (memory is shared too)", async () => {
+    // The chunk crashes once its inputs' total weight passes 10; each input alone is fine, and input 1 is too heavy even alone.
+    const crashing = (weight: number[]) => {
+      const chunks: number[][] = [];
+      const runChunk = async (chunk: unknown[][]): Promise<ChunkResult> => {
+        chunks.push((chunk as number[][]).map(([i]) => i!));
+        const lines: RunOutcome[] = [];
+        let used = 0;
+        for (const [i] of chunk as number[][]) {
+          used += weight[i!]!;
+          if (used > 10) return { lines, end: "crash", message: "Runtime Error (SIGSEGV)" };
+          lines.push({ ok: true, out: i, ms: 0 });
+        }
+        return { lines, end: "ok", message: "" };
+      };
+      return { runChunk, chunks };
+    };
+    const innocent = crashing([4, 4, 4, 1]);
+    const r = await runWithRestarts([[0], [1], [2], [3]], innocent.runChunk, Infinity, 1000);
+    expect(r.outcomes).toEqual([0, 1, 2, 3].map((i) => ({ ok: true, out: i, ms: 0 })));
+    expect(innocent.chunks).toEqual([[0, 1, 2, 3], [2], [3]]);
+    const guilty = crashing([1, 50, 1]);
+    const g = await runWithRestarts([[0], [1], [2]], guilty.runChunk, Infinity, 1000);
+    expect(g.outcomes.map((o) => (o.ok ? o.out : o.error))).toEqual([0, "runtime", 2]);
+    expect(guilty.chunks).toEqual([[0, 1, 2], [1], [2]]);
+  });
+
+  it("halves the chunk size after a timeout in a multi-input chunk, so hanging inputs stop costing whole shared budgets", async () => {
+    const limit = 1000;
+    // Every input from 8 on hangs. A chunk of n inputs shares n * limit; a timeout burns all of it, a clean run costs 1 ms per input.
+    const run = async (maxChunk: number) => {
+      let simulatedMs = 0;
+      let submissions = 0;
+      const runChunk = async (chunk: unknown[][]): Promise<ChunkResult> => {
+        submissions++;
+        const lines: RunOutcome[] = [];
+        for (const [i] of chunk as number[][]) {
+          if (i! >= 8) {
+            simulatedMs += limit * chunk.length;
+            return { lines, end: "timeout", message: "tle" };
+          }
+          simulatedMs++;
+          lines.push({ ok: true, out: i, ms: 1 });
+        }
+        return { lines, end: "ok", message: "" };
+      };
+      const r = await runWithRestarts(Array.from({ length: 64 }, (_, i) => [i]), runChunk, maxChunk, limit);
+      return { outcomes: r.outcomes, submissions, simulatedMs };
+    };
+    const r = await run(16);
+    expect(r.outcomes.map((o) => (o.ok ? "ok" : o.error))).toEqual([...Array(8).fill("ok"), ...Array(56).fill("timeout")]);
+    // Fixed chunks of 16 (the behaviour before): 111 submissions and 831008 ms, each hang costing a full shared chunk plus a solo run.
+    expect(r.submissions).toBe(60);
+    expect(r.simulatedMs).toBe(86_008);
+  });
+
   it("without the flag keeps the cheaper blame-and-restart (per-input watchdogs, e.g. the local executor)", async () => {
     const f = sharedBudget([4, 4, 4, 1], 10);
     const r = await runWithRestarts([[0], [1], [2], [3]], f.runChunk);

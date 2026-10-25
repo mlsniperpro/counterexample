@@ -5,7 +5,7 @@ import type { Problem, Solution } from "../problems/types";
 import type { Budget } from "./budget";
 import type { Stage, Tracer } from "./trace";
 
-export const ORACLE_LANGUAGE: Language = "python";
+const ORACLE_LANGUAGE: Language = "python";
 
 /** `expected` is for display (clipped when huge); comparisons use the full outputs. */
 export type Judgement = { status: "agree" | "mismatch" | "oracle_error"; expected?: unknown; got: string };

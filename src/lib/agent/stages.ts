@@ -3,7 +3,7 @@ import { outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
 import { smallScopeInputs } from "../core/smallscope";
 import { argsConform } from "../core/spec";
-import { AppError, BudgetExceeded, errorMessage, ModelOutputError } from "../errors";
+import { AppError, AttackCancelled, BudgetExceeded, errorMessage, ModelOutputError } from "../errors";
 import type { Solution } from "../problems/types";
 import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
@@ -25,7 +25,7 @@ const BASELINE_ONLY = 1000;
 export const CONFIRM_HITS = 4;
 
 const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
-const call = (args: unknown[]) => `solve(${args.map((a) => JSON.stringify(a)).join(", ")})`;
+const call = (args: unknown[]) => `solve(${args.map((a) => showValue(a)).join(", ")})`;
 
 /**
  * For a pasted statement, the fast model types it first (one traced, budgeted
@@ -36,7 +36,8 @@ export async function understandStage(ctx: AttackContext): Promise<void> {
     startStage(ctx, "understand", "Turning the pasted statement into a typed spec");
     const { solution } = ctx.input;
     const text = await ctx.models.call("understand", "fast", "understand", understandPrompt(ctx.statement, solution.code, solution.language), ctx.replayKey);
-    const { problem, entry } = parseUnderstanding(text, ctx.statement, solution);
+    const { problem, entry, note } = parseUnderstanding(text, ctx.statement, solution);
+    if (note) ctx.tracer.emit("understand", "warn", note);
     ctx.input = { ...ctx.input, problem, solution: { ...solution, entry } };
     ctx.judge = new Judge(problem, ctx.deps.executor, ctx.budget, ctx.tracer, ctx.signal);
     ctx.report.problem = { id: problem.id, title: problem.title };
@@ -53,7 +54,8 @@ const factsSchema = z.object({ facts: z.array(z.object({ fact: z.string().min(1)
 /**
  * Tavily research, only when the statement leans on external facts. A failed
  * search is reported in the trace and the report (never hidden) and the attack
- * continues without research; a budget overrun still stops the attack.
+ * continues without research; a budget overrun or a cancellation still stops
+ * the attack.
  */
 export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]> {
   const { problem, solution } = ctx.input;
@@ -86,7 +88,7 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
       if (uncited) ctx.tracer.emit("research", "warn", `Dropped ${uncited} fact(s) citing a URL that was not in the search results`);
       research.facts.push(...answer.facts.filter((f) => urls.has(f.url)).slice(0, 5));
     } catch (e) {
-      if (e instanceof BudgetExceeded || !(e instanceof AppError)) throw e;
+      if (e instanceof BudgetExceeded || e instanceof AttackCancelled || !(e instanceof AppError)) throw e;
       errors.push(`"${q.query}": ${errorMessage(e)}`);
       ctx.tracer.emit("research", "warn", `Research question failed, continuing: "${q.query}": ${errorMessage(e)}`);
     }
@@ -117,7 +119,7 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
     const outs = await ctx.judge.exec("oracle", "oracle", ctx.judge.oracle(), problem.examples.map((e) => e.args));
     const bad = problem.examples.flatMap((e, i) => {
       const o = outs[i];
-      return o && o.ok && outputsEqual(o.out, e.output, problem.compare) ? [] : [`${call(e.args)} returned ${o ? showOutcome(o) : "nothing"}, expected ${JSON.stringify(e.output)}`];
+      return o && o.ok && outputsEqual(o.out, e.output, problem.compare) ? [] : [`${call(e.args)} returned ${o ? showOutcome(o) : "nothing"}, expected ${showValue(e.output)}`];
     });
     if (bad.length === 0) {
       ctx.tracer.emit("oracle", "info", `Oracle matches all ${problem.examples.length} examples (attempt ${a + 1})`);
@@ -159,7 +161,15 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
   const plan: Family[] = [{ name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" }];
   if (!baselineOnly) {
     plan.push({ name: "small-scope", rationale: "Every small input of the declared types (bounded exhaustive testing: most bugs have a small counterexample).", citations: [], args: specs, count: Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily), source: "exhaustive" });
-    if (modelFamilies) plan.push(...(await modelFamiliesFor(ctx, facts)));
+    if (modelFamilies) {
+      try {
+        plan.push(...(await modelFamiliesFor(ctx, facts)));
+      } catch (e) {
+        // An unreadable generator answer costs only the model's families; the deterministic ones still attack.
+        if (!(e instanceof ModelOutputError)) throw e;
+        ctx.tracer.emit("attack", "warn", `The generator answer could not be read (${errorMessage(e)}); attacking with the built-in families only`);
+      }
+    }
     plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: Math.min(MUTANTS, ctx.limits.inputsPerFamily), source: "mutation" });
   }
   plan.push({
@@ -185,7 +195,7 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
 }
 
 /** `confirmed`: the mismatch reproduced on a fresh re-run. */
-export type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean };
+type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean };
 
 /**
  * Re-judge new hits on a fresh run before trusting them, smallest first, in
@@ -212,6 +222,7 @@ export async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit
     if (confirmed.length) result = [...confirmed, ...bySize.slice(at + CONFIRM_HITS)];
   }
   if (dropped.length) {
+    ctx.droppedMismatches += dropped.length;
     ctx.tracer.emit("run", "warn", `${dropped.length} mismatch(es) did not reproduce on a re-run (flaky execution, e.g. an overloaded sandbox) and were dropped`, {
       inputs: dropped.slice(0, 10),
     });
@@ -331,8 +342,17 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
     shrinkExhausted: shrunk.exhausted || !reproduced,
   };
   ctx.report.counterexample = cx;
-  ctx.report.message = cx.shrinkExhausted ? "Found a counterexample. Shrinking stopped early, so it may not be minimal." : "Found a minimal counterexample.";
-  const label = cx.shrinkExhausted ? "Counterexample (shrink budget exhausted, may not be minimal)" : "Minimal counterexample";
+  // "Exhausted" also covers a result that did not fail again; the wording says which of the two happened.
+  ctx.report.message = !reproduced
+    ? "Found a counterexample. The shrunk input did not fail again, so the confirmed original is shown and it may not be minimal."
+    : cx.shrinkExhausted
+      ? "Found a counterexample. Shrinking stopped early, so it may not be minimal."
+      : "Found a minimal counterexample.";
+  const label = !reproduced
+    ? "Counterexample (the shrunk input did not fail again; the confirmed original is shown)"
+    : cx.shrinkExhausted
+      ? "Counterexample (shrink budget exhausted, may not be minimal)"
+      : "Minimal counterexample";
   ctx.tracer.emit("shrink", "counterexample", `${label}: ${call(cx.args)} expected ${showValue(cx.expected)}, got ${cx.got}`, {
     args: cx.args,
     expected: cx.expected,
@@ -365,24 +385,37 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
       return;
     }
 
+    // Recorded before the re-attack, so a budget or clock overrun during it still keeps the fix and what was checked of it.
+    const record = { code: fix.code, verified: false, attempts: a + 1, reattackInputs: 0, reattackMismatches: 0, reattackUnjudged: 0 };
+    ctx.report.fix = record;
     startStage(ctx, "reattack", `Re-attacking the fix on ${reattack.length} inputs (all previous families plus a fresh seed)`);
     const batch = reattack.slice(0, Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2)));
-    const judged = await ctx.judge.compare("reattack", fix, batch, "fix");
-    const bad = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ j, args: batch[i] as unknown[] }] : []));
-    // Only inputs the oracle could judge are evidence, and the counterexample itself (always first) must be one of them.
-    const unjudged = judged.filter((j) => j.status === "oracle_error").length;
-    const cxFixed = judged[0]?.status === "agree";
-    const verified = bad.length === 0 && batch.length === reattack.length && cxFixed;
-    ctx.report.fix = { code: fix.code, verified, attempts: a + 1, reattackInputs: batch.length, reattackMismatches: bad.length, reattackUnjudged: unjudged };
+    // In chunks, counterexample first: a fix that fails early stops paying for the rest, and every chunk is kept in the report.
+    let bad: { j: Judgement; args: unknown[] }[] = [];
+    let cxFixed = false;
+    for (let at = 0; at < batch.length && !bad.length; at += RUN_CHUNK) {
+      const chunk = batch.slice(at, at + RUN_CHUNK);
+      const judged = await ctx.judge.compare("reattack", fix, chunk, "fix");
+      // Only inputs the oracle could judge are evidence, and the counterexample itself (always first) must be one of them.
+      if (at === 0) cxFixed = judged[0]?.status === "agree";
+      bad = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ j, args: chunk[i] as unknown[] }] : []));
+      record.reattackInputs += chunk.length;
+      record.reattackMismatches += bad.length;
+      record.reattackUnjudged += judged.filter((j) => j.status === "oracle_error").length;
+    }
+    const checked = record.reattackInputs;
+    const unjudged = record.reattackUnjudged;
+    const verified = bad.length === 0 && checked === reattack.length && cxFixed;
+    record.verified = verified;
     const unjudgedNote = unjudged ? ` (the oracle could not judge ${unjudged} more, which prove nothing)` : "";
     if (bad.length === 0 && !verified) {
-      const why = batch.length < reattack.length ? `the run budget ran out after ${batch.length} of ${reattack.length} inputs` : "the oracle could not judge the counterexample itself";
-      ctx.tracer.emit("reattack", "warn", `Fix had no mismatch on ${batch.length - unjudged} judged inputs${unjudgedNote}, but ${why}, so it is not verified`);
+      const why = checked < reattack.length ? `the run budget ran out after ${checked} of ${reattack.length} inputs` : "the oracle could not judge the counterexample itself";
+      ctx.tracer.emit("reattack", "warn", `Fix had no mismatch on ${checked - unjudged} judged inputs${unjudgedNote}, but ${why}, so it is not verified`);
       return;
     }
-    ctx.tracer.emit("reattack", bad.length ? "warn" : "result", bad.length ? `Fix still fails on ${bad.length} input(s)` : `Fix verified on ${batch.length - unjudged} judged inputs${unjudgedNote}`, {
+    ctx.tracer.emit("reattack", bad.length ? "warn" : "result", bad.length ? `Fix still fails on ${bad.length} input(s)` : `Fix verified on ${checked - unjudged} judged inputs${unjudgedNote}`, {
       mismatches: bad.length,
-      inputs: batch.length,
+      inputs: checked,
       unjudged,
     });
     if (verified) return;

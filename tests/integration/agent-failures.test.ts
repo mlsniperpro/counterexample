@@ -6,7 +6,9 @@ import { FIXTURES } from "@/fixtures/replay";
 import type { ReplayFixtures } from "@/lib/models/replay";
 import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
 import type { ResearchClient } from "@/lib/research/tavily";
-import type { ModelProvider } from "@/lib/models/types";
+import type { ModelProvider, ModelRequest } from "@/lib/models/types";
+import type { Problem } from "@/lib/problems/types";
+import { extractJson } from "@/lib/agent/parse";
 import { isCompileFailure } from "@/lib/agent/stages";
 
 const env = { NODE_ENV: "test" };
@@ -48,12 +50,111 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.verdict).toBe("counterexample");
   });
 
-  it("ends with an error verdict (no bug claimed) when the generator answer is not JSON at all", async () => {
-    const fx: ReplayFixtures = { ...FIXTURES, isqrt: { ...FIXTURES.isqrt, generators: "Sorry, I can't help with that." } };
-    const r = await attack({ problem: getProblem("isqrt")!, solution: builtIn("isqrt").demo }, deps(fx));
+  describe("an unreadable generator answer", () => {
+    const isqrt = () => ({ problem: getProblem("isqrt")!, solution: builtIn("isqrt").demo });
+    const goodAnswer = [FIXTURES.isqrt?.generators].flat()[0] ?? "";
+    const withGenerators = (generators: string): ReplayFixtures => ({ ...FIXTURES, isqrt: { ...FIXTURES.isqrt, generators } });
+    const readWarning = (r: Awaited<ReturnType<typeof attack>>) => r.trace.filter((e) => e.kind === "warn" && e.stage === "attack" && /^The generator answer could not be read \(/.test(e.msg));
+
+    it.each([
+      ["prose", "Sorry, I can't help with that."],
+      ["truncated JSON", goodAnswer.slice(0, 120)],
+    ])("attacks with the built-in families only, and says so, when the answer is %s", async (_, answer) => {
+      const r = await attack(isqrt(), deps(withGenerators(answer)));
+      const [warn] = readWarning(r);
+      expect(warn?.msg).toMatch(/\); attacking with the built-in families only$/);
+      expect(r.families.map((f) => f.name)).toEqual(["examples", "small-scope", "mutations", "baseline-random"]);
+      // The deterministic families still find the int32 overflow, and the fix is still verified.
+      expect(r.verdict).toBe("counterexample");
+      expect(r.counterexample?.args).toEqual([2147483647]);
+      expect(r.counterexample?.original.family).toBe("small-scope");
+      expect(r.counterexample?.expected).toBe(46340);
+      expect(r.fix?.verified).toBe(true);
+    });
+
+    it("reads a valid answer followed by prose that contains a brace", async () => {
+      // Unfenced, so the whole text is searched for the object.
+      const bare = JSON.stringify(extractJson(goodAnswer));
+      const r = await attack(isqrt(), deps(withGenerators(`${bare}\n\nHope this helps! (Use } carefully.)`)));
+      expect(readWarning(r)).toEqual([]);
+      expect(r.families.map((f) => f.source)).toContain("model");
+      expect(r.verdict).toBe("counterexample");
+    });
+
+    it("still stops the attack when the budget ends at the generator call", async () => {
+      const r = await attack({ ...isqrt(), research: "off" }, { ...deps(), budgets: { maxModelCalls: 1 } });
+      expect(r.verdict).toBe("budget_exhausted");
+      expect(r.message).toMatch(/modelCalls.*during attack/);
+      expect(readWarning(r)).toEqual([]);
+    });
+
+    it("still stops the attack when the caller cancels at the generator call", async () => {
+      const ac = new AbortController();
+      const r = await attack({ ...isqrt(), research: "off" }, { ...deps(), signal: ac.signal, onEvent: (e) => e.stage === "attack" && e.kind === "stage_start" && ac.abort() });
+      expect(r.verdict).toBe("error");
+      expect(r.message).toMatch(/cancelled.*during attack/);
+      expect(readWarning(r)).toEqual([]);
+    });
+  });
+
+  it("ends the attack during research, with no 'question failed' warning, when the caller cancels", async () => {
+    const ac = new AbortController();
+    const d = deps();
+    // The caller goes away while the search is in flight: the next model call (the summary) sees the cancellation.
+    const research: ResearchClient = {
+      name: "tavily",
+      search: async (q, signal) => {
+        ac.abort();
+        return d.research!.search(q, signal);
+      },
+    };
+    const b = builtIn("binary-search");
+    const r = await attack({ problem: b.problem, solution: b.demo, research: "force" }, { ...d, research, signal: ac.signal });
     expect(r.verdict).toBe("error");
-    expect(r.message).toMatch(/no JSON object.*during attack/);
-    expect(r.counterexample).toBeUndefined();
+    expect(r.message).toBe("attack cancelled by the caller (during research)");
+    expect(r.trace.some((e) => /Research question failed/.test(e.msg))).toBe(false);
+    expect(r.stages.some((s) => s.purpose === "oracle")).toBe(false);
+  });
+
+  it("uses the code's own function when the model's entry name is not defined, instead of reporting a compile error", async () => {
+    const b = builtIn("isqrt");
+    const spec = { title: b.problem.title, entry: "squareRoot", params: b.problem.params, returns: b.problem.returns, examples: b.problem.examples, compare: b.problem.compare };
+    const fx: ReplayFixtures = { ...FIXTURES, isqrt: { ...FIXTURES.isqrt, understand: "```json\n" + JSON.stringify(spec) + "\n```" } };
+    const r = await attack({ statement: b.problem.statement, solution: { language: b.demo.language, code: b.demo.code }, replayKey: "isqrt" }, deps(fx));
+    expect(r.solution.entry).toBe("solve");
+    expect(r.trace.some((e) => e.kind === "warn" && /named entry "squareRoot", which the code does not define; using "solve" instead/.test(e.msg))).toBe(true);
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.args).toEqual([2147483647]);
+  });
+
+  it("shows big-integer example outputs as plain digits in the oracle prompt and in its feedback", async () => {
+    const problem: Problem = {
+      id: "big-demo",
+      title: "Big demo",
+      statement: "Return a huge number.",
+      params: [{ name: "x", type: { kind: "int", min: 0, max: 10 } }],
+      returns: "x",
+      examples: [{ args: [1], output: "\u0000int:15999999992000000001" }],
+      compare: "exact",
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+    };
+    const d = deps({ "big-demo": { oracle: "```python\ndef solve(x):\n    return x\n```" } });
+    const oraclePrompts: string[] = [];
+    const provider: ModelProvider = {
+      name: d.provider.name,
+      complete: (req: ModelRequest) => {
+        if (req.purpose === "oracle") oraclePrompts.push(req.messages.map((m) => m.content).join("\n"));
+        return d.provider.complete(req);
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(x):\n    return x\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, { ...d, provider });
+    expect(r.verdict).toBe("oracle_unreliable");
+    expect(oraclePrompts).toHaveLength(3);
+    expect(oraclePrompts[0]).toContain("- solve(1) == 15999999992000000001");
+    expect(oraclePrompts[1]).toContain("solve(1) returned 1, expected 15999999992000000001");
+    for (const prompt of oraclePrompts) expect(prompt).not.toContain("int:");
   });
 
   it("recognises a solution that does not compile", async () => {

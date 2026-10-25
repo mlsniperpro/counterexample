@@ -25,6 +25,8 @@ export type AttackContext = {
   /** Where we are, for error messages. */
   stage: Stage;
   inputsTested: number;
+  /** Mismatches that did not reproduce on a re-run and were dropped (flaky execution), for the final message. */
+  droppedMismatches: number;
   ttfc: number | null;
   replayKey: string;
   solutionKey: string;
@@ -87,6 +89,7 @@ export function createContext(given: AttackInput | StatementInput, deps: AgentDe
     families,
     stage: "understand",
     inputsTested: 0,
+    droppedMismatches: 0,
     ttfc: null,
     replayKey,
     solutionKey: input.solutionKey ?? replayKey,

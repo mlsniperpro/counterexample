@@ -21,11 +21,46 @@ const specAnswerSchema = z.object({
   references: z.array(z.string().max(200)).nullish().transform((r) => r?.slice(0, 2)),
 });
 
-/** The first top-level function the code defines, used when the model does not name the entry point. */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** A JavaScript function expression or arrow function as a binding's value. */
+const JS_FUNCTION_VALUE = String.raw`(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)`;
+
+/** The first top-level function the code defines (also an `export`ed, `export default` or `async` one), used when the entry is missing from the code. */
 export function firstFunctionName(code: string, language: Solution["language"]): string | undefined {
-  const re = language === "python" ? /^def\s+([A-Za-z_]\w*)\s*\(/m : /^(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=)/m;
+  const re =
+    language === "python"
+      ? /^(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(/m
+      : new RegExp(
+          String.raw`^(?:export\s+(?:default\s+)?)?(?:async\s+)?function(?:\s*\*\s*|\s+)([A-Za-z_$][\w$]*)|^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*${JS_FUNCTION_VALUE}`,
+          "m",
+        );
   const m = re.exec(code);
   return m?.[1] ?? m?.[2];
+}
+
+/** True when the code defines `name` as a function: `def name(`, `function name(`, `name = (`, `name = function`, also after `export` or `async`. */
+function definesFunction(code: string, language: Solution["language"], name: string): boolean {
+  const n = escapeRe(name);
+  const re =
+    language === "python"
+      ? new RegExp(String.raw`^(?:async\s+)?def\s+${n}\s*\(|^${n}\s*=(?!=)`, "m")
+      : new RegExp(String.raw`(?<![\w$.])function(?:\s*\*\s*|\s+)${n}\s*\(|(?<![\w$.])${n}\s*=\s*(?:async\s*)?(?:function\b|\(|[A-Za-z_$][\w$]*\s*=>)`);
+  return re.test(code);
+}
+
+/**
+ * The function the harness will call. The model's `entry` is used when the
+ * code defines it; otherwise (an invented name would fail every input with a
+ * misleading load error) the first top-level function, preferring `solve`.
+ */
+function resolveEntry(code: string, language: Solution["language"], named: string | null | undefined): { entry: string; note?: string } {
+  if (named && definesFunction(code, language, named)) return { entry: named };
+  const entry = definesFunction(code, language, "solve") ? "solve" : firstFunctionName(code, language);
+  if (!entry) {
+    throw new ModelOutputError(named ? `problem spec: entry "${named}" is not defined in the code, and the code has no top-level function` : "problem spec: no entry function named, and none found in the code");
+  }
+  return named ? { entry, note: `The model named entry "${named}", which the code does not define; using "${entry}" instead` } : { entry };
 }
 
 /**
@@ -34,10 +69,9 @@ export function firstFunctionName(code: string, language: Solution["language"]):
  * normalised, anything that affects the attack (types, examples, entry) must
  * be valid or it is a ModelOutputError.
  */
-export function parseUnderstanding(text: string, statement: string, solution: Pick<Solution, "code" | "language">): { problem: Problem; entry: string } {
+export function parseUnderstanding(text: string, statement: string, solution: Pick<Solution, "code" | "language">): { problem: Problem; entry: string; note?: string } {
   const a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
-  const entry = a.entry ?? firstFunctionName(solution.code, solution.language);
-  if (!entry) throw new ModelOutputError("problem spec: no entry function named, and none found in the code");
+  const { entry, note } = resolveEntry(solution.code, solution.language, a.entry);
   const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(p.type, `params[${i}].type`) }));
   if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
   // Expected outputs keep integers beyond 2^53 exact, like the harness's outputs they are compared with
@@ -46,6 +80,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   const examples = a.examples.map((e, i) => ({ ...e, output: exact.examples?.[i]?.output ?? e.output }));
   return {
     entry,
+    ...(note ? { note } : {}),
     problem: {
       id: "custom",
       title: a.title,

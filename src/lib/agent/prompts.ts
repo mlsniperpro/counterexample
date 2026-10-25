@@ -6,7 +6,7 @@ import type { ResearchFact } from "../research/tavily";
 
 const fmtParams = (p: Problem) => p.params.map((x) => `- ${x.name}: ${JSON.stringify(x.type)}`).join("\n");
 const fmtExamples = (p: Problem) =>
-  p.examples.map((e) => `- solve(${e.args.map((a) => JSON.stringify(a)).join(", ")}) == ${JSON.stringify(e.output)}`).join("\n");
+  p.examples.map((e) => `- solve(${e.args.map((a) => showValue(a)).join(", ")}) == ${showValue(e.output)}`).join("\n");
 const fmtFacts = (facts: ResearchFact[]) =>
   facts.length ? `\nResearched facts (cite the URL in "citations" when a family relies on one):\n${facts.map((f) => `- ${f.fact} [${f.url}]`).join("\n")}\n` : "";
 
@@ -33,7 +33,7 @@ Answer with one Python 3 code block defining \`def solve(${p.params.map((x) => x
   ];
 }
 
-export const DSL_DOC = `Input DSL (JSON):
+const DSL_DOC = `Input DSL (JSON):
 - {"kind":"int","min":a,"max":b,"bias":"uniform"|"edges"|"small"}   ("edges" favours min, max, 0, +-1)
 - {"kind":"array","of":T,"len":{"min":a,"max":b},"sorted":"asc"|"desc","distinct":bool,"pool":k}   (pool=k draws from k values: forces duplicates)
 - {"kind":"string","alphabet":"abc","len":{"min":a,"max":b}}
@@ -79,7 +79,7 @@ export function explainPrompt(
     { role: "system", content: SYSTEM },
     {
       role: "user",
-      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => JSON.stringify(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.
+      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => showValue(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.
 
 Problem: ${p.title}
 ${p.statement}

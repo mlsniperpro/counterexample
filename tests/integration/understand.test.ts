@@ -50,6 +50,78 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect(firstFunctionName("x = 1", "python")).toBeUndefined();
   });
 
+  it("firstFunctionName also finds exported, default-exported and async JavaScript functions, and skips non-function constants", () => {
+    expect(firstFunctionName("export function go(x) {}", "javascript")).toBe("go");
+    expect(firstFunctionName("export default function main(x) {}", "javascript")).toBe("main");
+    expect(firstFunctionName("export default async function run(x) {}", "javascript")).toBe("run");
+    expect(firstFunctionName("async function load(x) {}", "javascript")).toBe("load");
+    expect(firstFunctionName("function* gen(x) {}", "javascript")).toBe("gen");
+    expect(firstFunctionName("const MOD = 1e9 + 7;\nconst f = (a) => a;", "javascript")).toBe("f");
+    expect(firstFunctionName("const MOD = 1e9 + 7;", "javascript")).toBeUndefined();
+    expect(firstFunctionName("async def fetch(x): pass", "python")).toBe("fetch");
+  });
+
+  describe("an entry the code does not define", () => {
+    const entryFor = async (code: string, language: "python" | "javascript", named: string | null = "missing") => {
+      const text = "```json\n" + JSON.stringify({ ...spec, entry: named }) + "\n```";
+      return parseUnderstanding(text, "Add two numbers.", { code, language });
+    };
+
+    it("falls back to the first top-level function, with a note, instead of failing every input as a load error", async () => {
+      const r = await entryFor("import math\n\ndef helper(a):\n    return a\n\ndef add(a, b):\n    return a + b\n", "python");
+      expect(r.entry).toBe("helper");
+      expect(r.note).toMatch(/named entry "missing", which the code does not define; using "helper"/);
+    });
+
+    it("prefers a function named solve over an earlier one", async () => {
+      expect((await entryFor("def helper(a):\n    return a\ndef solve(a, b):\n    return a + b\n", "python")).entry).toBe("solve");
+      expect((await entryFor("function helper(a) { return a; }\nconst solve = (a, b) => a + b;", "javascript")).entry).toBe("solve");
+    });
+
+    it("finds JavaScript export, export default and async functions", async () => {
+      expect((await entryFor("export function go(a, b) { return a + b; }", "javascript")).entry).toBe("go");
+      expect((await entryFor("export default function main(a, b) { return a + b; }", "javascript")).entry).toBe("main");
+      expect((await entryFor("async function later(a, b) { return a + b; }", "javascript")).entry).toBe("later");
+    });
+
+    it("throws a clear ModelOutputError when the code has no function at all", async () => {
+      await expect(entryFor("x = 1\nprint(x)\n", "python")).rejects.toThrow(ModelOutputError);
+      await expect(entryFor("x = 1\nprint(x)\n", "python")).rejects.toThrow(/entry "missing" is not defined in the code, and the code has no top-level function/);
+    });
+  });
+
+  describe("an entry the code does define", () => {
+    const kept = (named: string, code: string, language: "python" | "javascript") =>
+      parseUnderstanding("```json\n" + JSON.stringify({ ...spec, entry: named }) + "\n```", "Add two numbers.", { code, language });
+
+    it("is kept, in every spelling a program can define it", () => {
+      const cases: [string, string, "python" | "javascript"][] = [
+        ["add", "def helper(): pass\ndef add(a, b):\n    return a + b\n", "python"],
+        ["add", "async def add(a, b):\n    return a + b\n", "python"],
+        ["add", "add = lambda a, b: a + b\n", "python"],
+        ["add", "function add(a, b) { return a + b; }", "javascript"],
+        ["add", "export function add(a, b) { return a + b; }", "javascript"],
+        ["add", "export default async function add(a, b) { return a + b; }", "javascript"],
+        ["add", "const add = (a, b) => a + b;", "javascript"],
+        ["add", "var add = function (a, b) { return a + b; };", "javascript"],
+        ["add", "add = a => a;", "javascript"],
+        ["$f", "function $f(a) { return a; }", "javascript"],
+      ];
+      for (const [name, code, language] of cases) {
+        const r = kept(name, code, language);
+        expect(r.entry, code).toBe(name);
+        expect(r.note, code).toBeUndefined();
+      }
+    });
+
+    it("is not matched inside a longer name or as a property", () => {
+      // `myadd` and `obj.add` do not define `add`: the fallback names the real first function.
+      expect(kept("add", "function myadd(a, b) { return a + b; }", "javascript").entry).toBe("myadd");
+      expect(kept("add", "const obj = {};\nobj.add = (a, b) => a + b;\nfunction real(a) {}", "javascript").entry).toBe("real");
+      expect(kept("add", "def add_all(a, b):\n    return a + b\n", "python").entry).toBe("add_all");
+    });
+  });
+
   it("rejects malformed or unsafe answers with ModelOutputError", async () => {
     const bad: unknown[] = [
       "not json",

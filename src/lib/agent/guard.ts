@@ -24,7 +24,7 @@ const guardEnvSchema = z.object({
   /** Charged against the daily cap for each call to a model with no known price, so unpriced models cannot bypass it. */
   UNPRICED_CALL_USD: z.coerce.number().min(0).default(0.05),
 });
-export type GuardConfig = z.infer<typeof guardEnvSchema>;
+type GuardConfig = z.infer<typeof guardEnvSchema>;
 
 export function guardConfig(env: Env = process.env): GuardConfig {
   const pick = (k: keyof GuardConfig) => (env[k] === "" ? undefined : env[k]);
@@ -80,7 +80,7 @@ export function worstCaseAttackUsd(maxModelCalls: number, models: string[], pric
 
 type Lease = { start: number; reservedUsd: number; day: string };
 
-export type GuardDecision = { ok: true; ticket: number } | { ok: false; status: 429 | 503; reason: string; retryAfterS: number };
+type GuardDecision = { ok: true; ticket: number } | { ok: false; status: 429 | 503; reason: string; retryAfterS: number };
 
 const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
 

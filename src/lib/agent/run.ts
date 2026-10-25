@@ -30,7 +30,8 @@ export async function attack(input: AttackInput | StatementInput, deps: AgentDep
       // Only inputs the oracle could judge count as evidence.
       const skipped = ctx.families.reduce((n, f) => n + f.oracleSkipped, 0);
       const unjudged = skipped ? ` The oracle could not judge ${skipped} more (it failed or timed out on them), so those prove nothing.` : "";
-      report.message = `No mismatch on ${ctx.inputsTested - skipped} judged inputs across ${ctx.families.filter((f) => f.tested).length} families.${unjudged} That is evidence, not proof.`;
+      const dropped = ctx.droppedMismatches ? ` ${ctx.droppedMismatches} mismatch(es) did not reproduce on a re-run and were dropped.` : "";
+      report.message = `No mismatch on ${ctx.inputsTested - skipped} judged inputs across ${ctx.families.filter((f) => f.tested).length} families.${unjudged}${dropped} That is evidence, not proof.`;
       return finish(ctx);
     }
     const cx = await shrinkStage(ctx, hits);
@@ -39,7 +40,9 @@ export async function attack(input: AttackInput | StatementInput, deps: AgentDep
     const e = explainAbort(ctx, caught);
     const kept = report.counterexample !== undefined;
     report.verdict = kept ? "counterexample" : e instanceof BudgetExceeded ? "budget_exhausted" : "error";
-    report.message = `${kept ? "Found a counterexample, then " : ""}${errorMessage(e)} (during ${ctx.stage})`;
+    // A fix recorded before its re-attack finished is kept, but it is not a verified one.
+    const unverified = ctx.stage === "reattack" && report.fix !== undefined && !report.fix.verified ? `. The proposed fix was not verified${e instanceof BudgetExceeded ? " in time" : ""}` : "";
+    report.message = `${kept ? "Found a counterexample, then " : ""}${errorMessage(e)} (during ${ctx.stage})${unverified}`;
     ctx.tracer.emit(ctx.stage, "warn", report.message, { error: e instanceof Error ? e.name : "unknown" });
   }
   return finish(ctx);

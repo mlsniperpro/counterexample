@@ -66,8 +66,9 @@ __cx_main()
   const __f = ${entry};
   // perf_hooks, not the global: Judge0 CE's default JavaScript is Node 12, which has no global performance.
   const __perf = require("perf_hooks").performance;
-  // A BigInt is written as its plain digits (JSON has no BigInt; the parser keeps big integers exact).
-  const __finite = (k, v) => (typeof v === "bigint" ? "\\u0000BIG" + v.toString() : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
+  // A BigInt, or a number too large to be exact, is written as its exact plain digits (JSON has no BigInt; the parser keeps big integers exact,
+  // and a number's shortest text, e.g. 1152921504606847000 for 2**60, would read back as digits it does not have).
+  const __finite = (k, v) => (typeof v === "bigint" ? "\\u0000BIG" + v.toString() : typeof v === "number" && Number.isInteger(v) && !Number.isSafeInteger(v) ? "\\u0000BIG" + BigInt(v).toString() : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
   const __digits = (s) => s.replace(/"\\\\u0000BIG(-?\\d+)"/g, "$1");
   __write("\\x1eCR\\n");
   for (const __args of __data.inputs) {
@@ -118,12 +119,15 @@ export function parseLines(stdout: string): RunOutcome[] {
  * or crashes mid-chunk, the input right after the last reported line is
  * blamed and the run restarts after it, so one bad input never loses the rest.
  * With `perInputLimitMs` (an executor whose time limit covers the whole chunk,
- * like Judge0), two more rules apply. A timeout in a multi-input chunk is
- * only blamed on that input after it also times out alone: the shared budget
- * can run out on slow but legal runs of earlier inputs, and blaming an
- * innocent input would turn a correct solution into a false alarm. And an
- * input whose own measured time is over the limit, though the chunk as a whole
- * finished in time, is a timeout too, once it is over the limit alone as well.
+ * like Judge0), more rules apply. A timeout or crash in a multi-input chunk is
+ * only blamed on that input after it also fails alone: the shared budget
+ * (or memory) can run out on slow but legal runs of earlier inputs, and
+ * blaming an innocent input would turn a correct solution into a false alarm.
+ * Such a failure also halves the chunk size for the rest of the run (down to
+ * 1): each hanging input costs a whole shared budget plus a solo run, so
+ * smaller chunks keep the next one cheaper. And an input whose own measured
+ * time is over the limit, though the chunk as a whole finished in time, is a
+ * timeout too, once it is over the limit alone as well.
  */
 export async function runWithRestarts(
   inputs: unknown[][],
@@ -134,9 +138,10 @@ export async function runWithRestarts(
   const sharedTimeLimit = perInputLimitMs !== undefined;
   const outcomes: RunOutcome[] = [];
   let processes = 0;
+  let chunkSize = maxChunk;
   while (outcomes.length < inputs.length) {
     const start = outcomes.length;
-    const chunk = inputs.slice(start, Math.min(inputs.length, start + maxChunk));
+    const chunk = inputs.slice(start, Math.min(inputs.length, start + chunkSize));
     const res = await runChunk(chunk);
     processes++;
     if (res.end === "compile") {
@@ -149,7 +154,8 @@ export async function runWithRestarts(
     if (res.lines.length >= chunk.length) continue;
     let end = res.end;
     let message = res.message;
-    if (sharedTimeLimit && end === "timeout" && chunk.length > 1) {
+    if (sharedTimeLimit && (end === "timeout" || end === "crash") && chunk.length > 1) {
+      chunkSize = Math.max(1, Math.floor(Math.min(chunkSize, chunk.length) / 2));
       const blamed = chunk[res.lines.length] as unknown[];
       const solo = await runChunk([blamed]);
       processes++;

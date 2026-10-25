@@ -19,6 +19,19 @@ describe("model output parsing", () => {
     for (const t of ["no json", "{ not json }", "[1, 2]", ""]) expect(() => extractJson(t)).toThrow(ModelOutputError);
   });
 
+  it("reads the first balanced object, whatever braces come after it or hide in strings", () => {
+    expect(extractJson('{"families":[]} Hope this helps! (a stray } and a {brace)')).toEqual({ families: [] });
+    expect(extractJson('{"a":"}{ \\" }","b":{"c":1}} trailing }')).toEqual({ a: '}{ " }', b: { c: 1 } });
+    expect(extractJson('Use {x} first, then: {"a":1}')).toEqual({ a: 1 });
+    expect(extractJson('a stray { then {"a":1}')).toEqual({ a: 1 });
+    expect(extractJson('```json\n{"a":1}\n``` and then {"a":2}')).toEqual({ a: 1 });
+  });
+
+  it("does not make an object out of a truncated one", () => {
+    expect(() => extractJson('{"families":[{"name":"a","args":[')).toThrow(ModelOutputError);
+    expect(() => extractJson('{"a":"unclosed string}')).toThrow(ModelOutputError);
+  });
+
   it("validates a JSON answer against a schema and names the bad path", () => {
     const schema = z.object({ facts: z.array(z.object({ url: z.string() })) });
     expect(parseJsonAnswer('{"facts":[{"url":"u"}]}', schema, "facts")).toEqual({ facts: [{ url: "u" }] });

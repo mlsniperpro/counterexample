@@ -33,7 +33,7 @@ Legend:
 
   Evidence: `docs/screenshots/` (390 px; no horizontal overflow, no page errors).
 - [x] **Potential impact:**
-  - Benchmark: 30/30 bugs found, 0/10 false alarms, fixes verified (`bench/results/fixture.md`).
+  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through model-designed families (both ablations find 0 of 8) (`bench/results/fixture.md`).
   - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 1,071 attacks on 357 mutants (`bench/results/soak-all.md`).
 - [x] **Best use of Tavily (bonus):** research covers the problem's sources and the documentation of risky APIs. One search and one cited summary per question; families may cite only this run's facts; the report shows which families research shaped. Evidence: `tests/unit/plan.test.ts`, e2e test "on request, researches the documentation of risky APIs…", replay fixtures checked against MDN and the Python docs.
 - [P] **Live Tavily run:** `TavilyClient` is proven over real HTTP (fake server) and by `pnpm preflight`. Needs `TAVILY_API_KEY` (BLOCKED.md).
@@ -50,7 +50,7 @@ Legend:
 - [x] 5. Generic shrinker over arrays, strings and graphs, unit- and property-tested. Evidence: `src/lib/core/shrink.ts`, `tests/unit/shrink.test.ts`.
 - [x] 6. Research stage only when the statement references external facts or the user asks, cited, showing its effect on the generators. Evidence: `researchPlan`, trace "Research shaped …", tests.
 - [x] 7. UI: paste, or pick one of 5 classic buggy problems; live trace, counterexample, fix, re-attack; phone width. Evidence: `src/app/`, `docs/screenshots/`.
-- [x] 8. Benchmark: 30 buggy and 10 correct solutions; bug-found rate, time to first counterexample, false alarms, cost Ultra-only vs routed; every README number from the script. Evidence: `bench/run.ts`, `bench/results/fixture.md`.
+- [x] 8. Benchmark: 38 buggy and 16 correct solutions (base tier 30 + 10, hard tier 8 + 6); bug-found rate, time to first counterexample, false alarms, cost Ultra-only vs routed; every README number from the script. Evidence: `bench/run.ts`, `bench/results/fixture.md`.
 - [P] 8. Live benchmark numbers (`pnpm bench --live --readme`). Needs the Nebius key (BLOCKED.md).
 - [x] 9. Rate limit by IP and daily model-spend cap. Evidence: `src/lib/agent/guard.ts`, `tests/unit/guard-limit.test.ts`.
 - [P] 9. Vercel deployment with env vars. Needs the owner's Vercel project and keys (BLOCKED.md).
@@ -123,3 +123,11 @@ Legend:
   - medium: an example output beyond 2^53 made a correct oracle "unreliable"; a correct JS solution returning a BigInt was flagged; the JS harness used `performance`, which Judge0 CE's default Node 12 lacks (now perf_hooks, checked under a real Node v12.14.0); Judge0 never enforced the per-input time limit inside a finished submission (now checked, after a solo re-run); a fix was "verified" when the oracle could judge none of the re-attack (the counterexample itself must now be judged, and unjudged inputs are reported); the confirm step could drop a real bug behind four flaky ones (it now re-checks in batches until one reproduces);
   - medium: architecture.svg claimed no model output runs; replay demos hit 429 after 10 attacks (replay now has its own limit of 120 per hour); VIDEO.md described a demo the app no longer shows (it now uses coin-change, with numbers from the replay run);
   - low: the run reserve was twice what shrinking needs; the big-integer marker leaked into JSON output (exact digits are now written at every JSON boundary); a dead shrink candidate; float mode compared object values exactly; the timing label said "wall clock" in fixture mode.
+- [x] Round 8, agent core and executors (audit of `0e938c2`; every finding verified before fixing, each fix with a regression test that fails on the old code):
+  - high: an unreadable generator answer ended the attack before the deterministic families ran; the attack now goes on with them and says so, and `extractJson` reads the first balanced object;
+  - high: running out of time during the re-attack lost the proposed fix; the fix is now recorded before the re-attack, the re-attack runs in chunks with the counterexample first, and a failing fix stops after its first failing chunk;
+  - medium: on Judge0, the chunk size halves after a timeout or crash in a shared chunk (a simulated run with many hangs dropped from 831 s to 86 s); a crash is blamed only after a solo re-run;
+  - medium: big-integer values in prompts, oracle feedback and the trace JSONL show exact digits; JS numbers above 2^53 are written by their exact value, so `2**60` equals Python's `1 << 60`;
+  - medium: an entry name the code does not define falls back to the code's own function (`solve` first), and JS `export`/`async` functions are recognised;
+  - medium: a cancel during research ends the attack there;
+  - low: the no-bug message counts mismatches that did not reproduce; accurate wording when a shrunk input does not fail again; dead code and file-local exports removed.

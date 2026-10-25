@@ -7,6 +7,23 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 8 (2026-10-25, `0e938c2`, parallel audits on Sonnet; findings verified by the main session before fixing)
+
+Not clean.
+- **Agent core and exec** (2 high, 5 medium, 4 low):
+  - High: an unreadable generator answer ended the attack before the deterministic families ran.
+  - High: the fix and its status were lost when time ran out mid re-attack, and a bad fix paid for the whole re-attack.
+  - Medium: hanging inputs on Judge0 cost a whole shared chunk each.
+  - Medium: the big-integer marker reached model prompts.
+  - Medium: a JS number above 2^53 was compared by its shortest text, not its exact value.
+  - Medium: an entry function that is not in the code gave a misleading compile error.
+  - Medium: a cancel during research was swallowed.
+  - Low: the no-bug message did not mention dropped flaky mismatches; the "did not reproduce" label was wrong; a crash in a shared chunk was blamed without a solo re-run; dead code (`Tracer.jsonl`, `stage_end`, file-local exports).
+- **UI and tests** (3 medium, 7 low, plus test gaps):
+  - Medium: an error response with an empty statusText showed nothing; big-integer args showed the internal marker; malformed but well-typed stream lines crashed the page.
+  - Low: 390 px overflow from long unbreakable text; a raw "network error" on reset; stale ReportView state across share links; the diff unreadable to screen readers; notes not in an always-mounted live region; a stalled stream after the report.
+  - Test gaps: no browser smoke test; untested branches (null body, fixSummary branches, the shrink-exhausted heading, fatal UTF-8, route unpriced charging); order-dependent e2e tests; live-wiring timeouts leaking env under heavy load.
+
 ## Round 7 (2026-10-25, `91aa3f5`, four parallel full audits)
 
 Not clean: 0 critical, 2 high, 11 medium, 13 low. The security audit found nothing exploitable; the other three found the rest. Fixed in `915880a` with tests, except the UI items, which are being finished:
