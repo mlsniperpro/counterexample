@@ -1,5 +1,21 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+Updated 2026-10-25 ~09:00 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ (holds the lease, status=active).
+
+## Latest state (read first)
+- Round 6: four parallel hostile audits of `04f1f92`, plus a sandbox benchmark that hit a real false alarm. All findings are fixed with regression tests in `3b0bf80` (core), `5d4f6c6` (UI and docs) and `99ed3a2` (security). The list is under "Round 6" in WIN-CHECKLIST.md.
+- Benchmark regenerated on that code: 30/30 found, 0 false alarms, 30/30 fixes verified.
+- Sandbox image rebuilt: `/health` shows network blocked and shared dirs locked, and the binary-search benchmark against the container gives 12/12, also under concurrent test-suite load.
+- `pnpm lint && pnpm typecheck && pnpm test` pass: 285/285.
+- Next:
+  1. Audit round 7: full hostile pass on the new HEAD, in parallel subagents.
+  2. Fix and repeat until 2 clean rounds in a row.
+  3. Then run soak, deep fast-check and a fresh-clone run on the final HEAD.
+  4. Write break-it.md and reaudit.md.
+  5. Run the gate, push, and post the PR status.
+- To run the container: `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox`. Start `dockerd` first if it is not running.
+
+## Earlier hand-off (2026-10-24, previous session)
 Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successor that has only this repo.
 
 ## Goal, deadline, PR
