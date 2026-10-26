@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildProgram, MAX_RESULT_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
+import { buildProgram, MAX_RESULT_CHARS, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
 import { chunkLimit } from "@/lib/exec/judge0";
@@ -284,5 +284,22 @@ describe("result size limit", () => {
     expect(Date.now() - t0).toBeLessThan(2000);
     const [b] = parseLines('\x1eCX{"ok":true,"out":[1,12345678901234567890],"ms":1}\n');
     expect(b?.ok && showValue(b.out)).toBe("[1,12345678901234567890]");
+  });
+});
+
+describe("total result budget per run", () => {
+  it("refuses results past the run's total budget unread, keeping alignment, and keeps one run's work small", () => {
+    const value = "[" + "1,".repeat(Math.floor((MAX_RESULT_CHARS - 100) / 2) - 1) + "1]";
+    const line = `\x1eCX{"ok":true,"out":${value},"ms":1}\n`;
+    const n = Math.ceil(MAX_RESULTS_TOTAL_CHARS / line.length) + 3;
+    const t0 = Date.now();
+    const out = parseLines(line.repeat(n) + '\x1eCX{"ok":true,"out":7,"ms":1}\n');
+    expect(out).toHaveLength(n + 1);
+    const accepted = out.filter((o) => o.ok).length;
+    expect(accepted * line.length).toBeLessThanOrEqual(MAX_RESULTS_TOTAL_CHARS + line.length);
+    expect(out.slice(accepted, n).every((o) => !o.ok && /results too large in total/.test(o.message))).toBe(true);
+    // A small result still fits in what is left of the budget, and lands on its own input.
+    expect(out[n]).toEqual({ ok: true, out: 7, ms: 1 });
+    expect(Date.now() - t0).toBeLessThan(2000);
   });
 });
