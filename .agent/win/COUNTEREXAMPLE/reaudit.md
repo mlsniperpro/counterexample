@@ -7,6 +7,23 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 11 (2026-10-26, `f37abc0` = `60c13c4` code, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean. All 8 round-10 core fixes were re-checked and hold, with tests.
+- **Core** (1 high, 3 medium, 1 low), all reproduced and fixed with tests in `5966c4f`:
+  - high: the shrinker took any (int, list of pairs) as a graph, so n = 2^31-1 ran a per-node loop (heap out of memory). It is now a graph only within the node limit and with in-range endpoints;
+  - medium: `maxValues` counted a `const` as one value, so an array of a 200-element const ran 43 s. It now counts the contents;
+  - medium: small-scope built every layer up to a fixed length (length 200: 11.7 s). It now builds each length directly and bounds the enumerated values (27 ms);
+  - medium: a 503 on the generator call ended the attack. It now costs only the model's families, with a warning;
+  - low: an explanation cut inside its code block kept the half block.
+- **Security** (1 high, 1 medium), fixed with tests in `5966c4f`:
+  - high: the same fixed-length small-scope freeze, plus O(N²) synchronous shrink scans over invalid removals. Shrinking now yields to the event loop every 100,000 values scanned, stops at a scan budget, and stops on abort;
+  - medium: IPv6 clients could rotate addresses inside their /64 for fresh rate-limit buckets. Limits are now keyed by the /64.
+  - The sandbox probes (seccomp, uid, environment, fork churn, auth before body) found nothing.
+- **Judge and docs** (3 low): the checklist test count, the FEEDBACK client length, and stale README hard-tier wording and bench output. The bench and soak are being regenerated on the final commit.
+- **Deep property run:** `FC_NUM_RUNS=5000` gave 288/288 but 1 unhandled vitest error (`Timeout calling "onTaskUpdate"`). The cause was a synchronous 393 s property; it now yields between cases.
+- **UI and tests:** pending.
+
 ## Round 10 (2026-10-26, `16d3c2b` = `7204867` code, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.
