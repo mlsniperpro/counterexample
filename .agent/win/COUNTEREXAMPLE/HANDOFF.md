@@ -2,6 +2,8 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+RESUMED 2026-10-26 18:02 UTC (lease active). Running on `16d3c2b`, the same code as `7204867`: audit round 10 (4 Sonnet auditors) and a soak (all 54 solutions, 3 seeds) in a scratch worktree.
+
 WIND DOWN (2026-10-26 ~17:15 UTC, owner request). The lease is released and the work moves to a fresh session.
 - Pushed and green on `7204867` and its handoff follow-ups: rounds 6 to 9 are fully fixed.
   - Checks: lint clean, typecheck clean, 435/435 tests, `pnpm build`, and `pnpm e2e` (7 browser checks) all pass.
