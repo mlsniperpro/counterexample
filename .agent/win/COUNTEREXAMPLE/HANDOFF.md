@@ -2,6 +2,8 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+RESUMED 2026-10-26 15:48 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ (lease active). The round-8 UI/test WIP below is now VERIFIED green on `8440d3a`: lint (0 warnings), typecheck clean, `pnpm test` 381/381, `pnpm build`, and `pnpm e2e` (7 browser checks passed). Round 9 (4 parallel Sonnet audits on `8440d3a`: core, security, judge/docs, UI/tests) is in flight; the UI audit also checks each round-8 UI finding.
+
 WIND DOWN (2026-10-25 ~14:20 UTC, owner request): the lease is released; the work moves to a fresh session.
 - Pushed and green:
   - all of rounds 6-7;
