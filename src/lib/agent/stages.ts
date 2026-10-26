@@ -3,7 +3,7 @@ import { outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
 import { smallScope, smallScopeInputs } from "../core/smallscope";
 import { argsConform, type TypeSpec } from "../core/spec";
-import { AppError, AttackCancelled, BudgetExceeded, errorMessage, ModelOutputError } from "../errors";
+import { AppError, AttackCancelled, BudgetExceeded, errorMessage, ModelOutputError, UpstreamError } from "../errors";
 import type { Solution } from "../problems/types";
 import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
@@ -205,9 +205,10 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
       try {
         plan.push(...(await modelFamiliesFor(ctx, facts)));
       } catch (e) {
-        // An unreadable generator answer costs only the model's families; the deterministic ones still attack.
-        if (!(e instanceof ModelOutputError)) throw e;
-        ctx.tracer.emit("attack", "warn", `The generator answer could not be read (${errorMessage(e)}); attacking with the built-in families only`);
+        // An unreadable or failed generator call costs only the model's families; the deterministic ones still attack.
+        if (e instanceof ModelOutputError) ctx.tracer.emit("attack", "warn", `The generator answer could not be read (${errorMessage(e)}); attacking with the built-in families only`);
+        else if (e instanceof UpstreamError) ctx.tracer.emit("attack", "warn", `The generator call failed (${errorMessage(e)}); attacking with the built-in families only`);
+        else throw e;
       }
     }
     plan.push({ name: "mutations", rationale: "Type-aware mutants of the examples and of earlier inputs (EvalPlus-style).", citations: [], args: specs, count: Math.min(MUTANTS, ctx.limits.inputsPerFamily), source: "mutation" });
@@ -397,6 +398,7 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
     isValid: (a) => argsConform(a, specs),
     stillFails: async (batch) => (await ctx.judge.compare("shrink", ctx.input.solution, batch)).map((j) => j.status === "mismatch"),
     maxEvals: ctx.limits.maxShrinkEvals,
+    signal: ctx.signal,
     // Small batches: only the first still-failing candidate matters, and each hanging candidate costs a full time limit.
     batchSize: 16,
   });

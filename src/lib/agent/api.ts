@@ -1,3 +1,4 @@
+import { isIPv4, isIPv6 } from "node:net";
 import { z } from "zod";
 import { BUILT_INS } from "../problems/catalog";
 import { Guard, guardConfig } from "./guard";
@@ -83,10 +84,34 @@ export function problemsPayload(mode: Mode) {
  * (TRUST_PROXY_HEADERS=1) only the right-most X-Forwarded-For entry is the
  * one our proxy appended; everything left of it, and x-real-ip, may come from
  * the client. Anywhere else a client could spoof them, so every client shares one bucket.
+ * An IPv6 address is limited by its /64 prefix: one host usually holds a
+ * whole /64 and can rotate through it freely.
  */
 export function clientIp(headers: Headers, env: Record<string, string | undefined> = process.env): string {
   const rightMost = (h: string) => headers.get(h)?.split(",").at(-1)?.trim() || undefined;
-  if (env.VERCEL === "1") return headers.get("x-real-ip")?.trim() || rightMost("x-vercel-forwarded-for") || rightMost("x-forwarded-for") || "unknown";
-  if (env.TRUST_PROXY_HEADERS === "1") return rightMost("x-forwarded-for") ?? "unknown";
+  if (env.VERCEL === "1") return ipBucket(headers.get("x-real-ip")?.trim() || rightMost("x-vercel-forwarded-for") || rightMost("x-forwarded-for") || "unknown");
+  if (env.TRUST_PROXY_HEADERS === "1") return ipBucket(rightMost("x-forwarded-for") ?? "unknown");
   return "untrusted-proxy";
+}
+
+/** The rate-limit key for an address: IPv4 as is (also when IPv4-mapped), IPv6 as its /64 prefix, anything unparseable as is. */
+export function ipBucket(ip: string): string {
+  const addr = ip.replace(/%.*$/, "");
+  if (isIPv4(addr)) return addr;
+  if (!isIPv6(addr)) return ip;
+  const [head = "", tail] = addr.toLowerCase().split("::");
+  // Hex groups of one side of "::"; a trailing dotted IPv4 part is two groups.
+  const groups = (part: string): string[] =>
+    part
+      ? part.split(":").flatMap((g) => {
+          if (!isIPv4(g)) return [g];
+          const [a = 0, b = 0, c = 0, d = 0] = g.split(".").map(Number);
+          return [((a << 8) | b).toString(16), ((c << 8) | d).toString(16)];
+        })
+      : [];
+  const left = groups(head);
+  const right = tail === undefined ? [] : groups(tail);
+  const all = [...left, ...Array<string>(8 - left.length - right.length).fill("0"), ...right].map((g) => parseInt(g, 16));
+  if (all.slice(0, 5).every((g) => g === 0) && all[5] === 0xffff) return [all[6] ?? 0, all[7] ?? 0].flatMap((g) => [g >> 8, g & 0xff]).join(".");
+  return `${all.slice(0, 4).map((g) => g.toString(16)).join(":")}::/64`;
 }

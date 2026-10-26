@@ -312,12 +312,32 @@ function depth(spec: TypeSpec): number {
   }
 }
 
+/** Scalar values in a JSON value, counted like generated ones: a string as its length (at least one), a container as its contents (at least one). */
+function jsonValues(value: unknown): number {
+  let total = 0;
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const v = stack.pop();
+    if (typeof v === "string") total += Math.max(1, v.length);
+    else if (Array.isArray(v)) {
+      total += v.length === 0 ? 1 : 0;
+      for (const x of v) stack.push(x);
+    } else if (v !== null && typeof v === "object") {
+      const xs = Object.values(v);
+      total += xs.length === 0 ? 1 : 0;
+      for (const x of xs) stack.push(x);
+    } else total += 1;
+  }
+  return total;
+}
+
 /** Upper bound on the number of scalar values one generated input can contain. */
 export function maxValues(spec: TypeSpec): number {
   switch (spec.kind) {
     case "int":
-    case "const":
       return 1;
+    case "const":
+      return jsonValues(spec.value);
     case "string":
       // At least one: an empty string still costs a value's worth of generation, serialisation and comparison.
       return Math.max(1, spec.len.max);

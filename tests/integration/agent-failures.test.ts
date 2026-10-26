@@ -295,10 +295,10 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.trace.some((e) => /some\/unknown-model call reported as unpriced: no price is known/.test(e.msg))).toBe(true);
   });
 
-  it("charges unmetered and failed live calls as unpriced, so the daily spend cap still sees them", async () => {
+  it("charges unmetered and failed live calls as unpriced, and a failed generator call costs only the model's families", async () => {
     const b = builtIn("binary-search");
     const replay = deps().provider;
-    // A live provider whose first answer has no usage, then fails outright.
+    // A live provider whose first answer (the oracle) has no usage, then fails outright (generators, explain).
     let n = 0;
     const provider = {
       name: "nebius" as const,
@@ -308,9 +308,14 @@ describe("agent failure paths (replay mode)", () => {
       },
     };
     const r = await attack({ problem: b.problem, solution: b.demo, research: "off" }, { ...deps(), provider });
-    expect(r.verdict).toBe("error");
-    expect(r.stats.unpricedCalls).toBe(2);
+    expect(r.stats.unpricedCalls).toBe(3);
     expect(r.trace.some((e) => /reported as unpriced: the response reported no token usage/.test(e.msg))).toBe(true);
+    // The 503 on the generator call is a warning; the built-in families still find the bug, and the explain failure is reported.
+    expect(r.trace.some((e) => e.kind === "warn" && e.msg === "The generator call failed (token-factory: HTTP 503: overloaded); attacking with the built-in families only")).toBe(true);
+    expect(r.families.map((f) => f.name)).toEqual(["examples", "small-scope", "mutations", "baseline-random"]);
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample).toBeDefined();
+    expect(r.message).toBe("Found a counterexample, then token-factory: HTTP 503: overloaded (during explain)");
   });
 
   it("marks a fix as not verified when the run budget ends mid re-attack", async () => {

@@ -197,8 +197,6 @@ describe("parseTypeSpec (untrusted model output)", () => {
       fc.property(typeSpecArb, fc.integer(), (spec, seed) => {
         const count = (v: unknown): number => (Array.isArray(v) ? v.reduce((a: number, x) => a + count(x), 0) : typeof v === "string" ? v.length : 1);
         const v = genArgs([spec], mulberry32(seed))[0];
-        // const values may be strings longer than one "value"; skip those.
-        if (JSON.stringify(spec).includes('"const"')) return;
         expect(count(v)).toBeLessThanOrEqual(Math.max(1, maxValues(spec)));
       }),
     );
@@ -224,6 +222,16 @@ describe("array pools", () => {
     expect(() => parseTypeSpec(spec)).toThrow(/could hold 400000 values/);
     expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 }, pool: 4 } as TypeSpec)).toBe(14);
     expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 } } as TypeSpec)).toBe(10);
+  });
+
+  it("counts a const by what it holds, so an array of a big const is refused, not generated for a minute", () => {
+    const big = { kind: "const", value: Array.from({ length: 200 }, (_, i) => i) };
+    expect(maxValues(big as TypeSpec)).toBe(200);
+    expect(maxValues({ kind: "const", value: { a: "xyz", b: [[], null] } } as TypeSpec)).toBe(3 + 1 + 1);
+    expect(maxValues({ kind: "const", value: "" } as TypeSpec)).toBe(1);
+    expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2000000 values/);
+    // A long const array is counted without spreading it into one call's arguments.
+    expect(maxValues({ kind: "const", value: new Array(300_000).fill(0) } as TypeSpec)).toBe(300_000);
   });
 
   it("generates any accepted spec quickly", () => {

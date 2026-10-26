@@ -49,20 +49,37 @@ function values(spec: TypeSpec, top: boolean): unknown[] {
 
 /** Longest layer of sequences that grows into the next one; a longer layer is cut to its first sequences first. */
 const MAX_LAYER = 5000;
+/** Elements written per sequence length, so a long minimum length (a fixed-length array of 10,000) stays linear. */
+const MAX_ELEMS_PER_LEN = 200_000;
 
 /**
- * Every sequence of the given items with length in [minLen, maxLen]. Each
- * layer is kept before its size is checked, so a lower bound on the length
- * (two edges, nine elements) still yields sequences; a layer past MAX_LAYER
- * grows from its first MAX_LAYER sequences only.
+ * Every sequence of the given items with length in [minLen, maxLen], shortest
+ * first and in lexicographic order of item positions within a length. A length
+ * whose layer would grow from more than MAX_LAYER shorter sequences keeps the
+ * first MAX_LAYER × |items| of them, as growing a cut layer would. Each length
+ * is built directly as base-|items| counters, never from the layers below it,
+ * and keeps at most MAX_ELEMS_PER_LEN / length sequences.
  */
-function sequences<T>(items: T[], minLen: number, maxLen: number): T[][] {
+export function sequences<T>(items: T[], minLen: number, maxLen: number): T[][] {
   const out: T[][] = [];
-  let layer: T[][] = [[]];
-  for (let len = 0; len <= maxLen; len++) {
-    if (len >= minLen) for (const s of layer) out.push(s);
-    if (len === maxLen) break;
-    layer = layer.slice(0, MAX_LAYER).flatMap((s) => items.map((x) => [...s, x]));
+  const k = items.length;
+  for (let len = minLen; len <= maxLen; len++) {
+    if (len === 0) {
+      out.push([]);
+      continue;
+    }
+    if (k === 0) break;
+    const layer = k * Math.min(k ** (len - 1), MAX_LAYER);
+    const count = Math.min(layer, Math.max(1, Math.floor(MAX_ELEMS_PER_LEN / len)));
+    for (let i = 0; i < count; i++) {
+      const seq = new Array<T>(len);
+      let rest = i;
+      for (let p = len - 1; p >= 0; p--) {
+        seq[p] = items[rest % k] as T;
+        rest = Math.floor(rest / k);
+      }
+      out.push(seq);
+    }
   }
   return out;
 }
@@ -139,13 +156,18 @@ function spread(lists: unknown[][], count: number): { combos: unknown[][]; space
 
 /** Most combinations enumerated before filtering; a bigger space is sampled at a stride, and `capped` says so. */
 const MAX_ENUMERATED = 20_000;
+/** Most scalar values in the enumerated combinations, so long fixed-length inputs are enumerated fewer at a time. */
+const MAX_ENUMERATED_VALUES = 1_000_000;
+
+/** Scalar values in a small value (a string counts its characters). */
+const size = (v: unknown): number => (Array.isArray(v) ? v.reduce((a: number, x) => a + size(x), 1) : typeof v === "string" ? 1 + v.length : 1);
 
 export type SmallScope = {
   /** At most `cap` argument lists, all within the problem's constraints. */
   inputs: unknown[][];
   /** How many distinct valid small inputs were found (the true size when `capped` is false). */
   total: number;
-  /** True when the space of combinations was larger than MAX_ENUMERATED, so only a stride sample of it was looked at and `total` is a lower bound. */
+  /** True when the space of combinations was larger than MAX_ENUMERATED (fewer for long inputs), so only a stride sample of it was looked at and `total` is a lower bound. */
   capped: boolean;
   /** How many combinations of small values there are in all, before the constraints filter them. */
   space: number;
@@ -187,7 +209,8 @@ export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
     standIn ||= stand.length > 0;
     return stand;
   });
-  const { combos, space, sampled, radices } = spread(units, MAX_ENUMERATED);
+  const perCombo = units.reduce((a, unit) => a + unit.reduce((m: number, parts) => Math.max(m, size(parts)), 0), 0);
+  const { combos, space, sampled, radices } = spread(units, Math.max(1, Math.min(MAX_ENUMERATED, Math.floor(MAX_ENUMERATED_VALUES / Math.max(1, perCombo)))));
   const seen = new Set<string>();
   const all: unknown[][] = [];
   for (const parts of combos) {

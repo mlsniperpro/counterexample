@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { runs } from "../helpers";
 import { argCandidates, measure, shrink, smaller } from "@/lib/core/shrink";
-import { argsConform, type TypeSpec } from "@/lib/core/spec";
+import { argsConform, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 
 const pred = (f: (args: unknown[]) => boolean) => async (batch: unknown[][]) => batch.map(f);
 
@@ -68,6 +68,54 @@ describe("shrinker", () => {
     expect(nodeCounts.slice(0, 5)).toEqual([3, 5, 5, 5, 5]);
     expect([...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])][0]).toEqual([3, [[0, 1, 1], [1, 2, 2]]]);
     expect([...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])][1]).toEqual([5, [[0, 3, 1], [3, 4, 2]]]);
+  });
+
+  describe("a fixed-length input, where every removal is invalid", () => {
+    const N = 3000;
+    const start = [Array.from({ length: N }, () => 1)];
+    const fixedLength = (a: unknown[]) => (a[0] as number[]).length === N;
+
+    it("keeps the event loop responsive while it skips the invalid candidates", async () => {
+      let last = performance.now();
+      let worstGap = 0;
+      const timer = setInterval(() => {
+        const now = performance.now();
+        worstGap = Math.max(worstGap, now - last);
+        last = now;
+      }, 5);
+      const r = await shrink(start, { isValid: fixedLength, stillFails: pred(() => false), maxEvals: 50 });
+      clearInterval(timer);
+      expect(r.minimal).toEqual(start);
+      // About 4N candidates of N values each: tens of millions of values, in slices of 100,000.
+      expect(worstGap).toBeLessThan(500);
+    });
+
+    it("stops at the scan budget, keeping the input so far and saying it may not be minimal", async () => {
+      const r = await shrink(start, { isValid: fixedLength, stillFails: pred(() => false), maxScan: 1_000_000 });
+      expect(r).toMatchObject({ minimal: start, exhausted: true, evals: 0 });
+    });
+
+    it("stops when the attack is aborted, without judging anything more", async () => {
+      let judged = 0;
+      const r = await shrink(start, { isValid: fixedLength, stillFails: async (b) => ((judged += b.length), b.map(() => false)), signal: AbortSignal.abort() });
+      expect(r).toMatchObject({ minimal: start, exhausted: true });
+      expect(judged).toBe(0);
+    });
+  });
+
+  it("treats an int followed by pairs as a graph only when it could be one", () => {
+    // solve(k, nums) with k = 2^31 - 1 and nums shrunk to []: no per-node loop over two billion nodes.
+    const t0 = Date.now();
+    const first = argCandidates([2147483647, []]).next().value;
+    expect(Date.now() - t0).toBeLessThan(100);
+    expect(first).not.toEqual([1, []]);
+    // n above the graph limit, or an endpoint outside 0..n-1: shrunk as plain values, never relabelled.
+    for (const args of [[SPEC_LIMITS.maxNodes + 1, [[0, 1, 1]]], [6, [[0, 7, 1]]], [6, [[-1, 3, 1]]]]) {
+      const cands = [...argCandidates(args)];
+      expect(cands.every((c) => c[0] !== (args[0] as number) - 1 || c[1] === args[1])).toBe(true);
+    }
+    // A real graph still gets the bulk drop.
+    expect([...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])][0]).toEqual([3, [[0, 1, 1], [1, 2, 2]]]);
   });
 
   it("shrinks a 1000-node graph with one edge to two nodes within a small budget", async () => {

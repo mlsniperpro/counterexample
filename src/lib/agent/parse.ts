@@ -72,10 +72,11 @@ export function answerText(text: string): string {
   return stripThinking(text).replace(/<think>[\s\S]*$/i, "").trim();
 }
 
-/** Explanation text = everything outside code fences, minus a leading label. */
+/** Explanation text = everything outside code fences (a fence never closed, as in a cut answer, runs to the end), minus a leading label. */
 export function extractExplanation(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, "")
+    .replace(/```[\s\S]*$/, "")
     .replace(/^\s*(EXPLANATION|Explanation)\s*:\s*/m, "")
     .replace(/^\s*(FIX|Fix)\s*:\s*$/m, "")
     .trim();

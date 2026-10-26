@@ -49,6 +49,9 @@ describe("model output parsing", () => {
   it("separates the explanation from code and strips reasoning", () => {
     expect(extractExplanation("EXPLANATION: Two sentences. Really.\n\n```python\nx\n```")).toBe("Two sentences. Really.");
     expect(stripThinking("<think>hmm\nlong</think> answer")).toBe("answer");
+    // An answer cut inside its code block: the half block is not part of the explanation.
+    expect(extractExplanation("EXPLANATION: Off by one.\n\n```python\ndef solve(a):\n    for i in range(len(a) - 1")).toBe("Off by one.");
+    expect(extractExplanation("Fine.\n```py\nx\n```\nMore.\n```")).toBe("Fine.\n\nMore.");
     expect(stripThinking("<THINK>a</THINK>b<think>c</think>")).toBe("b");
   });
 });

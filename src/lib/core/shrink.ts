@@ -1,3 +1,5 @@
+import { SPEC_LIMITS } from "./spec";
+
 /**
  * Generic delta debugging over structured (JSON) inputs: arrays, strings,
  * integers, tuples and graphs as edge lists. Candidates are produced from
@@ -91,8 +93,19 @@ export function* candidates(v: unknown): Generator<unknown> {
   }
 }
 
-const isEdgeList = (v: unknown): v is number[][] =>
-  Array.isArray(v) && v.every((e) => Array.isArray(e) && e.length >= 2 && e.every((x) => Number.isInteger(x)));
+/**
+ * An (n, edges) argument pair the generators could have made: n within the
+ * graph limit and every edge's endpoints nodes of it. Anything else (an int
+ * followed by a list of pairs, say) is shrunk as plain values, so a huge n
+ * never drives a per-node loop.
+ */
+const isGraph = (n: unknown, v: unknown): v is number[][] =>
+  typeof n === "number" &&
+  Number.isInteger(n) &&
+  n >= 1 &&
+  n <= SPEC_LIMITS.maxNodes &&
+  Array.isArray(v) &&
+  v.every((e) => Array.isArray(e) && e.length >= 2 && e.every((x) => Number.isInteger(x)) && e[0] < n && e[1] < n && e[0] >= 0 && e[1] >= 0);
 
 /**
  * Graph-aware step for an (n, edges) argument pair: delete nodes that no edge
@@ -128,7 +141,7 @@ export function* argCandidates(args: unknown[]): Generator<unknown[]> {
   for (let i = 0; i + 1 < args.length; i++) {
     const n = args[i];
     const edges = args[i + 1];
-    if (typeof n === "number" && Number.isInteger(n) && isEdgeList(edges)) {
+    if (typeof n === "number" && isGraph(n, edges)) {
       for (const [n2, e2] of dropIsolatedNodes(n, edges)) yield [...args.slice(0, i), n2, e2, ...args.slice(i + 2)];
     }
   }
@@ -143,18 +156,29 @@ type ShrinkOptions = {
   stillFails: (batch: unknown[][]) => Promise<boolean[]>;
   batchSize?: number;
   maxEvals?: number;
+  /** Most values looked at in candidates over the whole shrink, tested or skipped (a candidate costs its size to build and check). */
+  maxScan?: number;
+  /** Stops scanning (with the input so far, marked exhausted) once aborted. */
+  signal?: AbortSignal;
 };
+
+/** Values scanned between yields to the event loop, so skipping many invalid candidates never blocks it for long. */
+const SCAN_SLICE = 100_000;
 
 type ShrinkResult = { minimal: unknown[]; steps: number; evals: number; exhausted: boolean };
 
 export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<ShrinkResult> {
   const batchSize = opts.batchSize ?? 64;
   const maxEvals = opts.maxEvals ?? 5000;
+  const maxScan = opts.maxScan ?? 100_000_000;
   let current = start;
   let steps = 0;
   let evals = 0;
+  let scanned = 0;
+  let nextYield = SCAN_SLICE;
   for (;;) {
     let improved = false;
+    const [curNodes, curMag] = measure(current);
     const seen = new Set<string>();
     let batch: unknown[][] = [];
     const flush = async (): Promise<boolean> => {
@@ -172,8 +196,20 @@ export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<Shr
       return false;
     };
     for (const c of argCandidates(current)) {
+      const [nodes, mag] = measure(c);
+      scanned += nodes;
+      if (scanned >= nextYield) {
+        nextYield = scanned + SCAN_SLICE;
+        await new Promise((resolve) => setImmediate(resolve));
+        if (opts.signal?.aborted) return { minimal: current, steps, evals, exhausted: true };
+        if (scanned >= maxScan) {
+          await flush();
+          return { minimal: current, steps, evals, exhausted: true };
+        }
+      }
+      if (nodes > curNodes || (nodes === curNodes && mag >= curMag)) continue;
       const key = JSON.stringify(c);
-      if (seen.has(key) || !smaller(c, current) || !opts.isValid(c)) continue;
+      if (seen.has(key) || !opts.isValid(c)) continue;
       seen.add(key);
       batch.push(c);
       if (evals + batch.length >= maxEvals) {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/attack/route";
-import { attackBodySchema, clientIp, getGuard, MAX_BODY_BYTES, problemsPayload, readJsonBody, resetGuardForTests } from "@/lib/agent/api";
+import { Guard, guardConfig } from "@/lib/agent/guard";
+import { attackBodySchema, clientIp, getGuard, ipBucket, MAX_BODY_BYTES, problemsPayload, readJsonBody, resetGuardForTests } from "@/lib/agent/api";
 import { BUILT_INS } from "@/lib/problems/catalog";
 
 const saved = { ...process.env };
@@ -117,6 +118,23 @@ describe("POST /api/attack (replay mode)", () => {
     expect(clientIp(h, { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
     expect(clientIp(new Headers({ "x-real-ip": "1.1.1.1" }), { TRUST_PROXY_HEADERS: "1" })).toBe("unknown");
     expect(clientIp(new Headers({ "x-forwarded-for": "3.3.3.3" }), { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
+  });
+
+  it("limits an IPv6 client by its /64, so rotating addresses inside it gives no new bucket", () => {
+    const vercel = (ip: string) => clientIp(new Headers({ "x-real-ip": ip }), { VERCEL: "1" });
+    const rotated = Array.from({ length: 200 }, (_, i) => vercel(`2001:db8:abcd:12:${i.toString(16)}::${(i * 7).toString(16)}`));
+    expect(new Set(rotated)).toEqual(new Set(["2001:db8:abcd:12::/64"]));
+    expect(vercel("2001:DB8:ABCD:0012::9%eth0")).toBe("2001:db8:abcd:12::/64");
+    expect(vercel("2001:db8:abcd:13::1")).toBe("2001:db8:abcd:13::/64");
+    // IPv4, also IPv4-mapped, stays one address per bucket; an unparseable value is kept as is.
+    expect(["1.2.3.4", "::ffff:1.2.3.4", "::ffff:102:304"].map(vercel)).toEqual(["1.2.3.4", "1.2.3.4", "1.2.3.4"]);
+    expect(clientIp(new Headers({ "x-forwarded-for": "10.0.0.1, 2001:db8::5" }), { TRUST_PROXY_HEADERS: "1" })).toBe("2001:db8:0:0::/64");
+    expect(ipBucket("not-an-ip")).toBe("not-an-ip");
+    // Through the guard: the 11th attack from the same /64 within the hour is refused, whatever the interface id.
+    const guard = new Guard(guardConfig({ RATE_LIMIT_PER_HOUR: "10", MAX_CONCURRENT_ATTACKS: "50" }));
+    const verdicts = rotated.slice(0, 11).map((ip, i) => guard.admit(ip, Date.UTC(2026, 9, 26, 12) + i, true).ok);
+    expect(verdicts.filter(Boolean)).toHaveLength(10);
+    expect(verdicts.at(-1)).toBe(false);
   });
 
   it("cannot pick its own rate-limit bucket behind a proxy by sending forwarding headers", () => {

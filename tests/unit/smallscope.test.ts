@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { smallScope, smallScopeInputs } from "@/lib/core/smallscope";
-import { argsConform, type TypeSpec } from "@/lib/core/spec";
+import { sequences, smallScope, smallScopeInputs } from "@/lib/core/smallscope";
+import { argsConform, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 import { PROBLEMS, getProblem } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
 import { runs } from "../helpers";
@@ -60,13 +60,15 @@ describe("small-scope (bounded exhaustive) inputs", () => {
     }
   });
 
-  it("is safe on arbitrary specs: conforming, bounded, deterministic", () => {
-    fc.assert(
-      fc.property(fc.array(fc.oneof(typeSpecArb, graphSpecArb), { minLength: 1, maxLength: 3 }), fc.integer({ min: 1, max: 200 }), (specs, cap) => {
+  it("is safe on arbitrary specs: conforming, bounded, deterministic", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.array(fc.oneof(typeSpecArb, graphSpecArb), { minLength: 1, maxLength: 3 }), fc.integer({ min: 1, max: 200 }), async (specs, cap) => {
         const a = smallScopeInputs(specs, cap);
         expect(a.length).toBeLessThanOrEqual(cap);
         expect(a.every((x) => argsConform(x, specs))).toBe(true);
         expect(smallScopeInputs(specs, cap)).toEqual(a);
+        // Deep runs (FC_NUM_RUNS=5000) take minutes: let the test runner's worker answer its own heartbeats between cases.
+        await new Promise((resolve) => setImmediate(resolve));
       }),
       { numRuns: runs(100) },
     );
@@ -154,6 +156,38 @@ describe("small-scope with graphs that have no small instances", () => {
     expect(new Set(r.inputs.map((a) => a[0]))).toEqual(new Set([6, 7, 8]));
     // With another parameter, the family is not emptied either.
     expect(smallScope([graph([6, 8], [2, 5]), I(0, 3)], 300).inputs.length).toBeGreaterThan(0);
+  });
+
+  it("builds fixed-length arrays and strings in linear time, without the shorter layers", () => {
+    for (const L of [200, SPEC_LIMITS.maxLen]) {
+      const specs: TypeSpec[] = [{ kind: "array", of: I(0, 9), len: { min: L, max: L } }, { kind: "string", alphabet: "abc", len: { min: L, max: L } }];
+      const t0 = Date.now();
+      const r = smallScope(specs, 300);
+      expect(Date.now() - t0).toBeLessThan(1000);
+      expect(r.inputs.length).toBeGreaterThan(0);
+      expect(r.inputs.every((a) => argsConform(a, specs))).toBe(true);
+    }
+  });
+
+  it("enumerates short sequences exactly as growing them layer by layer does", () => {
+    // The layered construction this replaced: grow each layer from the first 5000 of the one below.
+    const layered = (items: string[], minLen: number, maxLen: number) => {
+      const out: string[][] = [];
+      let layer: string[][] = [[]];
+      for (let len = 0; len <= maxLen; len++) {
+        if (len >= minLen) out.push(...layer);
+        if (len === maxLen) break;
+        layer = layer.slice(0, 5000).flatMap((s) => items.map((x) => [...s, x]));
+      }
+      return out;
+    };
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 3 }), fc.integer({ min: 0, max: 10 }), fc.integer({ min: 0, max: 3 }), (k, min, extra) => {
+        const items = ["a", "b", "c"].slice(0, k);
+        expect(sequences(items, min, min + extra)).toEqual(layered(items, min, min + extra));
+      }),
+      { numRuns: runs(60) },
+    );
   });
 
   it("keeps arrays and strings whose minimum length is above the layer limit", () => {
