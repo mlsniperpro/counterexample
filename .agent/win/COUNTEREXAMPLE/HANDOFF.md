@@ -1,5 +1,15 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-26 ~23:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active).
+- Round 11 is fully fixed and pushed. Not clean: core 5, security 2, judge 3 (low), UI 4.
+  - `5966c4f`: core and security fixes.
+  - `4da9353`: UI focus fixes, `cpuClock` speed bounds, the ms() boundary, and an e2e focus step.
+  - `bda6cc8`: bench regenerated, 38/38 found, 0 false alarms, unchanged.
+- Checks on `4da9353`: lint, typecheck, 492/492 tests, build and e2e (8 steps) all pass.
+- The earlier `FC_NUM_RUNS=5000` failure was a vitest worker RPC timeout ("Timeout calling onTaskUpdate") from a 393 s synchronous property. It now yields between cases; rerun FC 5000 on the final HEAD to confirm.
+- Round 12 audits are running (4 Sonnet auditors).
+- Next: fix what round 12 finds, then repeat until 2 rounds in a row are clean. Then the evidence on the final HEAD: the soak, FC 5000, the sandbox bench quiet and under load, a fresh clone, axe, and `pnpm screenshots`. Then break-it.md, the reaudit header, the gate, the PR body and the final comment.
+
 PICKED UP 2026-10-26 22:27 UTC by session_01MhqWcN2Xy12avz8LfXtVq9 (new account; lease active). Inherited HEAD `60c13c4` is green: lint, typecheck, 482/482 tests. The round-10 finding-1 tests exist (tests/integration/confirm-shrink.test.ts "re-attacking a fix on an order-dependent counterexample"). Audit round 11 (4 Sonnet auditors: core incl. re-verifying the 9 round-10 core items, security, judge/docs, UI/tests incl. axe) and a 3-seed soak of all solutions are running. The sandbox image is built (`counterexample-sandbox`). Next steps below are unchanged.
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
