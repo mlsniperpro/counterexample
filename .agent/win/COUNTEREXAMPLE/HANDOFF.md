@@ -2,6 +2,43 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+FINISH AND WIND DOWN (2026-10-26 ~19:10 UTC, owner request: weekly usage nearly used up; the successor may be on another account). The lease is released.
+
+Goal: WIN the Nebius x NVIDIA hackathon. Code freeze 2026-10-29T15:00Z. PR #1 (`counterexample` -> `main`).
+
+Done, green on this HEAD:
+- Rounds 6 to 10 are fixed. Round 10's core fixes were checked at wind-down: the fixer's committed work includes the order-dependent re-attack and its tests (a no-op fix is not verified; a genuine fix is), and the tree passes lint, typecheck and 482/482 tests.
+- Evidence (on earlier commits; re-run on the final one):
+  - bench/results/fixture.md: 38/38 found, 0 false alarms; the hard tier finds 8/8 routed against 0/8 for both ablations;
+  - a soak of all 54 solutions, pre-round 9: 1509 attacks, 0 unsound, 0 missed;
+  - FC_NUM_RUNS=5000 unit tests: 183/183;
+  - the JS harness on Node 12;
+  - the sandbox bench: 12/12, also under load.
+- Gate run at wind-down: `GATE: FAIL (3): only 0 clean full audit(s) in a row; two consecutive audits must find nothing new`. Every code check passes: checks.sh (lint, ruff, typecheck, tests, FC 1000, the bench, build and e2e), the package scripts, the shortcut scans and the secret scan. The only failures are audit evidence: no clean rounds yet, AUDITED_COMMIT still PENDING, and break-it.md missing.
+
+Left unfinished:
+- The 9 round-10 core items were not each re-verified individually. They are committed and the tests pass.
+- The round-10 UI/tests audit was stopped twice before reporting.
+- No round has been clean yet.
+
+Next steps, in order:
+1. Claim the lease.
+2. Run full audit rounds with 4 Sonnet auditors (core, security, judge/docs, UI/tests), and fix verified findings, until 2 consecutive rounds are clean.
+3. On the final HEAD:
+   - `pnpm bench --readme`;
+   - `pnpm soak --all --seeds 3 -j 2 --readme`;
+   - `FC_NUM_RUNS=5000 pnpm exec vitest run tests/unit --testTimeout 3600000`;
+   - the sandbox bench, quiet and under load;
+   - a fresh clone;
+   - `pnpm build && pnpm e2e`;
+   - axe-core;
+   - `pnpm screenshots` (the screenshots are stale).
+4. Write break-it.md (TESTED_COMMIT) and the reaudit.md header (AUDITED_COMMIT, CLEAN_AUDITS_IN_A_ROW=2).
+5. Run the gate and push.
+6. Rewrite the PR body and post the final status.
+
+Owner-only blockers are in BLOCKED.md: the NEBIUS_API_KEY and TAVILY_API_KEY live runs, deploying the sandbox endpoint, Vercel, the video, and making the repo public.
+
 RESUMED 2026-10-26 18:53 UTC (the owner cancelled the 18:52 wind-down; the lease is active). The round-10 core WIP is green as committed (lint, typecheck, 482/482 tests). A Sonnet finisher is checking it item by item and writing the missing finding-1 tests. The round-10 UI audit is rerunning on `6ce18b2`.
 
 WIND DOWN (2026-10-26 ~18:45 UTC, owner request; the owner resumes this session after the usage reset). The lease is released.
