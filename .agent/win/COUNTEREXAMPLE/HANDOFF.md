@@ -2,6 +2,8 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+RESUMED 2026-10-26 18:53 UTC (the owner cancelled the 18:52 wind-down; the lease is active). The round-10 core WIP is green as committed (lint, typecheck, 482/482 tests). A Sonnet finisher is checking it item by item and writing the missing finding-1 tests. The round-10 UI audit is rerunning on `6ce18b2`.
+
 WIND DOWN (2026-10-26 ~18:45 UTC, owner request; the owner resumes this session after the usage reset). The lease is released.
 - Pushed and green:
   - rounds 6 to 9;
