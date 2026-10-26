@@ -86,6 +86,12 @@ __cx_main()
 `;
 }
 
+/** Longest result line (one input's JSON record) that is parsed; larger results are refused as runtime errors. */
+export const MAX_RESULT_CHARS = 256_000;
+
+/** 16+ digits: the shortest literal that can exceed 2^53 (9007199254740992 has 16). */
+const BIG_DIGITS = /\d{16}/;
+
 /** True when the harness got as far as loading the code and finding the entry function. */
 export function reachedReady(stdout: string): boolean {
   return stdout.includes("\x1eCR");
@@ -103,8 +109,16 @@ export function parseLines(stdout: string): RunOutcome[] {
   lines.forEach((raw, i) => {
     const at = raw.indexOf("\x1eCX");
     if (at < 0) return;
+    const text = raw.slice(at + 3);
+    // Parsing and comparing a result costs server CPU on the event loop (about 1 s per MB), so a huge result is
+    // refused unread: a complete line still yields an outcome, keeping later results aligned with their inputs.
+    if (text.length > MAX_RESULT_CHARS && i < lines.length - 1) {
+      out.push({ ok: false, error: "runtime", message: `result too large (${text.length} characters; the limit is ${MAX_RESULT_CHARS})` });
+      return;
+    }
     try {
-      const rec = JSON.parse(raw.slice(at + 3), exactReviver);
+      // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.
+      const rec = JSON.parse(text, BIG_DIGITS.test(text) ? exactReviver : undefined);
       if (rec.ok) out.push({ ok: true, out: rec.out, ms: Number(rec.ms) || 0 });
       else out.push({ ok: false, error: "runtime", message: String(rec.message ?? "error") });
     } catch {

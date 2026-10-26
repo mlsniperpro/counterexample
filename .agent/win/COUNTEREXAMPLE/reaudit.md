@@ -7,6 +7,18 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 9 (2026-10-26, `8440d3a`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Core** (4 medium, 5 low):
+  - medium: a stateful solution got an order-dependent counterexample labelled "flaky";
+  - medium: the shrinker dropped isolated graph nodes one at a time (the hard-tier counterexample stayed at n=876);
+  - medium: `shape: "path"` was missing from the model's DSL doc;
+  - medium: `pool` bypassed the value caps (~30 s of synchronous generation);
+  - low: 309+ digit integers compared as null; exact integers silently off before Node 21; small-scope cut as a prefix and claimed "every"; a stale fix next to a newer explanation; dead code and replay research wording.
+- **Security:** 1 high, 2 medium, 1 low. The report was cut off; the details are being collected. The high is a CPU denial of service from oversized solution output.
+- **Judge and UI:** pending.
+
 ## Round 8 (2026-10-25, `0e938c2`, parallel audits on Sonnet; findings verified by the main session before fixing)
 
 Not clean.

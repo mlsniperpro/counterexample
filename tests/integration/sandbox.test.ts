@@ -175,6 +175,22 @@ describe("sandbox isolation", () => {
   const job = { stdin: "", cpuSeconds: 5, wallSeconds: 10, memoryKb: 64 * 1024 } as const;
   const isolatedJob = asRoot ? { uid: UID_BASE + 9 } : {};
 
+  it("denies every POSIX message-queue call, so no queue can outlive a run", async () => {
+    // mq_unlink, mq_timedsend, mq_timedreceive, mq_notify, mq_getsetattr: with a bad descriptor the kernel says EBADF (9) or ENOENT (2); the filter says EACCES (13).
+    const py = [
+      "import ctypes, errno, os, platform",
+      "libc = ctypes.CDLL(None, use_errno=True)",
+      "nrs = {'x86_64': [241, 242, 243, 244, 245], 'aarch64': [181, 182, 183, 184, 185]}[platform.machine()]",
+      "for nr in nrs:",
+      "    r = libc.syscall(nr, -1, 0, 0, 0, 0)",
+      "    print(nr, 'denied' if r == -1 and ctypes.get_errno() == errno.EACCES else 'allowed')",
+    ].join("\n");
+    const p = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: py });
+    const lines = unb64(p.stdout).trim().split("\n");
+    expect(lines).toHaveLength(5);
+    expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
+  });
+
   it("denies submitted code every socket: metadata, a neighbouring sandbox, the internet and loopback", async () => {
     expect(await probeNetworkFilter()).toBe("blocked");
     const targets = [["169.254.169.254", 80], ["172.17.0.1", 2358], ["93.184.215.14", 80], ["127.0.0.1", Number(new URL(url).port)]];

@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildProgram, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
+import { buildProgram, MAX_RESULT_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
 import { chunkLimit } from "@/lib/exec/judge0";
@@ -263,5 +263,26 @@ describe("runWithRestarts enforces the per-input limit when the chunk finished (
     const r = await runWithRestarts([[0]], f.runChunk, Infinity, 300);
     expect(r.outcomes[0]).toMatchObject({ ok: false, error: "timeout" });
     expect(f.chunks).toHaveLength(1);
+  });
+});
+
+describe("result size limit", () => {
+  it("refuses a result line over the limit unread, and keeps later results aligned", () => {
+    const huge = "[" + "1,".repeat(MAX_RESULT_CHARS / 2) + "1]";
+    const out = parseLines(`\x1eCX{"ok":true,"out":${huge},"ms":1}\n\x1eCX{"ok":true,"out":7,"ms":1}\n`);
+    expect(out[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/^result too large/) });
+    expect(out[1]).toEqual({ ok: true, out: 7, ms: 1 });
+  });
+
+  it("parses a large result within the limit quickly (the exact-integer reviver runs only when a long digit run is present)", () => {
+    // Just under the limit: about 120,000 values in 240,000 characters.
+    const n = Math.floor((MAX_RESULT_CHARS - 100) / 2);
+    const big = "[" + "1,".repeat(n - 1) + "1]";
+    const t0 = Date.now();
+    const [o] = parseLines(`\x1eCX{"ok":true,"out":${big},"ms":1}\n`);
+    expect(o?.ok && Array.isArray(o.out) && o.out.length).toBe(n);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    const [b] = parseLines('\x1eCX{"ok":true,"out":[1,12345678901234567890],"ms":1}\n');
+    expect(b?.ok && showValue(b.out)).toBe("[1,12345678901234567890]");
   });
 });

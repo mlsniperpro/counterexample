@@ -13,7 +13,7 @@
  * CPU-time limit (ulimit -t), a per-process address-space limit (RLIMIT_AS,
  * sized for V8's reservations under Node), a per-run memory limit (the RSS of
  * all its processes, sampled), a file-size and open-file limit, a wall-clock
- * limit, a 32 MB output cap and an empty environment. A seccomp filter
+ * limit, an 8 MB output cap and an empty environment. A seccomp filter
  * (installed by a small Python launcher; no capability needed, so it works in
  * a plain `docker run`) makes socket(), memfd_create(), SysV/POSIX IPC and
  * io_uring fail, so submitted code has no network at all, loopback included.
@@ -45,7 +45,7 @@ export const LANGUAGES = [
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 256 * 1024;
-const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
+const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 /** Processes (threads included) one run uid may own (ulimit -u): stops fork bombs. */
 const MAX_PROCS = 64;
 /** Largest file a run may write (ulimit -f, KB), and how many files it may hold open (ulimit -n). */
@@ -65,7 +65,8 @@ const RSS_SAMPLE_MS = 50;
 /** Default first uid of the per-slot run users; slot i runs as base + i (SANDBOX_UID_BASE overrides it). */
 export const RUN_UID_BASE = 20000;
 /** World-writable temp dirs a run uid might leave files in (swept after each run, locked in the image). */
-const SHARED_DIRS = [...new Set([tmpdir(), "/tmp", "/dev/shm", "/var/tmp"])];
+// /dev/mqueue: POSIX message queues are files there, and would otherwise outlive a run.
+const SHARED_DIRS = [...new Set([tmpdir(), "/tmp", "/dev/shm", "/var/tmp", "/dev/mqueue"])];
 /** Exit code of the launcher when it cannot set up the run (the filter did not install). */
 const LAUNCH_FAILED = 125;
 /** After the program exits and its processes are killed, how long to wait for its pipes to close. */
@@ -86,11 +87,14 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
 /**
  * Syscalls a run may not make, by Node's process.arch: socket (all network,
  * loopback and AF_UNIX included; socketpair stays allowed), memfd_create,
- * shmget, semget, msgget, mq_open and io_uring_{setup,enter,register}.
+ * shmget, semget, msgget, every POSIX message-queue call (mq_open, mq_unlink,
+ * mq_timedsend, mq_timedreceive, mq_notify, mq_getsetattr: a queue can also be
+ * created with a plain open() under /dev/mqueue, so send and receive are denied
+ * too) and io_uring_{setup,enter,register}.
  */
 const DENIED_SYSCALLS = {
-  x64: { audit: 0xc000003e, x32: true, nrs: [41, 319, 29, 64, 68, 240, 425, 426, 427] },
-  arm64: { audit: 0xc00000b7, x32: false, nrs: [198, 279, 194, 190, 186, 180, 425, 426, 427] },
+  x64: { audit: 0xc000003e, x32: true, nrs: [41, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427] },
+  arm64: { audit: 0xc00000b7, x32: false, nrs: [198, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427] },
 };
 
 /**
