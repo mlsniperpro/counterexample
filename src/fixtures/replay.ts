@@ -407,7 +407,7 @@ def solve(s):
       ],
     }),
     explain:
-      "EXPLANATION: When a character repeats, left is set to last[c] + 1 even if that index is behind the current window start, so the window can move backwards and include a duplicate. In the counterexample the second 'a' pulls left back past the repeated 'b', and the reported length counts a window that contains it twice.\n\n" +
+      "EXPLANATION: When a character repeats, left is set to last[c] + 1 even if that index is behind the current window start, so the window can move backwards and include a duplicate. In the counterexample \"baab\", the repeated 'a' moves left to 2, then the second 'b' sets it back to last['b'] + 1 = 1, so the window \"aab\" contains 'a' twice and the reported length is 3 instead of 2.\n\n" +
       "```javascript\nfunction solve(s) {\n  const last = new Map();\n  let left = 0;\n  let best = 0;\n  for (let i = 0; i < s.length; i++) {\n    const c = s[i];\n    if (last.has(c)) left = Math.max(left, last.get(c) + 1);\n    last.set(c, i);\n    best = Math.max(best, i - left + 1);\n  }\n  return best;\n}\n```",
   },
 

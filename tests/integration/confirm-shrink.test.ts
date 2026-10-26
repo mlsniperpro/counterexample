@@ -5,12 +5,15 @@ import { attack } from "@/lib/agent/run";
 import { createContext } from "@/lib/agent/context";
 import { makeDeps } from "@/lib/agent/setup";
 import { explainPrompt } from "@/lib/agent/prompts";
-import { CONFIRM_HITS, confirmHits, RUN_CHUNK, shrinkStage } from "@/lib/agent/stages";
+import { attackStage, CONFIRM_HITS, confirmHits, fixStage, RUN_CHUNK, shrinkStage } from "@/lib/agent/stages";
 import type { TraceEvent } from "@/lib/agent/trace";
 import { FIXTURES } from "@/fixtures/replay";
+import type { Counterexample } from "@/lib/agent/types";
 import type { Executor, RunRequest } from "@/lib/exec/types";
 import type { ReplayFixtures } from "@/lib/models/replay";
+import { outputsEqual } from "@/lib/core/compare";
 import { BUILT_INS } from "@/lib/problems/catalog";
+import type { Problem } from "@/lib/problems/types";
 
 const env = { NODE_ENV: "test" };
 const deps = (fixtures?: ReplayFixtures) => makeDeps({ mode: "replay", env, fixtures });
@@ -300,6 +303,69 @@ describe("a solution that keeps state between calls", () => {
     expect(r.explanation).toBeDefined();
   });
 
+  // The identity function with a mutable default argument: it answers -1 when 8 comes right after 7 in one process. Run alone, 8 is right.
+  const seen = {
+    language: "python" as const,
+    code: "def solve(x, _seen=[]):\n    _seen.append(x)\n    if len(_seen) >= 2 and _seen[-2] == 7 and x == 8:\n        return -1\n    return x\n",
+    entry: "solve",
+  };
+  const identity: Problem = {
+    ...bs.problem,
+    id: "st",
+    title: "Identity",
+    statement: "Return x.",
+    params: [{ name: "x", type: { kind: "int", min: 0, max: 1000 } }],
+    returns: "x",
+    examples: [{ args: [5], output: 5 }, { args: [1], output: 1 }],
+  };
+  const identityFixtures = (fixed: string): ReplayFixtures => ({
+    st: { oracle: "```python\ndef solve(x):\n    return x\n```", generators: "no json here", explain: "EXPLANATION: It keeps a list between calls.\n\n```python\n" + fixed + "```" },
+  });
+  const attackSeen = (fixed: string) => attack({ problem: identity, solution: seen, research: "off" }, deps(identityFixtures(fixed)));
+
+  it("does not verify a 'fix' identical to the stateful buggy code (the counterexample alone passes even for it)", async () => {
+    const r = await attackSeen(seen.code);
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.args).toEqual([8]);
+    expect(r.counterexample?.orderDependent?.precedingInputs).toBeGreaterThan(0);
+    expect(r.fix?.code.trim()).toBe(seen.code.trim());
+    expect(r.fix?.verified).toBe(false);
+    expect(r.fix?.reattackMismatches).toBeGreaterThan(0);
+    // It failed in the first chunk, which is the failing sequence itself, so nothing else was spent on it.
+    const seq = r.counterexample!.orderDependent!.sequence!;
+    expect(seq).toHaveLength(r.counterexample!.orderDependent!.precedingInputs + 1);
+    expect(r.fix?.reattackInputs).toBe(seq.length);
+    expect(r.trace.some((e) => e.stage === "reattack" && e.kind === "warn" && /^Fix still fails on \d+ input\(s\)$/.test(e.msg))).toBe(true);
+  });
+
+  it("verifies a genuinely fixed, stateless version, after running the failing sequence first", async () => {
+    const r = await attackSeen("def solve(x):\n    return x\n");
+    expect(r.verdict).toBe("counterexample");
+    const seq = r.counterexample!.orderDependent!.sequence!;
+    expect(r.fix?.verified).toBe(true);
+    expect(r.fix?.reattackMismatches).toBe(0);
+    const fixRuns = r.trace.filter((e) => e.stage === "reattack" && e.kind === "exec" && e.data?.who === "fix");
+    expect(fixRuns[0]?.data?.inputs).toBe(seq.length);
+    expect(r.fix!.reattackInputs).toBeGreaterThan(seq.length);
+  });
+
+  it("keeps the failing inputs, in order, as the counterexample's sequence, ending with the counterexample", async () => {
+    const r = await attack({ problem: bs.problem, solution: stateful, research: "off" }, deps());
+    const cx = r.counterexample!;
+    const seq = cx.orderDependent!.sequence!;
+    expect(seq.at(-1)).toEqual(cx.args);
+    expect(cx.original.args).toEqual(cx.args);
+    // In a fresh process, the sequence makes the stateful code fail at its last input, and only there.
+    const d = deps();
+    const run = (code: string) => d.executor.run({ language: "python", code, entry: "solve", inputs: seq, timeLimitMs: 2000, memoryLimitMb: 256 });
+    const [mine, oracle] = [await run(stateful.code), await run(r.oracle!.code)];
+    const wrong = mine.outcomes.map((o, i) => !(o.ok && outputsEqual(o.out, (oracle.outcomes[i] as { out: unknown }).out)));
+    expect(wrong.at(-1)).toBe(true);
+    expect(wrong.slice(0, -1).every((w) => !w)).toBe(true);
+    // The trace and the report line never carry the (possibly long) sequence itself.
+    expect(r.trace.some((e) => JSON.stringify(e.data ?? {}).includes('"sequence"'))).toBe(false);
+  });
+
   it("tells the explain model about the state, and only then", () => {
     const text = (stateful: boolean) => explainPrompt(bs.problem, stateful ? bs.demo : bs.demo, [[1], 1], 0, "-1", undefined, stateful)[1]!.content;
     expect(text(true)).toMatch(/only after earlier calls in the same process/);
@@ -346,6 +412,117 @@ describe("the small-scope family says when it was cut", () => {
     const r = await attack({ problem: isqrt.problem, solution: isqrt.demo, research: "off", generators: "no-model" }, deps());
     expect(r.families.find((f) => f.name === "small-scope")!.rationale).toMatch(/^Every small input/);
     expect(r.trace.some((e) => /sampled evenly/.test(e.msg))).toBe(false);
+  });
+});
+
+describe("re-attacking a fix on an order-dependent counterexample", () => {
+  const problem = { ...bs.problem, id: "seq", params: [{ name: "x", type: { kind: "int" as const, min: 0, max: 100 } }], examples: [{ args: [3], output: 3 }] };
+  const solution = { language: "python" as const, code: "def solve(x):\n    return x  # buggy, stateful\n", entry: "solve" };
+  const fixCode = "def solve(x):\n    return x  # the fix\n";
+  const fixtures: ReplayFixtures = { seq: { explain: "EXPLANATION: Changed.\n\n```python\n" + fixCode + "```", oracle: "x", generators: "x" } };
+  /** The failing sequence: a repeat, and the counterexample last. */
+  const sequence = [[1], [7], [7], [8]];
+  const cx: Counterexample = { args: [8], expected: 8, got: "-1", original: { args: [8], family: "f" }, shrinkSteps: 0, shrinkEvals: 0, shrinkExhausted: true, orderDependent: { precedingInputs: 3, sequence } };
+
+  /** Fix runs are recorded; the fix answers x, except -1 where `failAt(inputs, i)` says input i of that run is the bad one. One fix attempt. */
+  function setup(failAt: (inputs: unknown[][], i: number) => boolean, budgets: Partial<Parameters<typeof createContext>[1]["budgets"]> = {}) {
+    const fixRuns: unknown[][][] = [];
+    const executor: Executor = {
+      name: "fake",
+      label: "fake",
+      async run(req: RunRequest) {
+        const isFix = req.code === fixCode;
+        if (isFix) fixRuns.push(req.inputs);
+        const outcomes = req.inputs.map(([x], i) => ({ ok: true as const, out: isFix && failAt(req.inputs, i) ? -1 : (x as number), ms: 0 }));
+        return { outcomes, wallMs: 0, processes: 1 };
+      },
+    };
+    const ctx = createContext({ problem, solution, research: "off" }, { ...deps(fixtures), executor, budgets: { maxFixAttempts: 1, ...budgets } });
+    ctx.judge.oracleCode = "def solve(x):\n    return x\n";
+    return { ctx, fixRuns };
+  }
+  const tested = [[2], [7], [8], [1]];
+
+  it("starts with the exact failing sequence, repeats and order kept, in one chunk, then the rest without repeating it", async () => {
+    const { ctx, fixRuns } = setup(() => false);
+    await fixStage(ctx, cx, [], tested);
+    expect(fixRuns[0]).toEqual(sequence);
+    expect(fixRuns.length).toBe(2);
+    const rest = fixRuns.slice(1).flat();
+    expect(rest).toEqual([[2], [3]]);
+    expect(ctx.report.fix).toMatchObject({ verified: true, reattackInputs: 6, reattackMismatches: 0 });
+  });
+
+  it("judges the counterexample at its place in the sequence: failing there is not verified, though it passes alone", async () => {
+    // The fix is wrong on the last input of the first chunk only when run after the others (state).
+    const { ctx, fixRuns } = setup((inputs, i) => inputs.length === sequence.length && i === inputs.length - 1);
+    await fixStage(ctx, cx, [], tested);
+    expect(fixRuns).toEqual([sequence]);
+    expect(ctx.report.fix).toMatchObject({ verified: false, reattackInputs: 4, reattackMismatches: 1 });
+    expect(ctx.tracer.events.some((e) => e.kind === "warn" && e.msg === "Fix still fails on 1 input(s)")).toBe(true);
+  });
+
+  it("is not verified when the run budget ends inside the sequence (the counterexample was never judged)", async () => {
+    const { ctx } = setup(() => false, { maxRuns: 7 });
+    ctx.budget.useRuns(0);
+    await fixStage(ctx, cx, [], tested);
+    expect(ctx.report.fix?.verified).toBe(false);
+    expect(ctx.tracer.events.some((e) => e.kind === "warn" && /the run budget ran out after 3 of 6 inputs, so it is not verified$/.test(e.msg))).toBe(true);
+  });
+
+  it("is not verified when the order the counterexample failed in was not recorded", async () => {
+    const { ctx, fixRuns } = setup(() => false);
+    await fixStage(ctx, { ...cx, orderDependent: { precedingInputs: 3 } }, [], tested);
+    expect(fixRuns.flat()).toEqual([[8], [2], [7], [1], [3]]);
+    expect(ctx.report.fix?.verified).toBe(false);
+    expect(ctx.tracer.events.some((e) => e.kind === "warn" && /the order in which the counterexample failed was not recorded, so it is not verified$/.test(e.msg))).toBe(true);
+  });
+
+  it("re-attacks an ordinary counterexample as before: it first, then the rest", async () => {
+    const { ctx, fixRuns } = setup(() => false);
+    const plain: Counterexample = { ...cx };
+    delete plain.orderDependent;
+    await fixStage(ctx, plain, [], tested);
+    expect(fixRuns.flat()).toEqual([[8], [2], [7], [1], [3]]);
+    expect(ctx.report.fix?.verified).toBe(true);
+  });
+});
+
+describe("the small-scope family's text matches what it holds", () => {
+  const solution = { language: "python" as const, code: "def solve(*a):\n    return 0\n", entry: "solve" };
+  const problemOf = (params: Problem["params"]): Problem => ({ ...bs.problem, id: "sc", params, examples: [] });
+  const familyOf = async (params: Problem["params"]) => {
+    const ctx = createContext({ problem: problemOf(params), solution, research: "off", generators: "no-model" }, deps());
+    const plan = await attackStage(ctx, []);
+    return { family: plan.find((f) => f.name === "small-scope")!, trace: ctx.tracer.events };
+  };
+  const arr = { kind: "array" as const, of: { kind: "int" as const, min: -100, max: 100 }, len: { min: 0, max: 5 } };
+
+  it("does not claim a count for a space it only sampled, and says it spans all of it", async () => {
+    const { family, trace } = await familyOf([
+      { name: "a", type: arr },
+      { name: "b", type: arr },
+      { name: "c", type: { kind: "int", min: 0, max: 100 } },
+    ]);
+    expect(family.rationale).toBe("300 of 43200 combinations of small values of the declared types, sampled evenly across all of them (bounded exhaustive testing: most bugs have a small counterexample).");
+    expect(family.rationale).not.toMatch(/at least|prefix|^Every/);
+    expect(trace.some((e) => e.kind === "info" && /small-scope: 300 kept of 43200 combinations of small values, sampled by stride across all of them/.test(e.msg))).toBe(true);
+  });
+
+  it("says so when the family ends with no inputs, instead of 'every small input'", async () => {
+    const { family, trace } = await familyOf([{ name: "g", type: { kind: "graph", n: { min: 9, max: 20 }, m: { min: 0, max: 5 }, weight: { min: 0, max: 5 } } }]);
+    expect(family.rationale).toMatch(/^No small input of the declared types exists.*this family is empty/);
+    expect(family.rationale).not.toMatch(/^Every/);
+    expect(trace.some((e) => e.kind === "warn" && /small-scope: no small input fits the declared types; the family is empty/.test(e.msg))).toBe(true);
+  });
+
+  it("tells when a graph with no small instance is held at its smallest valid graph, and still keeps the other parameters' inputs", async () => {
+    const { family, trace } = await familyOf([
+      { name: "g", type: { kind: "graph", n: { min: 9, max: 20 }, m: { min: 0, max: 5 }, weight: { min: 0, max: 5 } } },
+      { name: "k", type: { kind: "int", min: 0, max: 3 } },
+    ]);
+    expect(family.rationale).toBe("Every small input of the declared types (bounded exhaustive testing: most bugs have a small counterexample). A graph with no small instance is held at its smallest valid graph.");
+    expect(trace.some((e) => e.kind === "info" && /a graph parameter has no small instance, so its smallest valid graph stands in/.test(e.msg))).toBe(true);
   });
 });
 

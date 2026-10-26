@@ -90,12 +90,17 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
 
 const isPlainObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 
-const asFloat = (x: unknown): unknown => (typeof x === "string" && x.startsWith(BIG) ? Number(x.slice(BIG.length)) : x);
+const isMarker = (x: unknown): x is string => typeof x === "string" && x.startsWith(BIG);
+
+const asFloat = (x: unknown): unknown => (isMarker(x) ? Number(x.slice(BIG.length)) : x);
 
 function floatEq(a: unknown, b: unknown): boolean {
+  // Markers carry exact digits; integers of 309+ digits are Infinity as numbers, so two different ones (or any two, by abs(Inf - Inf) = NaN) must be judged on their digits.
+  if (isMarker(a) && isMarker(b) && (a === b || !Number.isFinite(asFloat(a)) || !Number.isFinite(asFloat(b)))) return a === b;
   const fa = asFloat(a);
   const fb = asFloat(b);
   if (typeof fa === "number" && typeof fb === "number") {
+    if (!Number.isFinite(fa) || !Number.isFinite(fb)) return fa === fb;
     return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
   if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));
@@ -104,5 +109,5 @@ function floatEq(a: unknown, b: unknown): boolean {
     const kb = Object.keys(fb).sort();
     return ka.length === kb.length && ka.every((k, i) => k === kb[i] && floatEq(fa[k], fb[k]));
   }
-  return canon(fa) === canon(fb);
+  return canon(a) === canon(b);
 }

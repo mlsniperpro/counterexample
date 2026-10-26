@@ -1,8 +1,9 @@
+import { ModelOutputError } from "../errors";
 import { modelFor, type ModelConfig } from "../models/config";
 import { costUsd, type Price } from "../models/pricing";
 import type { ChatMessage, ModelProvider, ModelResponse, ModelRole, Purpose } from "../models/types";
 import type { Budget } from "./budget";
-import { stripThinking } from "./parse";
+import { answerText, stripThinking } from "./parse";
 import type { Stage, Tracer } from "./trace";
 import type { StageCost } from "./types";
 
@@ -16,6 +17,23 @@ const WHY: Record<Purpose, string> = {
 
 /** Appended to a model_call trace line when the answer came from recorded fixtures, not a live call. */
 export const REPLAYED_NOTE = " (replayed answer, not a live call)";
+
+/** Appended to a parse error about an answer that the token limit cut short, so the cause is not mistaken for a model that wrote badly. */
+export const CUT_NOTE = " (the answer was cut at max_tokens)";
+
+/** `e` with CUT_NOTE appended when it is a parse error (ModelOutputError) about an answer that was `cut`; anything else is returned as it is. */
+export function noteCut(e: unknown, cut: boolean): unknown {
+  return cut && e instanceof ModelOutputError && !e.message.endsWith(CUT_NOTE) ? new ModelOutputError(e.message + CUT_NOTE, { cause: e }) : e;
+}
+
+/** Runs `read` on an answer; a parse error it throws says when the answer was `cut` at the token limit. */
+export function readCut<T>(cut: boolean, read: () => T): T {
+  try {
+    return read();
+  } catch (e) {
+    throw noteCut(e, cut);
+  }
+}
 
 function whyFor(purpose: Purpose, routing: ModelConfig["routing"]): string {
   return routing === "ultra-only" ? "Ultra-only baseline: every call goes to the reasoning model." : WHY[purpose];
@@ -38,7 +56,18 @@ export class ModelCaller {
     private readonly signal?: AbortSignal,
   ) {}
 
+  /** Like `ask`, for a caller that only needs the text. */
   async call(stage: Stage, role: ModelRole, purpose: Purpose, messages: ChatMessage[], replayKey: string, attempt = 0): Promise<string> {
+    return (await this.ask(stage, role, purpose, messages, replayKey, attempt)).text;
+  }
+
+  /**
+   * One model call: the answer without its reasoning trace, and whether the
+   * token limit cut it short (`cut`: the caller should say so if it cannot
+   * read the answer, see noteCut). An answer cut so early that nothing but
+   * reasoning (or nothing) is left is an error here, since there is nothing to read.
+   */
+  async ask(stage: Stage, role: ModelRole, purpose: Purpose, messages: ChatMessage[], replayKey: string, attempt = 0): Promise<{ text: string; cut: boolean }> {
     this.budget.useModelCall();
     const model = modelFor(this.models, role);
     let res: ModelResponse;
@@ -87,6 +116,8 @@ export class ModelCaller {
       latencyMs: res.latencyMs,
       simulated: res.simulated,
     });
-    return stripThinking(res.text);
+    const cut = res.finishReason === "length";
+    if (cut && !answerText(res.text)) throw new ModelOutputError(`output was cut at max_tokens (${res.maxTokens ?? res.completionTokens})`);
+    return { text: stripThinking(res.text), cut };
   }
 }

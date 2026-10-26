@@ -1,5 +1,5 @@
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildProgram, MAX_RESULT_CHARS, MAX_RESULT_DEPTH, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
@@ -197,6 +197,46 @@ describe("harness output parsing keeps big integers exact", () => {
     expect(outputsEqual(a.out, b.out)).toBe(false);
     expect(showValue(a.out)).toBe("999999998000000001");
     expect(c.out).toEqual([1.5e300, 7]);
+  });
+});
+
+describe("the big-integer prefilter", () => {
+  /** Parses the lines and returns, for each record, whether JSON.parse got the exact-integer reviver. */
+  function revivers(lines: string[]): boolean[] {
+    const spy = vi.spyOn(JSON, "parse");
+    try {
+      parseLines(lines.map((l) => `\x1eCX${l}\n`).join(""));
+      return spy.mock.calls.filter(([t]) => typeof t === "string" && t.includes('"ms"')).map(([, reviver]) => reviver !== undefined);
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it("does not send a typical line through the slow reviver, though the timing float has 16+ fraction digits", () => {
+    expect(
+      revivers([
+        '{"ok":true,"out":[1,2,3],"ms":0.6870999990496784}',
+        '{"ok": true, "out": [1, 2, 3], "ms": 0.12345678901234567}',
+        '{"ok":true,"out":"text","ms":123.45678901234567}',
+        '{"ok":true,"out":0.12345678901234567,"ms":1.5}',
+      ]),
+    ).toEqual([false, false, false, false]);
+  });
+
+  it("still sends a line with a 16+ digit integer in the result through it, and keeps big integers exact", () => {
+    const lines = ['{"ok":true,"out":[1,12345678901234567890],"ms":0.6870999990496784}', '{"ok": true, "out": -9007199254740993, "ms": 0.1}', '{"ok":true,"out":{"ms":9007199254740993},"ms":0.5}'];
+    expect(revivers(lines)).toEqual([true, true, true]);
+    const [a, b, c] = parseLines(lines.map((l) => `\x1eCX${l}\n`).join(""));
+    expect(a?.ok && showValue(a.out)).toBe("[1,12345678901234567890]");
+    expect(b?.ok && showValue(b.out)).toBe("-9007199254740993");
+    expect(c?.ok && showValue(c.out)).toBe('{"ms":9007199254740993}');
+    expect(a?.ok && b?.ok && c?.ok && outputsEqual(b.out, -9007199254740992)).toBe(false);
+  });
+
+  it("does not take a float for a big integer", () => {
+    const [a, b] = parseLines('\x1eCX{"ok":true,"out":0.12345678901234567,"ms":1}\n\x1eCX{"ok":true,"out":[12345678901234567.5,1.2345678901234567e30],"ms":1}\n');
+    expect(a?.ok && a.out).toBe(0.12345678901234567);
+    expect(b?.ok && b.out).toEqual([12345678901234567.5, 1.2345678901234567e30]);
   });
 });
 

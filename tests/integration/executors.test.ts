@@ -47,6 +47,38 @@ describe("LocalExecutor (dev only)", () => {
     expect(showValue((mixed.outcomes[0] as { out: unknown }).out)).toBe("[9007199254740991,1.5,-1152921504606846976,1000000000000000000000]");
   });
 
+  it("leaves a string that merely contains a quote, a NUL and BIG<digits> alone, in JavaScript as in Python", async () => {
+    const jsCode = "function solve(x) { return x === 0 ? '\"\\u0000BIG5' : x === 1 ? [2 ** 60, '\"\\u0000BIG5', ',\"\\u0000BIG7', 3n] : { k: 'a,\"\\u0000BIG9\"', n: 2n ** 64n }; }";
+    const pyCode = "def solve(x):\n    if x == 0:\n        return '\"\\u0000BIG5'\n    if x == 1:\n        return [2 ** 60, '\"\\u0000BIG5', ',\"\\u0000BIG7', 3]\n    return {'k': 'a,\"\\u0000BIG9\"', 'n': 2 ** 64}\n";
+    const inputs = [[0], [1], [2]];
+    const js = await local.run({ ...base, language: "javascript", code: jsCode, inputs });
+    const py = await local.run({ ...base, language: "python", code: pyCode, inputs });
+    expect(js.outcomes.map((o) => o.ok)).toEqual([true, true, true]);
+    expect((js.outcomes[0] as { out: unknown }).out).toBe('"\u0000BIG5');
+    expect(js.outcomes.every((o, i) => o.ok && py.outcomes[i]?.ok && outputsEqual(o.out, (py.outcomes[i] as { out: unknown }).out))).toBe(true);
+  });
+
+  it("anchors the harness's digit rewrite to values, so the generated JavaScript only rewrites a marker standing as a JSON value", () => {
+    const js = buildProgram("javascript", "function solve(x) { return x; }", "solve");
+    const at = js.indexOf("const __digits = ");
+    const rewrite = new Function(`${js.slice(at, js.indexOf("\n", at))}; return __digits;`)() as (s: string) => string;
+    expect(rewrite('{"ok":true,"out":["\\u0000BIG12",{"k":"\\u0000BIG-3"}]}')).toBe('{"ok":true,"out":[12,{"k":-3}]}');
+    expect(rewrite('{"out":"\\"\\u0000BIG5"}')).toBe('{"out":"\\"\\u0000BIG5"}');
+    expect(rewrite('{"out":["a,\\"\\u0000BIG5"]}')).toBe('{"out":["a,\\"\\u0000BIG5"]}');
+  });
+
+  it("writes each input's time rounded to 3 decimals in both harnesses, so record lines stay short and carry no 16-digit fraction", async () => {
+    const inputs = Array.from({ length: 30 }, (_, i) => [i]);
+    for (const [language, code] of [
+      ["python", "def solve(x):\n    return x * 3\n"],
+      ["javascript", "function solve(x) { return x * 3; }"],
+    ] as const) {
+      const r = await local.run({ ...base, language, code, inputs });
+      const decimals = r.outcomes.map((o) => (o.ok ? (String(o.ms).split(".")[1] ?? "").length : -1));
+      expect(decimals.every((d) => d >= 0 && d <= 3)).toBe(true);
+    }
+  });
+
   it("times JavaScript inputs with perf_hooks, which Judge0 CE's default Node 12 has (it has no global performance)", () => {
     const js = buildProgram("javascript", "function solve(x) { return x; }", "solve");
     expect(js).toContain('require("perf_hooks").performance');

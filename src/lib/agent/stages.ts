@@ -10,6 +10,7 @@ import type { ResearchFact } from "../research/tavily";
 import { startStage, type AttackContext } from "./context";
 import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
 import { Judge, showOutcome, type Judgement } from "./judge";
+import { CUT_NOTE, readCut } from "./model-call";
 import { extractCode, extractExplanation, parseJsonAnswer } from "./parse";
 import { explainPrompt, generatorsPrompt, oraclePrompt, researchPrompt, understandPrompt } from "./prompts";
 import type { Counterexample, Family, FamilyStats } from "./types";
@@ -35,8 +36,9 @@ export async function understandStage(ctx: AttackContext): Promise<void> {
   if (ctx.statement !== undefined) {
     startStage(ctx, "understand", "Turning the pasted statement into a typed spec");
     const { solution } = ctx.input;
-    const text = await ctx.models.call("understand", "fast", "understand", understandPrompt(ctx.statement, solution.code, solution.language), ctx.replayKey);
-    const { problem, entry, note } = parseUnderstanding(text, ctx.statement, solution);
+    const { text, cut } = await ctx.models.ask("understand", "fast", "understand", understandPrompt(ctx.statement, solution.code, solution.language), ctx.replayKey);
+    const statement = ctx.statement;
+    const { problem, entry, note } = readCut(cut, () => parseUnderstanding(text, statement, solution));
     if (note) ctx.tracer.emit("understand", "warn", note);
     ctx.input = { ...ctx.input, problem, solution: { ...solution, entry } };
     ctx.judge = new Judge(problem, ctx.deps.executor, ctx.budget, ctx.tracer, ctx.signal);
@@ -83,9 +85,9 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
       if (r.dropped) ctx.tracer.emit("research", "warn", `Dropped ${r.dropped} malformed search result(s) (non-http(s) URL or wrong shape)`);
       if (r.results.length === 0) continue;
       const focus = q.reason === "api" ? `the documented behaviour of ${q.label} that can make a solution wrong` : "official constraints and edge cases";
-      const text = await ctx.models.call("research", "fast", "research", researchPrompt(problem, r.results, focus), `${ctx.replayKey}?q=${q.query}`);
+      const { text, cut } = await ctx.models.ask("research", "fast", "research", researchPrompt(problem, r.results, focus), `${ctx.replayKey}?q=${q.query}`);
       const urls = new Set(r.results.map((x) => x.url));
-      const answer = parseJsonAnswer(text, factsSchema, "research facts");
+      const answer = readCut(cut, () => parseJsonAnswer(text, factsSchema, "research facts"));
       const uncited = answer.facts.filter((f) => !urls.has(f.url)).length;
       if (uncited) ctx.tracer.emit("research", "warn", `Dropped ${uncited} fact(s) citing a URL that was not in the search results`);
       research.facts.push(...answer.facts.filter((f) => urls.has(f.url)).slice(0, 5));
@@ -107,14 +109,14 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxOracleAttempts; a++) {
     ctx.report.oracle = { code: ctx.judge.oracleCode, attempts: a + 1 };
-    const text = await ctx.models.call("oracle", "reasoning", "oracle", oraclePrompt(problem, feedback), ctx.replayKey, a);
+    const { text, cut } = await ctx.models.ask("oracle", "reasoning", "oracle", oraclePrompt(problem, feedback), ctx.replayKey, a);
     try {
       ctx.judge.oracleCode = extractCode(text, "python");
     } catch (e) {
       // A prose-only answer is a failed attempt, not a failed attack: retry with feedback while attempts remain.
       if (!(e instanceof ModelOutputError)) throw e;
       feedback = "Your answer had no fenced ```python code block. Reply with the complete oracle in one python code block.";
-      ctx.tracer.emit("oracle", "warn", `Oracle answer had no code block on attempt ${a + 1}`);
+      ctx.tracer.emit("oracle", "warn", `Oracle answer had no code block on attempt ${a + 1}${cut ? CUT_NOTE : ""}`);
       continue;
     }
     ctx.report.oracle.code = ctx.judge.oracleCode;
@@ -135,30 +137,47 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
   return false;
 }
 
-/** The small-scope family. Honest about a cut: when the small inputs outnumber the cap it says how many it kept, and that they were sampled evenly. */
+/** A count of combinations for display: exact while it is small, else in scientific notation. */
+const showCount = (n: number) => (n < 1e9 ? String(n) : n.toExponential(1).replace("e+", " x 10^"));
+
+/**
+ * The small-scope family. Honest about a cut: when the small inputs outnumber
+ * the cap it says how many it kept and that they were sampled evenly. When the
+ * space of combinations is too big to enumerate, only a stride sample of it
+ * was looked at, and the text says that instead of claiming a count; when
+ * nothing small fits the declared types the family says it is empty.
+ */
 function smallScopeFamily(ctx: AttackContext, specs: TypeSpec[]): Family {
   const cap = Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily);
-  const { inputs, total, capped } = smallScope(specs, cap);
+  const { inputs, total, capped, space, standIn } = smallScope(specs, cap);
   const why = "bounded exhaustive testing: most bugs have a small counterexample";
-  const truncated = inputs.length < total;
-  if (truncated) {
-    ctx.tracer.emit("attack", "info", `small-scope: ${inputs.length} of ${capped ? "at least " : ""}${total} small inputs kept, sampled evenly across the enumeration (every ${(total / inputs.length).toFixed(1)}th), not a prefix`, { kept: inputs.length, total, capped });
+  const cut = inputs.length < total;
+  let rationale: string;
+  if (inputs.length === 0) {
+    rationale = `No small input of the declared types exists (for example, every graph is larger than the small scope), so this family is empty (${why}).`;
+    ctx.tracer.emit("attack", "warn", "small-scope: no small input fits the declared types; the family is empty", { kept: 0, space });
+  } else if (capped) {
+    // Too many combinations to enumerate: the kept inputs are a stride sample across all of them.
+    rationale = `${inputs.length} of ${showCount(space)} combinations of small values of the declared types, sampled evenly across all of them (${why}).`;
+    ctx.tracer.emit("attack", "info", `small-scope: ${inputs.length} kept of ${showCount(space)} combinations of small values, sampled by stride across all of them (the combinations are decoded from their index, so the sample is not a prefix)`, { kept: inputs.length, space, capped });
+  } else if (cut) {
+    rationale = `${inputs.length} of ${total} small inputs of the declared types, sampled evenly (${why}).`;
+    ctx.tracer.emit("attack", "info", `small-scope: ${inputs.length} of ${total} small inputs kept, sampled evenly across the enumeration (every ${(total / inputs.length).toFixed(1)}th), not a prefix`, { kept: inputs.length, total, capped });
+  } else {
+    rationale = `Every small input of the declared types (${why}).`;
   }
-  return {
-    name: "small-scope",
-    rationale: truncated ? `${inputs.length} of ${capped ? "at least " : ""}${total} small inputs of the declared types, sampled evenly (${why}).` : `Every small input of the declared types (${why}).`,
-    citations: [],
-    args: specs,
-    count: cap,
-    source: "exhaustive",
-  };
+  if (standIn && inputs.length) {
+    rationale += " A graph with no small instance is held at its smallest valid graph.";
+    ctx.tracer.emit("attack", "info", "small-scope: a graph parameter has no small instance, so its smallest valid graph stands in while the other parameters vary");
+  }
+  return { name: "small-scope", rationale, citations: [], args: specs, count: cap, source: "exhaustive" };
 }
 
 /** The fast model's generator families, validated, with citations limited to this run's research. */
 async function modelFamiliesFor(ctx: AttackContext, facts: ResearchFact[]): Promise<Family[]> {
   const { problem, solution } = ctx.input;
-  const text = await ctx.models.call("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
-  const { families, rejected } = parseFamilies(text, specsOf(ctx), ctx.limits.inputsPerFamily);
+  const { text, cut } = await ctx.models.ask("attack", "fast", "generators", generatorsPrompt(problem, solution, facts), ctx.replayKey);
+  const { families, rejected } = readCut(cut, () => parseFamilies(text, specsOf(ctx), ctx.limits.inputsPerFamily));
   for (const r of rejected) ctx.tracer.emit("attack", "warn", `Rejected family ${r.name}: ${r.reason}`);
   // A family may only cite sources this run's research actually gave the model.
   const given = new Set(facts.map((f) => f.url));
@@ -217,9 +236,10 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
 
 /**
  * `confirmed`: the mismatch reproduced on a fresh re-run. `orderDependent`: it
- * reproduced only after `precedingInputs` earlier inputs ran in the same process.
+ * reproduced only after `precedingInputs` earlier inputs ran in the same
+ * process; `sequence` is those inputs and then this one, in the order they ran.
  */
-type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean; orderDependent?: { precedingInputs: number } };
+type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean; orderDependent?: { precedingInputs: number; sequence: unknown[][] } };
 
 const bySize = (a: { args: unknown[] }, b: { args: unknown[] }) => JSON.stringify(a.args).length - JSON.stringify(b.args).length;
 
@@ -270,13 +290,13 @@ export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unkn
   return result;
 }
 
-/** Re-runs `chunk` in order in one process; the smallest hit that fails again, after at least one earlier input, or undefined. */
+/** Re-runs `chunk` in order in one process; the smallest hit that fails again, after at least one earlier input (with the inputs it took to fail), or undefined. */
 async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
   const again = await ctx.judge.compare("run", ctx.input.solution, chunk);
   for (const h of sorted) {
     const at = chunk.indexOf(h.args);
     const j = again[at];
-    if (at > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: at } };
+    if (at > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: at, sequence: chunk.slice(0, at + 1) } };
   }
   return undefined;
 }
@@ -427,7 +447,7 @@ function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit
     args: cx.args,
     expected: cx.expected,
     got: cx.got,
-    orderDependent: order,
+    orderDependent: { precedingInputs: order.precedingInputs },
   });
   return cx;
 }
@@ -436,11 +456,18 @@ function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit
 export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Family[], tested: unknown[][]): Promise<void> {
   const { problem, solution } = ctx.input;
   const fresh = plan.filter((f) => f.source !== "examples").flatMap((f) => inputsFor(ctx, f, tested, "reattack").inputs);
-  const reattack = dedupe([cx.args, cx.original.args, ...tested, ...fresh, ...problem.examples.map((e) => e.args)]);
+  const others = [cx.args, cx.original.args, ...tested, ...fresh, ...problem.examples.map((e) => e.args)];
+  // An order-dependent counterexample passes run alone, even on the buggy code: the fix is first run on the exact
+  // sequence that made it fail (repeats included), in one chunk and in order, and the counterexample is judged at its place in it.
+  const sequence = cx.orderDependent?.sequence ?? [];
+  const unordered = cx.orderDependent !== undefined && sequence.length === 0;
+  const inSequence = new Set(sequence.map((x) => JSON.stringify(x)));
+  const reattack = [...sequence, ...dedupe(others).filter((x) => !inSequence.has(JSON.stringify(x)))];
+  const cxAt = Math.max(0, sequence.length - 1);
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
     startStage(ctx, "explain", a === 0 ? "Explaining the bug and proposing a fix" : "The fix failed: asking for another");
-    const text = await ctx.models.call("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback, cx.orderDependent !== undefined), ctx.solutionKey, a);
+    const { text, cut } = await ctx.models.ask("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback, cx.orderDependent !== undefined), ctx.solutionKey, a);
     ctx.report.explanation = extractExplanation(text);
     ctx.tracer.emit("explain", "info", ctx.report.explanation, { attempt: a });
     let fix: Solution;
@@ -451,7 +478,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
       // An explanation without code is still useful; there is just nothing to re-attack.
       // A fix left over from an earlier attempt belongs to the earlier explanation: the report keeps one coherent attempt.
       delete ctx.report.fix;
-      ctx.tracer.emit("explain", "warn", "No fix was proposed (the answer had no code block); the counterexample and explanation stand on their own");
+      ctx.tracer.emit("explain", "warn", `No fix was proposed (the answer had no code block)${cut ? CUT_NOTE : ""}; the counterexample and explanation stand on their own`);
       return;
     }
 
@@ -460,14 +487,16 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     ctx.report.fix = record;
     startStage(ctx, "reattack", `Re-attacking the fix on ${reattack.length} inputs (all previous families plus a fresh seed)`);
     const batch = reattack.slice(0, Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2)));
-    // In chunks, counterexample first: a fix that fails early stops paying for the rest, and every chunk is kept in the report.
+    // In chunks, counterexample first (an order-dependent one: its sequence first): a fix that fails early stops paying for the rest, and every chunk is kept in the report.
     let bad: { j: Judgement; args: unknown[] }[] = [];
     let cxFixed = false;
-    for (let at = 0; at < batch.length && !bad.length; at += RUN_CHUNK) {
-      const chunk = batch.slice(at, at + RUN_CHUNK);
+    for (let at = 0; at < batch.length && !bad.length; ) {
+      const first = at === 0;
+      const chunk = batch.slice(at, at + (first && sequence.length ? sequence.length : RUN_CHUNK));
+      at += chunk.length;
       const judged = await ctx.judge.compare("reattack", fix, chunk, "fix");
-      // Only inputs the oracle could judge are evidence, and the counterexample itself (always first) must be one of them.
-      if (at === 0) cxFixed = judged[0]?.status === "agree";
+      // Only inputs the oracle could judge are evidence, and the counterexample itself (first, or last of its sequence) must be one of them.
+      if (first) cxFixed = !unordered && judged[cxAt]?.status === "agree";
       bad = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ j, args: chunk[i] as unknown[] }] : []));
       record.reattackInputs += chunk.length;
       record.reattackMismatches += bad.length;
@@ -479,7 +508,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     record.verified = verified;
     const unjudgedNote = unjudged ? ` (the oracle could not judge ${unjudged} more, which prove nothing)` : "";
     if (bad.length === 0 && !verified) {
-      const why = checked < reattack.length ? `the run budget ran out after ${checked} of ${reattack.length} inputs` : "the oracle could not judge the counterexample itself";
+      const why = checked < reattack.length ? `the run budget ran out after ${checked} of ${reattack.length} inputs` : unordered ? "the order in which the counterexample failed was not recorded" : "the oracle could not judge the counterexample itself";
       ctx.tracer.emit("reattack", "warn", `Fix had no mismatch on ${checked - unjudged} judged inputs${unjudgedNote}, but ${why}, so it is not verified`);
       return;
     }

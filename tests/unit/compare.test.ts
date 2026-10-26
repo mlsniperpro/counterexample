@@ -79,6 +79,24 @@ describe("outputsEqual on objects and big integers", () => {
     expect(parse("1e400")).toBe(Infinity);
   });
 
+  it("float mode judges integers of 309+ digits on their digits (they are Infinity as numbers, and abs(Infinity - Infinity) is NaN)", () => {
+    const parse = (s: string) => JSON.parse(`[${s}]`, exactReviver)[0];
+    const digits = "1" + "0".repeat(400);
+    const other = "1" + "0".repeat(399) + "7";
+    expect(outputsEqual(parse(digits), parse(digits), "float")).toBe(true);
+    expect(outputsEqual([parse(digits), 2], [parse(digits), 2], "float")).toBe(true);
+    expect(outputsEqual({ n: parse(digits) }, { n: parse(digits) }, "float")).toBe(true);
+    expect(outputsEqual(parse(digits), parse(other), "float")).toBe(false);
+    expect(outputsEqual(parse(digits), null, "float")).toBe(false);
+    expect(outputsEqual(parse(digits), 5, "float")).toBe(false);
+    expect(outputsEqual(parse("-" + digits), parse(digits), "float")).toBe(false);
+    // Two non-finite numbers compare with ===.
+    expect(outputsEqual(Infinity, Infinity, "float")).toBe(true);
+    expect(outputsEqual(Infinity, -Infinity, "float")).toBe(false);
+    // Finite big integers still compare within the float tolerance.
+    expect(outputsEqual(parse("100000000000000000000"), parse("100000000000000000001"), "float")).toBe(true);
+  });
+
   it("writes only markers that stand as JSON values, never text inside a string", () => {
     const tricky = { got: '"\u0000int:5', list: ['x,"\u0000int:7"', 'a","\u0000int:8"'], '"\u0000int:3"': 1 };
     const text = showValue(tricky);

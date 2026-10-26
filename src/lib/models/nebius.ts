@@ -80,6 +80,8 @@ export class NebiusProvider implements ModelProvider {
       simulated: false,
       // No usage means no price: the caller counts it as unpriced instead of free.
       unmetered: promptTokens === undefined || completionTokens === undefined,
+      ...(choice?.finish_reason ? { finishReason: choice.finish_reason } : {}),
+      maxTokens,
     };
   }
 }

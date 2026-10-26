@@ -111,6 +111,11 @@ export class ShareLinkError extends Error {
 
 const clamp = (s: string, max: number) => (s.length <= max ? s : s.slice(0, max - 12) + " [truncated]");
 
+/** The counterexample as a link carries it: long text clamped, and no input sequence (only how many inputs ran before it). */
+function sharedCounterexample({ orderDependent, ...cx }: NonNullable<Report["counterexample"]>): NonNullable<SharedReport["counterexample"]> {
+  return { ...cx, got: clamp(cx.got, CAP.got), ...(orderDependent ? { orderDependent: { precedingInputs: orderDependent.precedingInputs } } : {}) };
+}
+
 /**
  * The parts of a report that a link (or the fallback download) carries: no
  * trace, no oracle code, nothing beyond the declared solution fields, and long
@@ -124,7 +129,7 @@ export function toShared(r: Omit<Report, "trace"> | Report): SharedReport {
     ...rest,
     message: clamp(rest.message, CAP.message),
     solution: { language: solution.language, code: solution.code, entry: solution.entry },
-    ...(rest.counterexample ? { counterexample: { ...rest.counterexample, got: clamp(rest.counterexample.got, CAP.got) } } : {}),
+    ...(rest.counterexample ? { counterexample: sharedCounterexample(rest.counterexample) } : {}),
     ...(rest.explanation !== undefined ? { explanation: clamp(rest.explanation, CAP.explanation) } : {}),
     ...(rest.research ? { research: { ...rest.research, ...(rest.research.error !== undefined ? { error: clamp(rest.research.error, CAP.researchError) } : {}) } } : {}),
   };

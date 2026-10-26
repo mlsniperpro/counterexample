@@ -60,6 +60,18 @@ export function arity(spec: TypeSpec): number {
   return spec.kind === "graph" ? 2 : 1;
 }
 
+const alphabets = new WeakMap<StringSpec, string[]>();
+
+/** The characters of a string spec's alphabet, split once per spec: splitting per generated string made 10,000 empty strings over 256 characters cost seconds. */
+function alphabetOf(spec: StringSpec): string[] {
+  let chars = alphabets.get(spec);
+  if (!chars) {
+    chars = [...spec.alphabet];
+    alphabets.set(spec, chars);
+  }
+  return chars;
+}
+
 export function genValue(spec: Exclude<TypeSpec, GraphSpec>, rng: Rng): unknown {
   switch (spec.kind) {
     case "int":
@@ -74,7 +86,7 @@ export function genValue(spec: Exclude<TypeSpec, GraphSpec>, rng: Rng): unknown 
     case "string": {
       const n = randInt(rng, spec.len.min, spec.len.max);
       let s = "";
-      const chars = [...spec.alphabet];
+      const chars = alphabetOf(spec);
       for (let i = 0; i < n; i++) s += pick(rng, chars);
       return s;
     }
@@ -307,7 +319,8 @@ export function maxValues(spec: TypeSpec): number {
     case "const":
       return 1;
     case "string":
-      return spec.len.max;
+      // At least one: an empty string still costs a value's worth of generation, serialisation and comparison.
+      return Math.max(1, spec.len.max);
     case "array":
       // The elements, plus the pool they are drawn from (it is generated first).
       return (spec.len.max + poolSize(spec)) * maxValues(spec.of);

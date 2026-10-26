@@ -61,6 +61,26 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
     expect(r.research).toBeUndefined();
   });
 
+  it("longest substring: the explanation talks about the counterexample that was found, and the window it names holds a duplicate", async () => {
+    const b = builtIn("longest-unique-substring");
+    const r = await attack({ problem: b.problem, solution: b.demo }, deps());
+    const s = r.counterexample?.args[0] as string;
+    // The buggy loop, replayed: the window it reports as longest.
+    const last = new Map<string, number>();
+    let left = 0;
+    let window = "";
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charAt(i);
+      if (last.has(c)) left = last.get(c)! + 1;
+      last.set(c, i);
+      if (i - left + 1 > window.length) window = s.slice(left, i + 1);
+    }
+    expect(new Set(window).size).toBeLessThan(window.length);
+    expect(r.explanation).toContain(`"${s}"`);
+    expect(r.explanation).toContain(`"${window}"`);
+    expect(r.explanation).toContain(`length is ${window.length} instead of ${r.counterexample?.expected}`);
+  });
+
   it("every built-in can research the web on request, with cited facts that shape a family", async () => {
     for (const b of BUILT_INS) {
       const r = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());

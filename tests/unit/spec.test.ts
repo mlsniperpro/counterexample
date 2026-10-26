@@ -1,7 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@/lib/core/rng";
-import { argsConform, arity, compareJson, conforms, genArgs, genValue, maxValues, parseTypeSpec, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
+import { generateInputs } from "@/lib/agent/families";
+import { argsConform, arity, compareJson, conforms, genArgs, genValue, inputsWithinBudget, maxValues, parseTypeSpec, SPEC_LIMITS, type ArraySpec, type TypeSpec } from "@/lib/core/spec";
 import { ModelOutputError } from "@/lib/errors";
 import { PROBLEMS } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
@@ -254,3 +255,41 @@ describe("array pools", () => {
   });
 });
 
+describe("value accounting for empty and tiny strings", () => {
+  const alphabet = Array.from({ length: 256 }, (_, i) => String.fromCharCode(0x100 + i)).join("");
+  const empties = (n: number): ArraySpec => ({ kind: "array", of: { kind: "string", alphabet, len: { min: 0, max: 0 } }, len: { min: n, max: n } });
+
+  it("counts every string as at least one value, so an array of empty strings is bounded like an array of ints", () => {
+    expect(maxValues({ kind: "string", alphabet: "ab", len: { min: 0, max: 0 } })).toBe(1);
+    expect(maxValues(empties(10_000))).toBe(10_000);
+    expect(inputsWithinBudget([empties(10_000)], 300)).toBe(50);
+    expect(maxValues({ kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, len: { min: 0, max: 5 } })).toBe(15);
+  });
+
+  it("generates 10,000 empty strings over a 256-character alphabet quickly (the alphabet is not copied per string)", () => {
+    const spec = empties(10_000);
+    const rng = mulberry32(1);
+    const t0 = performance.now();
+    // 50 inputs is what the value budget lets a family hold.
+    for (let i = 0; i < 50; i++) expect(genValue(spec, rng) as string[]).toHaveLength(10_000);
+    const ms = performance.now() - t0;
+    expect(ms).toBeLessThan(300);
+  });
+
+  it("keeps the whole family of such inputs within a second", () => {
+    const spec = empties(10_000);
+    const t0 = performance.now();
+    const r = generateInputs({ name: "e", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
+    expect(r.inputs.length).toBeGreaterThan(0);
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+
+  it("keeps nested distinct arrays fast when their domain is used up", () => {
+    const inner: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 0 }, len: { min: 2000, max: 2000 }, distinct: true };
+    const spec: TypeSpec = { kind: "array", of: inner, len: { min: 100, max: 100 }, distinct: true };
+    const t0 = performance.now();
+    const r = generateInputs({ name: "n", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
+    expect(r.inputs.length + r.dropped).toBeGreaterThan(0);
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+});

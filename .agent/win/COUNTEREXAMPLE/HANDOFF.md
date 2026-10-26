@@ -2,6 +2,34 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+WIND DOWN (2026-10-26 ~18:45 UTC, owner request; the owner resumes this session after the usage reset). The lease is released.
+- Pushed and green:
+  - rounds 6 to 9;
+  - round 10 security: `c3a3457` (total result budget per run), `83fe9d6` (nesting depth 256, distinct early stop);
+  - round 10 docs: `6ce18b2`.
+- In flight, committed as UNVERIFIED WIP in this handoff commit: the round-10 core fixes (Sonnet fixer stopped mid-way, while writing the finding-1 tests).
+  - Files changed at stop: src/fixtures/replay.ts src/lib/agent/model-call.ts src/lib/agent/parse.ts src/lib/agent/stages.ts src/lib/agent/types.ts src/lib/core/compare.ts src/lib/core/smallscope.ts src/lib/core/spec.ts src/lib/exec/program.ts src/lib/models/nebius.ts src/lib/models/types.ts src/lib/share.ts tests/e2e/agent-replay.test.ts tests/integration/agent-failures.test.ts tests/integration/confirm-shrink.test.ts tests/integration/executors.test.ts tests/integration/providers.test.ts tests/unit/compare.test.ts tests/unit/model-call.test.ts tests/unit/program.test.ts tests/unit/share.test.ts tests/unit/smallscope.test.ts tests/unit/spec.test.ts 
+  - The findings it was fixing are under "Round 10 → Core" in reaudit.md:
+    1. order-dependent re-attack replaying the failing sequence;
+    2. value accounting `Math.max(1, …)` and the alphabet copy;
+    3. BIG_DIGITS prefilter on the out part only, and rounded ms;
+    4. small-scope mixed-radix stride over the full product;
+    5. empty graph unit;
+    6. JS `__digits` regex anchoring;
+    7. floatEq on big markers;
+    8. finishReason "length" with some text;
+    9. the "baab" replay explanation.
+  - FIRST: run `pnpm lint && pnpm typecheck && pnpm test`. Then check each of the 9 items against the code, finish the missing ones (finding 1's tests were not written yet), and get it green.
+- Round-10 UI/tests audit: stopped before reporting, so it has no findings. Rerun it.
+- Next steps, in order:
+  1. Make the core WIP green and complete.
+  2. Rerun the round-10 UI audit.
+  3. Run full audit rounds until 2 in a row are clean.
+  4. Gather the evidence on the final HEAD: `pnpm bench --readme`, `pnpm soak --all --seeds 3 -j 2 --readme`, FC_NUM_RUNS=5000 unit tests, the sandbox bench quiet and under load, a fresh clone, `pnpm build && pnpm e2e`, axe-core, and `pnpm screenshots` (the screenshots are stale).
+  5. Write break-it.md and reaudit.md headers.
+  6. Run the gate.
+  7. Update the PR body and post the final status comment.
+
 RESUMED 2026-10-26 18:02 UTC (lease active). Running on `16d3c2b`, the same code as `7204867`: audit round 10 (4 Sonnet auditors) and a soak (all 54 solutions, 3 seeds) in a scratch worktree.
 
 WIND DOWN (2026-10-26 ~17:15 UTC, owner request). The lease is released and the work moves to a fresh session.

@@ -67,6 +67,11 @@ export function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
+/** The answer a reader would see: no reasoning trace, and nothing after a `<think>` that never closes (an answer cut inside its thinking has no answer in it). */
+export function answerText(text: string): string {
+  return stripThinking(text).replace(/<think>[\s\S]*$/i, "").trim();
+}
+
 /** Explanation text = everything outside code fences, minus a leading label. */
 export function extractExplanation(text: string): string {
   return text

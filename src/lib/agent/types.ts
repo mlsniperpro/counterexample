@@ -107,8 +107,12 @@ export type Counterexample = {
    * Set when the input passes run alone and fails only after `precedingInputs`
    * earlier inputs ran in the same process: the solution keeps state between
    * calls. Such an input is not shrunk (shrinking runs candidates alone).
+   * `sequence` is those earlier inputs followed by the counterexample, in the
+   * order they ran: a fix is re-attacked on exactly this sequence in one
+   * process, since the counterexample alone passes even for the buggy code.
+   * Share links leave it out.
    */
-  orderDependent?: { precedingInputs: number };
+  orderDependent?: { precedingInputs: number; sequence?: unknown[][] };
 };
 
 export type Report = {

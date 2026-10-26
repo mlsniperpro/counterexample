@@ -1,4 +1,4 @@
-import { argsConform, type TypeSpec } from "./spec";
+import { argsConform, type GraphSpec, type TypeSpec } from "./spec";
 
 /**
  * Bounded-exhaustive ("small scope") inputs: every combination of small
@@ -36,7 +36,7 @@ function values(spec: TypeSpec, top: boolean): unknown[] {
       return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN)).map((cs) => cs.join(""));
     }
     case "tuple":
-      return product(spec.items.map((it) => (it.kind === "graph" ? [] : values(it, false))), 200);
+      return spread(spec.items.map((it) => (it.kind === "graph" ? [] : values(it, false))), 200).combos;
     case "array": {
       if (spec.of.kind === "graph") return [];
       const elems = values(spec.of, false).slice(0, ELEM_VALUES);
@@ -47,15 +47,22 @@ function values(spec: TypeSpec, top: boolean): unknown[] {
   }
 }
 
-/** Every sequence of the given items with length in [minLen, maxLen]. */
+/** Longest layer of sequences that grows into the next one; a longer layer is cut to its first sequences first. */
+const MAX_LAYER = 5000;
+
+/**
+ * Every sequence of the given items with length in [minLen, maxLen]. Each
+ * layer is kept before its size is checked, so a lower bound on the length
+ * (two edges, nine elements) still yields sequences; a layer past MAX_LAYER
+ * grows from its first MAX_LAYER sequences only.
+ */
 function sequences<T>(items: T[], minLen: number, maxLen: number): T[][] {
   const out: T[][] = [];
   let layer: T[][] = [[]];
   for (let len = 0; len <= maxLen; len++) {
-    if (len >= minLen) out.push(...layer);
+    if (len >= minLen) for (const s of layer) out.push(s);
     if (len === maxLen) break;
-    layer = layer.flatMap((s) => items.map((x) => [...s, x]));
-    if (layer.length > 5000) break;
+    layer = layer.slice(0, MAX_LAYER).flatMap((s) => items.map((x) => [...s, x]));
   }
   return out;
 }
@@ -63,8 +70,8 @@ function sequences<T>(items: T[], minLen: number, maxLen: number): T[][] {
 /** Graphs with more nodes than this are not "small": the family contributes none for them. */
 const SMALL_NODES = 8;
 
-/** Small graphs: few nodes, up to two edges, weights at the extremes and zero. */
-function graphs(spec: Extract<TypeSpec, { kind: "graph" }>): unknown[][] {
+/** Small graphs: few nodes, up to two edges, weights at the extremes and zero. Empty when no graph of the spec is small. */
+function graphs(spec: GraphSpec): unknown[][] {
   const out: unknown[][] = [];
   if (spec.n.min > SMALL_NODES) return out;
   const weights = [...new Set([spec.weight.min, 0, spec.weight.max])].filter((w) => w >= spec.weight.min && w <= spec.weight.max);
@@ -77,58 +84,122 @@ function graphs(spec: Extract<TypeSpec, { kind: "graph" }>): unknown[][] {
   return out;
 }
 
-/** Cartesian product, smallest combinations first, stopping at `cap`. */
-function product(lists: unknown[][], cap: number): unknown[][] {
-  let acc: unknown[][] = [[]];
-  for (const list of lists) {
-    const next: unknown[][] = [];
-    for (const a of acc) {
-      for (const x of list) {
-        next.push([...a, x]);
-        if (next.length >= cap) break;
-      }
-      if (next.length >= cap) break;
-    }
-    acc = next;
-  }
-  return acc;
+/** Most edges a stand-in graph may carry: it is repeated in every combination, so it must stay small. */
+const DEFAULT_GRAPH_EDGES = 8;
+
+/**
+ * The smallest valid graph of a spec (fewest nodes, fewest edges, lowest
+ * weight), or none when it is not small or the spec admits no graph. Stands in
+ * for a graph parameter that has no small instances, so the other parameters'
+ * small inputs are still tried instead of the whole family going empty.
+ */
+function defaultGraph(spec: GraphSpec): unknown[][] {
+  if (spec.m.min > DEFAULT_GRAPH_EDGES) return [];
+  const n = Math.max(spec.n.min, spec.m.min > 0 ? (spec.dag ? 2 : 1) : 0);
+  if (n > spec.n.max) return [];
+  return [[n, Array.from({ length: spec.m.min }, () => [0, spec.dag ? 1 : 0, spec.weight.min])]];
 }
 
-/** Most combinations enumerated before filtering; a bigger space is cut here, and `capped` says so. */
+const gcd = (a: bigint, b: bigint): bigint => (b === 0n ? a : gcd(b, a % b));
+
+/** The smallest step of at least `target` that shares no factor with any radix, so striding by it reaches every value of each digit instead of aliasing onto a few. */
+function coprimeStep(target: bigint, radices: bigint[]): bigint {
+  let step = target < 1n ? 1n : target;
+  while (radices.some((r) => gcd(step, r) !== 1n)) step++;
+  return step;
+}
+
+/**
+ * Up to `count` combinations of the Cartesian product of `lists`, spread over
+ * the whole product: every combination, smallest first, when it has at most
+ * `count`, else the combinations at a stride across it. The product is never
+ * built: an index is decoded in mixed radix (the first list is the most
+ * significant digit, so it changes slowest). `space` is the product's size.
+ */
+function spread(lists: unknown[][], count: number): { combos: unknown[][]; space: number; sampled: boolean; radices: bigint[] } {
+  const radices = lists.map((l) => BigInt(l.length));
+  const space = radices.reduce((a, r) => a * r, 1n);
+  const sampled = space > BigInt(count);
+  const n = sampled ? count : Number(space);
+  // A stride coprime to every radix visits distinct indices, and may wrap around the space more than once.
+  const step = sampled ? coprimeStep((space + BigInt(count) - 1n) / BigInt(count), radices) : 1n;
+  const combos: unknown[][] = [];
+  for (let j = 0; j < n; j++) {
+    let rest = (BigInt(j) * step) % space;
+    const combo: unknown[] = new Array(lists.length);
+    for (let k = lists.length - 1; k >= 0; k--) {
+      const radix = radices[k] as bigint;
+      combo[k] = (lists[k] as unknown[])[Number(rest % radix)];
+      rest /= radix;
+    }
+    combos.push(combo);
+  }
+  return { combos, space: Number(space), sampled, radices };
+}
+
+/** Most combinations enumerated before filtering; a bigger space is sampled at a stride, and `capped` says so. */
 const MAX_ENUMERATED = 20_000;
 
 export type SmallScope = {
   /** At most `cap` argument lists, all within the problem's constraints. */
   inputs: unknown[][];
-  /** How many distinct valid small inputs the enumeration produced (the true size when `capped` is false). */
+  /** How many distinct valid small inputs were found (the true size when `capped` is false). */
   total: number;
-  /** True when the enumeration itself hit its limit, so `total` is a lower bound. */
+  /** True when the space of combinations was larger than MAX_ENUMERATED, so only a stride sample of it was looked at and `total` is a lower bound. */
   capped: boolean;
+  /** How many combinations of small values there are in all, before the constraints filter them. */
+  space: number;
+  /** True when a graph parameter had no small instance and its smallest valid graph stands in for it. */
+  standIn: boolean;
 };
 
 /**
+ * `cap` of `all`, spread over the whole list, in list order. A plain stride
+ * (every len/cap-th) is enough for a list that is the whole enumeration. A
+ * list that is itself a stride sample is picked at a step coprime to the
+ * radices too: otherwise a step that is a multiple of a parameter's radix
+ * (every 200th of a list over 20 values) would repeat one value of it.
+ */
+function pick(all: unknown[][], cap: number, radices: bigint[]): unknown[][] {
+  if (radices.length === 0 || all.length < 2 * cap) return Array.from({ length: cap }, (_, i) => all[Math.floor((i * all.length) / cap)] as unknown[]);
+  const len = BigInt(all.length);
+  const step = coprimeStep((len + BigInt(cap) - 1n) / BigInt(cap), [...radices, len]);
+  const at = Array.from({ length: cap }, (_, i) => Number((BigInt(i) * step) % len)).sort((a, b) => a - b);
+  return at.map((i) => all[i] as unknown[]);
+}
+
+/**
  * Small argument lists for these parameter specs. When there are more than
- * `cap`, they are sampled evenly across the whole enumeration (a stride), not
- * cut off after a prefix: a prefix would cover only the first parameter's
- * smallest values (for binary search, only arrays of length 1 and 2).
+ * `cap`, they are sampled evenly across the whole space of combinations (a
+ * stride, decoded from the index), not cut off after a prefix: a prefix would
+ * cover only the first parameter's smallest values (for binary search, only
+ * arrays of length 1 and 2).
  */
 export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
-  // Each graph spec contributes two arguments (n, edges) as one unit.
-  const units = specs.map((s) => (s.kind === "graph" ? graphs(s) : values(s, true).map((v) => [v])));
-  const combos = product(units, MAX_ENUMERATED).map((parts) => (parts as unknown[][]).flat(1));
+  // Each graph spec contributes two arguments (n, edges) as one unit. A graph with no small instances is
+  // replaced by its smallest valid graph when there is something else to vary; alone it contributes nothing.
+  let standIn = false;
+  const units = specs.map((s) => {
+    if (s.kind !== "graph") return values(s, true).map((v) => [v]);
+    const small = graphs(s);
+    if (small.length || specs.length === 1) return small;
+    const stand = defaultGraph(s);
+    standIn ||= stand.length > 0;
+    return stand;
+  });
+  const { combos, space, sampled, radices } = spread(units, MAX_ENUMERATED);
   const seen = new Set<string>();
   const all: unknown[][] = [];
-  for (const args of combos) {
+  for (const parts of combos) {
+    const args = (parts as unknown[][]).flat(1);
     if (!argsConform(args, specs)) continue;
     const key = JSON.stringify(args);
     if (seen.has(key)) continue;
     seen.add(key);
     all.push(args);
   }
-  const capped = combos.length >= MAX_ENUMERATED;
-  if (all.length <= cap) return { inputs: all, total: all.length, capped };
-  const inputs = Array.from({ length: cap }, (_, i) => all[Math.floor((i * all.length) / cap)] as unknown[]);
-  return { inputs, total: all.length, capped };
+  if (all.length <= cap) return { inputs: all, total: all.length, capped: sampled, space, standIn };
+  return { inputs: pick(all, cap, sampled ? radices : []), total: all.length, capped: sampled, space, standIn };
 }
 
 /** Up to `cap` small argument lists for these parameter specs, all within the problem's constraints. */

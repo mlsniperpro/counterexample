@@ -66,6 +66,55 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.verdict).toBe("counterexample");
   });
 
+  describe("an answer cut at max_tokens", () => {
+    /** The replay provider, except that the answer for `purpose` is rewritten by `cut` and reported as cut at 8192 tokens (or as finished). */
+    const cutting = (purpose: string, cut: (text: string) => string, finishReason: string | undefined = "length") => {
+      const d = deps();
+      const provider: ModelProvider = {
+        name: d.provider.name,
+        complete: async (req: ModelRequest) => {
+          const res = await d.provider.complete(req);
+          return req.purpose === purpose ? { ...res, text: cut(res.text), ...(finishReason ? { finishReason, maxTokens: 8192 } : {}) } : res;
+        },
+      };
+      return { ...d, provider };
+    };
+    const b = builtIn("isqrt");
+    const run = (d: ReturnType<typeof deps>) => attack({ problem: b.problem, solution: b.demo, research: "off" }, d);
+    const halved = (t: string) => t.slice(0, Math.floor(t.length / 2));
+    const warnings = (r: Awaited<ReturnType<typeof attack>>) => r.trace.filter((e) => e.kind === "warn").map((e) => e.msg);
+
+    it("stops with the limit named when the oracle's answer is only a cut-off <think> trace", async () => {
+      const r = await run(cutting("oracle", () => "<think>The brute force would be"));
+      expect(r.verdict).toBe("error");
+      expect(r.message).toBe("output was cut at max_tokens (8192) (during oracle)");
+    });
+
+    it("says an oracle answer with no code block was cut, when it was", async () => {
+      const r = await run(cutting("oracle", (t) => t.slice(0, t.indexOf("```") + 12)));
+      expect(r.verdict).toBe("oracle_unreliable");
+      expect(warnings(r)).toContain("Oracle answer had no code block on attempt 1 (the answer was cut at max_tokens)");
+      // The same answer from a model that simply stopped there is not blamed on the limit.
+      const stopped = await run(cutting("oracle", (t) => t.slice(0, t.indexOf("```") + 12), "stop"));
+      expect(warnings(stopped)).toContain("Oracle answer had no code block on attempt 1");
+    });
+
+    it("adds the note to the generator parse error, and the attack goes on with the built-in families", async () => {
+      const r = await run(cutting("generators", halved));
+      expect(warnings(r).some((m) => /^The generator answer could not be read \(.* \(the answer was cut at max_tokens\)\)/.test(m))).toBe(true);
+      expect(r.verdict).toBe("counterexample");
+      const stopped = await run(cutting("generators", halved, "stop"));
+      expect(warnings(stopped).some((m) => /cut at max_tokens/.test(m))).toBe(false);
+    });
+
+    it("adds the note when the explanation's code block is cut, keeping the counterexample and the explanation", async () => {
+      const r = await run(cutting("explain", (t) => t.slice(0, t.indexOf("```") + 20)));
+      expect(r.verdict).toBe("counterexample");
+      expect(warnings(r).some((m) => /^No fix was proposed \(the answer had no code block\) \(the answer was cut at max_tokens\);/.test(m))).toBe(true);
+      expect(r).not.toHaveProperty("fix");
+    });
+  });
+
   describe("an unreadable generator answer", () => {
     const isqrt = () => ({ problem: getProblem("isqrt")!, solution: builtIn("isqrt").demo });
     const goodAnswer = [FIXTURES.isqrt?.generators].flat()[0] ?? "";

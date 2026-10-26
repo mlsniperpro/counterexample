@@ -46,6 +46,20 @@ describe("share links (report in the URL fragment)", () => {
     );
   });
 
+  it("leaves an order-dependent counterexample's input sequence out of the link, keeping how many inputs came before", async () => {
+    const r = await realReport();
+    const full = { ...r, counterexample: { ...r.counterexample!, orderDependent: { precedingInputs: 2, sequence: [[1], [2], [3]] } } };
+    const shared = toShared(full as never);
+    expect(shared.counterexample?.orderDependent).toEqual({ precedingInputs: 2 });
+    // The report itself is not modified.
+    expect(full.counterexample.orderDependent.sequence).toHaveLength(3);
+    const enc = await encodeReport(full as never);
+    if (!enc.ok) throw new Error("expected a link");
+    expect((await decodeReport(enc.fragment)).counterexample?.orderDependent).toEqual({ precedingInputs: 2 });
+    // A counterexample without the field stays without it.
+    expect(toShared(r as never).counterexample).not.toHaveProperty("orderDependent");
+  });
+
   it("clamps long display text, keeps a missing expected value, and still round-trips", async () => {
     const r = await realReport();
     const cx = { ...r.counterexample!, got: "x".repeat(10_000) };

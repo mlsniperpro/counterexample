@@ -46,7 +46,7 @@ def __cx_main():
         __t0 = __cx_time.perf_counter()
         try:
             __r = __f(*__args)
-            __line = __cx_dumps({"ok": True, "out": __r, "ms": (__cx_time.perf_counter() - __t0) * 1000})
+            __line = __cx_dumps({"ok": True, "out": __r, "ms": round((__cx_time.perf_counter() - __t0) * 1000, 3)})
         except RecursionError as __e:
             __line = __cx_json.dumps({"ok": False, "error": "runtime", "message": "RecursionError: " + str(__e)[:200]})
         except Exception as __e:
@@ -69,14 +69,16 @@ __cx_main()
   // A BigInt, or a number too large to be exact, is written as its exact plain digits (JSON has no BigInt; the parser keeps big integers exact,
   // and a number's shortest text, e.g. 1152921504606847000 for 2**60, would read back as digits it does not have).
   const __finite = (k, v) => (typeof v === "bigint" ? "\\u0000BIG" + v.toString() : typeof v === "number" && Number.isInteger(v) && !Number.isSafeInteger(v) ? "\\u0000BIG" + BigInt(v).toString() : typeof v === "number" && !Number.isFinite(v) ? String(v) : v);
-  const __digits = (s) => s.replace(/"\\\\u0000BIG(-?\\d+)"/g, "$1");
+  // Only a marker standing where a JSON value stands (after [ , : or at the start, before , ] } or the end) is a number: a quote inside a string is
+  // always escaped, so a string output that merely contains a quote, a NUL and "BIG5" is left alone.
+  const __digits = (s) => s.replace(/(^|[\\[,:])"\\\\u0000BIG(-?\\d+)"(?=[,\\]}]|$)/g, "$1$2");
   __write("\\x1eCR\\n");
   for (const __args of __data.inputs) {
     const __t0 = __perf.now();
     let __line;
     try {
       const __r = __f(...__args);
-      __line = __digits(JSON.stringify({ ok: true, out: __r === undefined ? null : __r, ms: __perf.now() - __t0 }, __finite));
+      __line = __digits(JSON.stringify({ ok: true, out: __r === undefined ? null : __r, ms: Math.round((__perf.now() - __t0) * 1000) / 1000 }, __finite));
     } catch (__e) {
       __line = JSON.stringify({ ok: false, error: "runtime", message: String(__e && __e.stack ? String(__e).slice(0, 200) : __e).slice(0, 200) });
     }
@@ -112,8 +114,20 @@ function nestingDepth(text: string): number {
   return max;
 }
 
-/** 16+ digits: the shortest literal that can exceed 2^53 (9007199254740992 has 16). */
-const BIG_DIGITS = /\d{16}/;
+/** 16+ digits that start a number (not the tail of a longer run, not a fraction): the shortest literal that can exceed 2^53 (9007199254740992 has 16). */
+const BIG_DIGITS = /(?<![\d.])\d{16}/;
+
+/**
+ * Whether a record line could hold a big integer in its result. Only the part
+ * before the record's last `"ms":` is looked at: the timing is a float with 16+
+ * fraction digits, which made every line look big and sent it through the
+ * several-times-slower exact reviver. (A `"ms":` inside a result is a key and
+ * the record's own comes last, and inside a string its quotes are escaped.)
+ */
+function mayHoldBigInteger(text: string): boolean {
+  const end = text.lastIndexOf('"ms":');
+  return BIG_DIGITS.test(end < 0 ? text : text.slice(0, end));
+}
 
 /** True when the harness got as far as loading the code and finding the entry function. */
 export function reachedReady(stdout: string): boolean {
@@ -155,7 +169,7 @@ export function parseLines(stdout: string): RunOutcome[] {
     }
     try {
       // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.
-      const rec = JSON.parse(text, BIG_DIGITS.test(text) ? exactReviver : undefined);
+      const rec = JSON.parse(text, mayHoldBigInteger(text) ? exactReviver : undefined);
       if (rec.ok) out.push({ ok: true, out: rec.out, ms: Number(rec.ms) || 0 });
       else out.push({ ok: false, error: "runtime", message: String(rec.message ?? "error") });
     } catch {

@@ -31,6 +31,10 @@ export type ModelResponse = {
   simulated: boolean;
   /** True when the provider reported no token usage, so the call cannot be priced. */
   unmetered?: boolean;
+  /** Why the model stopped, as the provider reports it ("stop", "length" when the answer was cut at the token limit, ...). Absent for replayed answers. */
+  finishReason?: string;
+  /** The completion-token limit the call ran under (live providers). */
+  maxTokens?: number;
 };
 
 export interface ModelProvider {

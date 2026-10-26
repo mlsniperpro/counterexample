@@ -76,6 +76,16 @@ describe("Nebius Token Factory provider", () => {
       }
     });
 
+    it("reports why the model stopped and the limit the call ran under, so a cut answer can be told from a finished one", async () => {
+      const cut = fetchSequence([() => Response.json({ choices: [{ message: { content: "<think>unclosed" }, finish_reason: "length" }] })]);
+      const r = await new NebiusProvider("k", undefined, cut.http).complete({ ...req, maxTokens: 123 });
+      expect(r).toMatchObject({ text: "<think>unclosed", finishReason: "length", maxTokens: 123 });
+      const done = fetchSequence([() => Response.json({ choices: [{ message: { content: "hi" }, finish_reason: "stop" }] })]);
+      expect((await new NebiusProvider("k", undefined, done.http).complete(req)).finishReason).toBe("stop");
+      const none = fetchSequence([() => Response.json({ choices: [{ message: { content: "hi" } }] })]);
+      expect(await new NebiusProvider("k", undefined, none.http).complete(req)).not.toHaveProperty("finishReason");
+    });
+
     it("still returns a truncated but non-empty answer, and an empty one that did not hit the limit", async () => {
       const cut = fetchSequence([() => Response.json({ choices: [{ message: { content: "```python\ndef solve(" }, finish_reason: "length" }] })]);
       expect((await new NebiusProvider("k", undefined, cut.http).complete(req)).text).toBe("```python\ndef solve(");
