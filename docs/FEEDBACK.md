@@ -5,7 +5,7 @@ Kept as we build (required written feedback for the hackathon). Items marked **p
 ## Nebius Token Factory
 
 **What worked**
-- The OpenAI-compatible `/v1/chat/completions` surface meant one ~60-line client (`src/lib/models/nebius.ts`) with no SDK, and the same request shape for every model. Switching Ultra and Super per stage is just a different `model` string.
+- The OpenAI-compatible `/v1/chat/completions` surface meant one 85-line client (`src/lib/models/nebius.ts`) with no SDK, and the same request shape for every model. Switching Ultra and Super per stage is just a different `model` string.
 - `usage.prompt_tokens` / `completion_tokens` in the response are what our per-step cost panel needs.
 
 **What didn't / friction**

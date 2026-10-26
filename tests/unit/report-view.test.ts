@@ -45,6 +45,17 @@ describe("ReportView markup", () => {
     expect(mixed.match(/\(replay\)/g)).toHaveLength(1);
   });
 
+  it("names replay research a hand-written stand-in, and live research Tavily", () => {
+    const research = { queries: ["q"], facts: [{ fact: "f", url: "https://example.com/" }], influencedFamilies: [] };
+    const setup = fullReport().setup;
+    const replay = render(fullReport({ research, setup: { ...setup, research: "replay" } }));
+    expect(replay).toContain('<div class="label">Research (hand-written stand-in for Tavily)</div>');
+    expect(replay).not.toContain("Research (Tavily)");
+    const live = render(fullReport({ research, setup: { ...setup, research: "tavily" } }));
+    expect(live).toContain('<div class="label">Research (Tavily)</div>');
+    expect(live).not.toContain("hand-written stand-in for Tavily");
+  });
+
   it("says how the re-attack of an unverified fix went, in the fix's colour", () => {
     const fix = { ...fullReport().fix!, verified: false, reattackInputs: 10, reattackMismatches: 0, reattackUnjudged: 0 };
     expect(render(fullReport({ fix }))).toContain('<span class="bad">no failure on 10 judged inputs, but the re-attack was incomplete</span>');

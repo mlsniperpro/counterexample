@@ -153,7 +153,7 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     row("Fixes verified by re-attack", (x) => `${x.fixesVerified} of ${x.found}`),
     row("Bugs first found by a model-designed family", (x) => `${x.foundByModel}`),
     row(
-      mode === "fixture" ? "Median time to first counterexample (execution plus simulated model latency; varies by about ±0.2 s run to run)" : "Median time to first counterexample (wall clock)",
+      mode === "fixture" ? "Median time to first counterexample (execution plus simulated model latency; varies by about ±0.5 s run to run, more on a loaded machine)" : "Median time to first counterexample (wall clock)",
       (x) => sec(x.medianTtfcMs),
     ),
     row("Model cost per solution", (x) => usd(x.costPerSolutionUsd)),

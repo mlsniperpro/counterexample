@@ -14,7 +14,13 @@ Not clean.
   - High: results under the per-line cap still added up to about 2.3 s of event-loop work per run. A total budget of 1,000,000 characters per run brings it to 0.33 s (`c3a3457`).
   - Medium: deeply nested results overflowed the stack in compare and display. Results deeper than 256 levels are now refused unread, using a linear string-aware scan.
   - High: an infeasible `distinct` array (10,000 elements of a 10-value domain) cost about 45 s of synchronous sampling. Sampling now stops after 100 duplicates in a row; the 50 inputs take under 500 ms.
-- **Core, judge and UI:** pending.
+- **Core** (3 medium, 7 low):
+  - medium: an order-dependent counterexample let a no-op fix be "verified"; empty strings and alphabet copies escaped the value accounting; the round-9 reviver prefilter matched every line (the `ms` float digits);
+  - low: small-scope stride ran over a truncated product; graph units with no small instances emptied the family; the JS harness `__digits` regex was unanchored; float mode on 309+ digit integers; a truncated-but-nonempty model answer; a replay explanation written for "abba", not "baab".
+- **Judge and docs** (3 medium, 6 low):
+  - medium: README and VIDEO coin-change numbers are stale after stride sampling; screenshots are stale (old "recorded" badge); the README does not say the hard-tier counterexamples can be non-minimal;
+  - low: the soak table has no backing file; replay research labelled "Tavily"; an unmeasured "cheaper and faster" voice-over; the checklist lacks rounds 9-10; load and timing nits; LEASE and pids are tracked.
+- **UI and tests:** pending.
 
 ## Round 9 (2026-10-26, `8440d3a`, 4 parallel Sonnet audits; findings verified by the main session)
 

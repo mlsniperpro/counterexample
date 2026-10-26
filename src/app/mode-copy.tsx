@@ -32,3 +32,8 @@ export function HeroText({ mode }: { mode: UIMode | null }) {
     </>
   );
 }
+
+/** The research panel's heading: replay research is a hand-written stand-in, never a Tavily search. */
+export function researchHeading(setupResearch: string): string {
+  return setupResearch === "replay" ? "Research (hand-written stand-in for Tavily)" : "Research (Tavily)";
+}

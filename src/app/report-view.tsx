@@ -5,6 +5,7 @@ import { showValue } from "@/lib/core/compare";
 import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
 import { copyNote } from "./clipboard";
+import { researchHeading } from "./mode-copy";
 import { cxHeading, ellipsize, fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
 
 type Props = {
@@ -86,7 +87,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
 
       {r.research && (
         <>
-          <div className="label">Research (Tavily)</div>
+          <div className="label">{researchHeading(r.setup.research)}</div>
           <ul className="facts">
             {r.research.facts.map((f, i) => (
               <li key={i}>
