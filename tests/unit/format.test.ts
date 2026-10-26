@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cxHeading, ellipsize, fixSummary, fmtArgs, toMarkdown } from "@/app/format";
+import { cxHeading, ellipsize, fixSummary, fmtArgs, ms, toMarkdown } from "@/app/format";
 import { exactReviver } from "@/lib/core/compare";
 import { fullReport } from "../app-fixtures";
 
@@ -73,5 +73,11 @@ describe("counterexample heading", () => {
     expect(cxHeading({ shrinkExhausted: true, orderDependent: { precedingInputs: 3 } })).toMatch(/fails only after 3 earlier call\(s\).*keeps state/);
     expect(cxHeading({ shrinkExhausted: true })).toMatch(/may not be minimal/);
     expect(cxHeading({ shrinkExhausted: false })).toBe("Minimal counterexample");
+  });
+});
+
+describe("durations", () => {
+  it("switches to seconds at one second, after rounding, so it never prints 1000 ms", () => {
+    expect([0, 12.4, 999.4, 999.5, 1000, 1049, 1050, 61_234].map(ms)).toEqual(["0 ms", "12 ms", "999 ms", "1.0 s", "1.0 s", "1.0 s", "1.1 s", "61.2 s"]);
   });
 });

@@ -32,7 +32,8 @@ export function ellipsize(s: string, max: number): string {
   return `${last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut}…`;
 }
 
-export const ms = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
+/** A duration: whole milliseconds under a second (rounded first, so 999.6 is "1.0 s", never "1000 ms"), else seconds. */
+export const ms = (x: number) => (Math.round(x) >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
 
 /** Dollars, with more digits for tiny amounts; null means the model had no known price. */
 export const usd = (x: number | null) => (x === null ? "unpriced" : `$${x < 0.01 ? x.toFixed(5) : x.toFixed(3)}`);

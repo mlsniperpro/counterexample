@@ -249,6 +249,34 @@ async function main() {
   await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).waitFor({ timeout: 2_000 });
   ok(step);
 
+  step = "keyboard focus stays where the reader put it";
+  const focused = (p) => p.evaluate(() => `${document.activeElement?.tagName}:${document.activeElement?.textContent?.trim().slice(0, 40) ?? ""}`);
+  await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).focus();
+  await shared.keyboard.press("Enter");
+  eq(await focused(shared), "BUTTON:Show changes only", "focus after showing the full fix");
+  await shared.keyboard.press("Enter");
+  eq(await focused(shared), "BUTTON:Show full fix", "focus after showing the changes only");
+  await shared.getByRole("button", { name: "Close", exact: true }).focus();
+  await shared.keyboard.press("Enter");
+  eq(await focused(shared), "BUTTON:Attack this solution", "focus after closing the shared report");
+  // Editing the code while a run streams: the run's end must not pull focus to the Attack button.
+  pace.lineDelayMs = 40;
+  const cancelButton = page.getByRole("button", { name: "Cancel", exact: true });
+  await attackButton(page).click();
+  await cancelButton.waitFor({ timeout: 5_000 });
+  await page.locator("textarea.code").click();
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  pace.lineDelayMs = 0;
+  eq(await page.evaluate(() => document.activeElement?.tagName), "TEXTAREA", "focus in the code editor after the run ended");
+  // A run started and ended from the keyboard still returns focus to the Attack button.
+  await attackButton(page).focus();
+  await page.keyboard.press("Enter");
+  await cancelButton.waitFor({ timeout: 5_000 });
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  await attackButton(page).waitFor();
+  eq(await focused(page), "BUTTON:Attack this solution", "focus after a keyboard run ended");
+  ok(step);
+
   step = "cancel a run mid-stream";
   await page.getByRole("button", { name: "Binary search", exact: true }).click();
   pace.lineDelayMs = 300;

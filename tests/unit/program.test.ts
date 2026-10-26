@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { cpuClock } from "../helpers";
 import { describe, expect, it, vi } from "vitest";
 import { buildProgram, MAX_RESULT_CHARS, MAX_RESULT_DEPTH, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
@@ -318,10 +319,10 @@ describe("result size limit", () => {
     // Just under the limit: about 120,000 values in 240,000 characters.
     const n = Math.floor((MAX_RESULT_CHARS - 100) / 2);
     const big = "[" + "1,".repeat(n - 1) + "1]";
-    const t0 = Date.now();
+    const cpu = cpuClock();
     const [o] = parseLines(`\x1eCX{"ok":true,"out":${big},"ms":1}\n`);
     expect(o?.ok && Array.isArray(o.out) && o.out.length).toBe(n);
-    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(2000);
     const [b] = parseLines('\x1eCX{"ok":true,"out":[1,12345678901234567890],"ms":1}\n');
     expect(b?.ok && showValue(b.out)).toBe("[1,12345678901234567890]");
   });
@@ -332,7 +333,7 @@ describe("total result budget per run", () => {
     const value = "[" + "1,".repeat(Math.floor((MAX_RESULT_CHARS - 100) / 2) - 1) + "1]";
     const line = `\x1eCX{"ok":true,"out":${value},"ms":1}\n`;
     const n = Math.ceil(MAX_RESULTS_TOTAL_CHARS / line.length) + 3;
-    const t0 = Date.now();
+    const cpu = cpuClock();
     const out = parseLines(line.repeat(n) + '\x1eCX{"ok":true,"out":7,"ms":1}\n');
     expect(out).toHaveLength(n + 1);
     const accepted = out.filter((o) => o.ok).length;
@@ -340,7 +341,7 @@ describe("total result budget per run", () => {
     expect(out.slice(accepted, n).every((o) => !o.ok && /results too large in total/.test(o.message))).toBe(true);
     // A small result still fits in what is left of the budget, and lands on its own input.
     expect(out[n]).toEqual({ ok: true, out: 7, ms: 1 });
-    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(2000);
   });
 });
 

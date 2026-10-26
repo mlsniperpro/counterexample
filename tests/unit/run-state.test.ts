@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { ReportNoTrace } from "@/app/format";
-import { CANCEL_NOTE, CANCELLED, initialRun, NO_DETAILS_MESSAGE, runReducer, TIMED_OUT, TIMEOUT_MESSAGE, UNREACHABLE_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
+import { CANCEL_NOTE, CANCELLED, focusIsIdle, initialRun, NO_DETAILS_MESSAGE, runReducer, TIMED_OUT, TIMEOUT_MESSAGE, UNREACHABLE_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
 import { CUT_MESSAGE, type StreamMsg } from "@/app/stream";
 
 const ev = (seq: number): TraceEvent => ({ seq, t: seq, stage: "run", kind: "info", msg: `e${seq}` }) as TraceEvent;
@@ -140,5 +140,19 @@ describe("runReducer (the attack run's state machine)", () => {
       const s = play(...withError, { type: "finish", runId: 1, outcome });
       expect(s, JSON.stringify(outcome)).toMatchObject({ running: false, runId: 0, error: "Too many attacks" });
     }
+  });
+});
+
+describe("focus when a run ends", () => {
+  const el = (tagName: string) => ({ tagName });
+  it("moves to the Attack button only from nowhere, <body> or the Cancel button", () => {
+    const cancel = el("BUTTON");
+    expect(focusIsIdle(null, cancel)).toBe(true);
+    expect(focusIsIdle(el("BODY"), cancel)).toBe(true);
+    expect(focusIsIdle(cancel, cancel)).toBe(true);
+    // The reader moved focus during the run: it stays there.
+    expect(focusIsIdle(el("TEXTAREA"), cancel)).toBe(false);
+    expect(focusIsIdle(el("BUTTON"), cancel)).toBe(false);
+    expect(focusIsIdle(el("BUTTON"), null)).toBe(false);
   });
 });

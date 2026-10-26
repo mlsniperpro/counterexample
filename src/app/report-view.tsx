@@ -198,14 +198,21 @@ function FixView({ before, after }: { before: string; after: string }) {
   // Quadratic in the number of lines: compute once per (before, after), not on every render.
   const diff = useMemo(() => lineDiff(before, after), [before, after]);
   const changed = diff ? diff.filter((l) => l.op !== "same").length : 0;
+  // One toggle button in a fixed place, so it keeps keyboard focus when the view switches.
+  const toggle = diff && (
+    <div className="row between">
+      <span className="small muted">
+        {changed} changed line{changed === 1 ? "" : "s"} against your code
+      </span>
+      <button className="ghost small" onClick={() => setFull(!full)}>
+        {full ? "Show changes only" : "Show full fix"}
+      </button>
+    </div>
+  );
   if (!diff || full) {
     return (
       <>
-        {diff && (
-          <button className="ghost small" onClick={() => setFull(false)}>
-            Show changes only
-          </button>
-        )}
+        {toggle}
         <pre className="code-out" tabIndex={0} role="region" aria-label="Proposed fix">
           {after}
         </pre>
@@ -214,14 +221,7 @@ function FixView({ before, after }: { before: string; after: string }) {
   }
   return (
     <>
-      <div className="row between">
-        <span className="small muted">
-          {changed} changed line{changed === 1 ? "" : "s"} against your code
-        </span>
-        <button className="ghost small" onClick={() => setFull(true)}>
-          Show full fix
-        </button>
-      </div>
+      {toggle}
       <pre className="code-out diff" tabIndex={0} role="region" aria-label="Diff of the proposed fix against your code">
         {diff.map((l, i) => (
           <div key={i} className={`dl ${l.op}`}>

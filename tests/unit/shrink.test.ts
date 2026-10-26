@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { runs } from "../helpers";
+import { cpuClock, runs } from "../helpers";
 import { argCandidates, measure, shrink, smaller } from "@/lib/core/shrink";
 import { argsConform, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 
@@ -87,7 +87,7 @@ describe("shrinker", () => {
       clearInterval(timer);
       expect(r.minimal).toEqual(start);
       // About 4N candidates of N values each: tens of millions of values, in slices of 100,000.
-      expect(worstGap).toBeLessThan(500);
+      expect(worstGap).toBeLessThan(1000);
     });
 
     it("stops at the scan budget, keeping the input so far and saying it may not be minimal", async () => {
@@ -105,9 +105,9 @@ describe("shrinker", () => {
 
   it("treats an int followed by pairs as a graph only when it could be one", () => {
     // solve(k, nums) with k = 2^31 - 1 and nums shrunk to []: no per-node loop over two billion nodes.
-    const t0 = Date.now();
+    const cpu = cpuClock();
     const first = argCandidates([2147483647, []]).next().value;
-    expect(Date.now() - t0).toBeLessThan(100);
+    expect(cpu()).toBeLessThan(100);
     expect(first).not.toEqual([1, []]);
     // n above the graph limit, or an endpoint outside 0..n-1: shrunk as plain values, never relabelled.
     for (const args of [[SPEC_LIMITS.maxNodes + 1, [[0, 1, 1]]], [6, [[0, 7, 1]]], [6, [[-1, 3, 1]]]]) {

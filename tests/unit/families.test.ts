@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { cpuClock } from "../helpers";
 import { describe, expect, it } from "vitest";
 import { generateInputs, mutationInputs, parseFamilies } from "@/lib/agent/families";
 import { argsConform, inputsWithinBudget, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
@@ -79,10 +80,10 @@ describe("generateInputs / mutationInputs", () => {
 
   it("cuts a family of maximal inputs to its value budget, so it stays fast and small", () => {
     const huge: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: SPEC_LIMITS.maxValuesPerInput, max: SPEC_LIMITS.maxValuesPerInput } };
-    const t0 = Date.now();
+    const cpu = cpuClock();
     const g = generateInputs({ ...family, args: [huge], count: 300 }, [huge], 1, "s");
     expect(g.inputs.length).toBe(Math.floor(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput));
-    expect(Date.now() - t0).toBeLessThan(5000);
+    expect(cpu()).toBeLessThan(5000);
     expect(mutationInputs(g.inputs, [huge], 300, 1, "m").inputs.length).toBeLessThanOrEqual(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput);
     expect(inputsWithinBudget([{ kind: "int", min: 0, max: 1 }], 300)).toBe(300);
   });

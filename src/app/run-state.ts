@@ -98,3 +98,12 @@ export function runReducer(s: RunState, a: RunAction): RunState {
   if (!a.outcome.complete) return { ...done, error: CUT_MESSAGE };
   return done;
 }
+
+/**
+ * Whether keyboard focus is idle when a run ends: on nothing, on <body>, or on
+ * the Cancel button (which goes away). Only then does focus move to the Attack
+ * button; focus the reader put somewhere else stays there.
+ */
+export function focusIsIdle(active: Pick<Element, "tagName"> | null, cancel: Pick<Element, "tagName"> | null): boolean {
+  return active === null || active === cancel || active.tagName === "BODY";
+}

@@ -4,7 +4,7 @@ import { sequences, smallScope, smallScopeInputs } from "@/lib/core/smallscope";
 import { argsConform, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 import { PROBLEMS, getProblem } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
-import { runs } from "../helpers";
+import { cpuClock, runs } from "../helpers";
 
 const specsOf = (id: string) => getProblem(id)!.params.map((p) => p.type);
 
@@ -44,9 +44,9 @@ describe("small-scope (bounded exhaustive) inputs", () => {
   });
 
   it("contributes nothing (and allocates nothing big) for graphs that are not small", () => {
-    const t0 = Date.now();
+    const cpu = cpuClock();
     expect(smallScopeInputs([{ kind: "graph", n: { min: 1000, max: 1000 }, m: { min: 0, max: 10 }, weight: { min: 0, max: 1 } }], 100)).toEqual([]);
-    expect(Date.now() - t0).toBeLessThan(500);
+    expect(cpu()).toBeLessThan(500);
   });
 
   it("always conforms, never repeats, and respects the cap, for every catalog problem", () => {
@@ -107,9 +107,9 @@ describe("small-scope sampling over a space too big to enumerate", () => {
 
   it("is deterministic and never builds the product (a huge space is quick)", () => {
     const specs = Array.from({ length: 8 }, () => arr);
-    const t0 = Date.now();
+    const cpu = cpuClock();
     const a = smallScope(specs, 300);
-    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(2000);
     expect(a.capped).toBe(true);
     expect(a.space).toBe(40 ** 8);
     expect(a.inputs).toHaveLength(300);
@@ -161,9 +161,9 @@ describe("small-scope with graphs that have no small instances", () => {
   it("builds fixed-length arrays and strings in linear time, without the shorter layers", () => {
     for (const L of [200, SPEC_LIMITS.maxLen]) {
       const specs: TypeSpec[] = [{ kind: "array", of: I(0, 9), len: { min: L, max: L } }, { kind: "string", alphabet: "abc", len: { min: L, max: L } }];
-      const t0 = Date.now();
+      const cpu = cpuClock();
       const r = smallScope(specs, 300);
-      expect(Date.now() - t0).toBeLessThan(1000);
+      expect(cpu()).toBeLessThan(1000);
       expect(r.inputs.length).toBeGreaterThan(0);
       expect(r.inputs.every((a) => argsConform(a, specs))).toBe(true);
     }

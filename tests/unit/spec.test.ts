@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { cpuClock } from "../helpers";
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@/lib/core/rng";
 import { generateInputs } from "@/lib/agent/families";
@@ -98,9 +99,9 @@ describe("generation (input DSL)", () => {
 
   it("gives up quickly on a distinct array far longer than its element domain (no long synchronous sampling)", () => {
     const spec: TypeSpec = { kind: "array", of: { kind: "const", value: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }, len: { min: 10_000, max: 10_000 }, distinct: true };
-    const t0 = Date.now();
+    const cpu = cpuClock();
     for (let i = 0; i < 50; i++) expect((genValue(spec, mulberry32(i)) as unknown[]).length).toBe(1);
-    expect(Date.now() - t0).toBeLessThan(500);
+    expect(cpu()).toBeLessThan(500);
   });
 
   it("returns a too-short array (caught by conforms) when distinct values run out", () => {
@@ -254,9 +255,9 @@ describe("array pools", () => {
           if (e instanceof ModelOutputError) return;
           throw e;
         }
-        const t0 = performance.now();
+        const cpu = cpuClock();
         genArgs([spec], mulberry32(seed));
-        expect(performance.now() - t0).toBeLessThan(1500);
+        expect(cpu()).toBeLessThan(1500);
       }),
       { numRuns: 60 },
     );
@@ -277,27 +278,27 @@ describe("value accounting for empty and tiny strings", () => {
   it("generates 10,000 empty strings over a 256-character alphabet quickly (the alphabet is not copied per string)", () => {
     const spec = empties(10_000);
     const rng = mulberry32(1);
-    const t0 = performance.now();
+    const cpu = cpuClock();
     // 50 inputs is what the value budget lets a family hold.
     for (let i = 0; i < 50; i++) expect(genValue(spec, rng) as string[]).toHaveLength(10_000);
-    const ms = performance.now() - t0;
+    const ms = cpu();
     expect(ms).toBeLessThan(300);
   });
 
   it("keeps the whole family of such inputs within a second", () => {
     const spec = empties(10_000);
-    const t0 = performance.now();
+    const cpu = cpuClock();
     const r = generateInputs({ name: "e", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
     expect(r.inputs.length).toBeGreaterThan(0);
-    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(cpu()).toBeLessThan(1000);
   });
 
   it("keeps nested distinct arrays fast when their domain is used up", () => {
     const inner: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 0 }, len: { min: 2000, max: 2000 }, distinct: true };
     const spec: TypeSpec = { kind: "array", of: inner, len: { min: 100, max: 100 }, distinct: true };
-    const t0 = performance.now();
+    const cpu = cpuClock();
     const r = generateInputs({ name: "n", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
     expect(r.inputs.length + r.dropped).toBeGreaterThan(0);
-    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(cpu()).toBeLessThan(1000);
   });
 });

@@ -10,7 +10,7 @@ import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
 import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
-import { CANCELLED, initialRun, runReducer } from "./run-state";
+import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
@@ -55,13 +55,17 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
   const goButton = useRef<HTMLButtonElement | null>(null);
   const cancelButton = useRef<HTMLButtonElement | null>(null);
-  /** Set when a run starts: when it ends (done, failed or cancelled), focus returns to the Attack button instead of falling to <body>. */
+  /**
+   * Set when a run starts: when it ends (done, failed or cancelled), focus returns to the Attack button instead of
+   * falling to <body>, but only from Cancel or nowhere. Focus the reader moved (into the code, say) stays put, so
+   * the next keypress is not an accidental new attack.
+   */
   const refocusGo = useRef(false);
   useEffect(() => {
     if (running) cancelButton.current?.focus();
     else if (refocusGo.current) {
       refocusGo.current = false;
-      goButton.current?.focus();
+      if (focusIsIdle(document.activeElement, cancelButton.current)) goButton.current?.focus();
     }
   }, [running]);
   const abort = useRef<AbortController | null>(null);
@@ -166,6 +170,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const closeShared = () => {
     dispatchShare({ type: "clear" });
     clearShareHash();
+    // The Close button goes away with the banner; keep keyboard focus on the page's main action.
+    goButton.current?.focus();
   };
 
   return (

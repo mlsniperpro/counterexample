@@ -22,7 +22,11 @@ Not clean. All 8 round-10 core fixes were re-checked and hold, with tests.
   - The sandbox probes (seccomp, uid, environment, fork churn, auth before body) found nothing.
 - **Judge and docs** (3 low): the checklist test count, the FEEDBACK client length, and stale README hard-tier wording and bench output. The bench and soak are being regenerated on the final commit.
 - **Deep property run:** `FC_NUM_RUNS=5000` gave 288/288 but 1 unhandled vitest error (`Timeout calling "onTaskUpdate"`). The cause was a synchronous 393 s property; it now yields between cases.
-- **UI and tests:** pending.
+- **UI and tests** (1 medium, 3 low). The browser pass was otherwise clean: all 5 built-ins at 1280, 390 and 320 px; axe-core with 0 violations in light and dark; 12 error scenarios; share links and 13 malformed ones; cancel 6 times in a row; 7 parallel attacks giving 4 × 200 and 3 × 503. Fixed in the next commit:
+  - medium: when a run ended, focus jumped from the code editor to the Attack button, so the next Space started a new attack. Focus now moves only from Cancel, `<body>` or nowhere (`focusIsIdle`, unit-tested, plus an e2e step);
+  - low: focus fell to `<body>` after toggling the fix view and after closing a shared report. There is now one toggle button that stays mounted, and Close focuses the Attack button. The new e2e step fails on the old code ("got BODY") and passes on the new;
+  - low: wall-clock speed bounds in five unit-test files flaked under CPU load. They now measure the worker process's CPU time (`cpuClock`), with the same bounds;
+  - low: `ms()` printed "1000 ms" for 999.5 ms and had no boundary test. It now rounds first, and a test covers the boundary.
 
 ## Round 10 (2026-10-26, `16d3c2b` = `7204867` code, 4 parallel Sonnet audits; findings verified by the main session)
 
