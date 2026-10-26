@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildProgram, MAX_RESULT_CHARS, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
+import { buildProgram, MAX_RESULT_CHARS, MAX_RESULT_DEPTH, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
 import { chunkLimit } from "@/lib/exec/judge0";
@@ -301,5 +301,18 @@ describe("total result budget per run", () => {
     // A small result still fits in what is left of the budget, and lands on its own input.
     expect(out[n]).toEqual({ ok: true, out: 7, ms: 1 });
     expect(Date.now() - t0).toBeLessThan(2000);
+  });
+});
+
+describe("result nesting limit", () => {
+  it("refuses a deeply nested result unread instead of overflowing the stack later, and ignores brackets inside strings", () => {
+    const deep = "[".repeat(MAX_RESULT_DEPTH + 1) + "]".repeat(MAX_RESULT_DEPTH + 1);
+    const ok = "[".repeat(MAX_RESULT_DEPTH) + "]".repeat(MAX_RESULT_DEPTH);
+    const strings = JSON.stringify(["[".repeat(5000)]);
+    const out = parseLines(`\x1eCX{"ok":true,"out":${deep},"ms":1}\n\x1eCX{"ok":true,"out":${ok},"ms":1}\n\x1eCX{"ok":true,"out":${strings},"ms":1}\n`);
+    expect(out[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/nested too deeply/) });
+    expect(out[1]?.ok).toBe(true);
+    if (out[1]?.ok) expect(() => showValue(out[1]?.ok ? out[1].out : null)).not.toThrow();
+    expect(out[2]).toEqual({ ok: true, out: ["[".repeat(5000)], ms: 1 });
   });
 });

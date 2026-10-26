@@ -92,6 +92,26 @@ export const MAX_RESULT_CHARS = 256_000;
 /** Total result characters parsed per run (one process or submission); results past it are refused unread. */
 export const MAX_RESULTS_TOTAL_CHARS = 1_000_000;
 
+/** Deepest nesting of arrays and objects in a result; deeper values would overflow the stack when compared or shown. */
+export const MAX_RESULT_DEPTH = 256;
+
+/** Maximum bracket nesting of JSON text, ignoring brackets inside strings (linear, no recursion). */
+function nestingDepth(text: string): number {
+  let depth = 0;
+  let max = 0;
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (inString) {
+      if (c === 92) i++; // backslash: skip the escaped character
+      else if (c === 34) inString = false;
+    } else if (c === 34) inString = true;
+    else if (c === 91 || c === 123) max = Math.max(max, ++depth);
+    else if (c === 93 || c === 125) depth--;
+  }
+  return max;
+}
+
 /** 16+ digits: the shortest literal that can exceed 2^53 (9007199254740992 has 16). */
 const BIG_DIGITS = /\d{16}/;
 
@@ -127,6 +147,11 @@ export function parseLines(stdout: string): RunOutcome[] {
         return;
       }
       accepted += text.length;
+      // The record itself ({"ok":…,"out":…}) is one level; the limit is on the result inside it.
+      if (nestingDepth(text) - 1 > MAX_RESULT_DEPTH) {
+        out.push({ ok: false, error: "runtime", message: `result nested too deeply (more than ${MAX_RESULT_DEPTH} levels)` });
+        return;
+      }
     }
     try {
       // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.

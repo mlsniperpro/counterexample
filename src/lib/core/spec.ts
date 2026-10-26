@@ -105,6 +105,9 @@ function genInt(spec: IntSpec, rng: Rng): number {
   return randInt(rng, min, max);
 }
 
+/** Consecutive duplicate draws after which a `distinct` array stops growing (its element domain is used up). */
+const MAX_DISTINCT_MISSES = 100;
+
 /** How many values an array's pool really holds: a pool larger than the longest array can never be drawn from in full, so it is capped there. */
 const poolSize = (spec: ArraySpec): number => (spec.pool && spec.pool > 0 ? Math.min(spec.pool, spec.len.max) : 0);
 
@@ -117,13 +120,20 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   const out: unknown[] = [];
   const seen = new Set<string>();
   let attempts = 0;
-  while (out.length < n && attempts < n * 20 + 50) {
+  // A run of duplicates means the element domain is (nearly) used up: stop early instead of sampling n * 20 times
+  // (a `distinct` array longer than its domain, say 10,000 elements of a 10-value constant, cost ~45 s of event loop).
+  let misses = 0;
+  while (out.length < n && attempts < n * 20 + 50 && misses < MAX_DISTINCT_MISSES) {
     attempts++;
     const v = pool ? pick(rng, pool) : genValue(of, rng);
     if (spec.distinct) {
       const key = JSON.stringify(v);
-      if (seen.has(key)) continue;
+      if (seen.has(key)) {
+        misses++;
+        continue;
+      }
       seen.add(key);
+      misses = 0;
     }
     out.push(v);
   }

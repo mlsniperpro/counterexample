@@ -95,6 +95,13 @@ describe("generation (input DSL)", () => {
     }
   });
 
+  it("gives up quickly on a distinct array far longer than its element domain (no long synchronous sampling)", () => {
+    const spec: TypeSpec = { kind: "array", of: { kind: "const", value: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }, len: { min: 10_000, max: 10_000 }, distinct: true };
+    const t0 = Date.now();
+    for (let i = 0; i < 50; i++) expect((genValue(spec, mulberry32(i)) as unknown[]).length).toBe(1);
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
+
   it("returns a too-short array (caught by conforms) when distinct values run out", () => {
     const spec: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 2 }, len: { min: 5, max: 5 }, distinct: true };
     const xs = genValue(spec, mulberry32(1)) as number[];
