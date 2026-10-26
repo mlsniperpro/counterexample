@@ -47,6 +47,8 @@ export type AgentDeps = {
   onEvent?: (e: TraceEvent) => void;
   /** Price table (from makeDeps, validated at startup); defaults to priceTable(). */
   prices?: Record<string, Price>;
+  /** Environment problems to show once in each attack's trace as warnings (see startupWarnings). */
+  warnings?: string[];
   /** Abort to stop the attack at its next model call or sandbox run. */
   signal?: AbortSignal;
 };
@@ -101,6 +103,12 @@ export type Counterexample = {
   shrinkEvals: number;
   /** True when shrinking stopped on its evaluation budget (or its result did not re-fail), so the input may not be minimal. */
   shrinkExhausted: boolean;
+  /**
+   * Set when the input passes run alone and fails only after `precedingInputs`
+   * earlier inputs ran in the same process: the solution keeps state between
+   * calls. Such an input is not shrunk (shrinking runs candidates alone).
+   */
+  orderDependent?: { precedingInputs: number };
 };
 
 export type Report = {

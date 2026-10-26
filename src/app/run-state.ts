@@ -90,6 +90,8 @@ export function runReducer(s: RunState, a: RunAction): RunState {
     }
   }
   const done = { ...s, runId: 0, running: false };
+  // The server's own error line says more than how the connection then ended.
+  if (s.error) return done;
   if ("thrown" in a.outcome) {
     return { ...done, error: failure(a.outcome, s.received) };
   }

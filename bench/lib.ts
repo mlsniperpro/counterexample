@@ -91,6 +91,8 @@ export type Row = {
   timeLimitMs: number;
   inputs: number;
   minimal?: unknown[];
+  /** The attack reported that shrinking stopped early, so `minimal` may not be minimal. */
+  shrinkExhausted?: boolean;
   /** The family whose input first broke the solution (before shrinking). */
   foundBy?: string;
   /** Whether that family was designed by the model (vs examples, small-scope, mutations or random). */
@@ -142,7 +144,7 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
   const head = s[0];
   const n = rows.filter((x) => x.config === "routed").length;
   const lines = [
-    `Mode: **${mode}**${mode === "fixture" ? " (replayed model responses; token counts estimated from text length, model latency simulated; execution is real)" : ""}. Executor: ${executor}.`,
+    `Mode: **${mode}**${mode === "fixture" ? " (replayed hand-written stand-ins for model answers; token counts estimated from text length, model latency simulated; execution is real). In fixture mode, each benchmark \"fix\" is the problem's correct reference solution, so \"Fixes verified\" is a pipeline check, not fix quality" : ""}. Executor: ${executor}.`,
     "",
     `| Metric | ${CONFIGS.map((c) => c.title).join(" | ")} |`,
     `| --- | ${CONFIGS.map(() => "---").join(" | ")} |`,
@@ -166,7 +168,7 @@ export function markdown(rows: Row[], mode: "fixture" | "live", executor: string
     "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows
       .filter((x) => x.config === "routed")
-      .map((x) => `| \`${x.key}\` | ${x.tier} | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.foundBy ? `${x.foundBy}${x.foundByModel ? " (model)" : ""}` : ""} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
+      .map((x) => `| \`${x.key}\` | ${x.tier} | ${x.buggy ? "bug" : "correct"} | ${x.verdict} | ${x.foundBy ? `${x.foundBy}${x.foundByModel ? " (model)" : ""}` : ""} | ${x.minimal ? `\`${JSON.stringify(x.minimal).slice(0, 60)}\`${x.shrinkExhausted ? " (not minimal)" : ""}` : ""} | ${x.fixVerified === undefined ? "" : x.fixVerified ? "yes" : "no"} |`),
   ];
   return lines.join("\n") + "\n";
 }

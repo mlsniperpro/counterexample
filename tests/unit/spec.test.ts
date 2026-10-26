@@ -196,3 +196,54 @@ describe("parseTypeSpec (untrusted model output)", () => {
     );
   });
 });
+
+describe("array pools", () => {
+  const ofInt = { kind: "int", min: 0, max: 9 };
+
+  it("never draws a pool larger than the longest array", () => {
+    let calls = 0;
+    const rng = mulberry32(3);
+    const counting = () => (calls++, rng());
+    genArgs([{ kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 3, max: 5 }, pool: 10_000 }], counting);
+    // Old behaviour drew 10,000 pool values first.
+    expect(calls).toBeLessThan(100);
+  });
+
+  it("counts the pool in maxValues and refuses a spec that would take seconds to generate", () => {
+    const text = { kind: "string", alphabet: "ab", len: { min: 10_000, max: 10_000 } };
+    const spec = { kind: "array", of: text, len: { min: 20, max: 20 }, pool: 10_000 };
+    expect(maxValues(spec as TypeSpec)).toBe((20 + 20) * 10_000);
+    expect(() => parseTypeSpec(spec)).toThrow(/could hold 400000 values/);
+    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 }, pool: 4 } as TypeSpec)).toBe(14);
+    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 } } as TypeSpec)).toBe(10);
+  });
+
+  it("generates any accepted spec quickly", () => {
+    const leaf = fc.oneof(
+      fc.constant<unknown>({ kind: "int", min: 0, max: 1000 }),
+      fc.record({ kind: fc.constant("string"), alphabet: fc.constant("abc"), len: fc.record({ min: fc.constant(0), max: fc.integer({ min: 0, max: 10_000 }) }) }),
+    );
+    const arrayArb = fc.record({
+      kind: fc.constant("array"),
+      of: leaf,
+      len: fc.record({ min: fc.constant(0), max: fc.integer({ min: 0, max: 10_000 }) }),
+      pool: fc.option(fc.integer({ min: 1, max: 10_000 }), { nil: undefined }),
+    });
+    fc.assert(
+      fc.property(arrayArb, fc.integer(), (raw, seed) => {
+        let spec: TypeSpec;
+        try {
+          spec = parseTypeSpec(raw);
+        } catch (e) {
+          if (e instanceof ModelOutputError) return;
+          throw e;
+        }
+        const t0 = performance.now();
+        genArgs([spec], mulberry32(seed));
+        expect(performance.now() - t0).toBeLessThan(1500);
+      }),
+      { numRuns: 60 },
+    );
+  });
+});
+

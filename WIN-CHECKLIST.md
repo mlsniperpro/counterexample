@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 230+ tests (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 434 tests when counted on 2026-10-26 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -33,7 +33,7 @@ Legend:
 
   Evidence: `docs/screenshots/` (390 px; no horizontal overflow, no page errors).
 - [x] **Potential impact:**
-  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through model-designed families (both ablations find 0 of 8) (`bench/results/fixture.md`).
+  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through the author-written families (hand-written fixtures, stand-ins for what Super is prompted to write), and both ablations find 0 of 8. That is by construction, since we wrote those families knowing the bug classes; the live run will show whether Super writes such families itself. "Fixes verified 38 of 38" is a pipeline check: in fixture mode each fix is the problem's reference solution (`bench/results/fixture.md`).
   - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 503 attacks on 503 mutants of all 54 solutions, 1 seed (`bench/results/soak-all.md`; the README table is the earlier 3-seed run on the 40 base-tier solutions: 1,071 attacks, 0 unsound, 0 missed).
 - [x] **Best use of Tavily (bonus):** research covers the problem's sources and the documentation of risky APIs. One search and one cited summary per question; families may cite only this run's facts; the report shows which families research shaped. Evidence: `tests/unit/plan.test.ts`, e2e test "on request, researches the documentation of risky APIs…", replay fixtures checked against MDN and the Python docs.
 - [P] **Live Tavily run:** `TavilyClient` is proven over real HTTP (fake server) and by `pnpm preflight`. Needs `TAVILY_API_KEY` (BLOCKED.md).
@@ -44,7 +44,7 @@ Legend:
 - [x] 2. Token Factory client (env base URL, key, model ids) plus a deterministic replay provider. Evidence: `src/lib/models/`, `tests/integration/providers.test.ts`.
 - [x] 3. `Judge0Executor`. Evidence: `src/lib/exec/judge0.ts`, `tests/integration/executors.test.ts`, `tests/integration/sandbox.test.ts`.
 - [x] 3. `LocalExecutor`: Python and JS, time and memory limits, dev only, labelled; production refuses it. Evidence: `src/lib/exec/local.ts`, tests.
-- [x] 3 P1. Nebius AI Cloud executor: our own Judge0-compatible sandbox (`sandbox/`) deployable as a Nebius Serverless AI endpoint (`docs/NEBIUS-SANDBOX.md`). Docker build, preflight and benchmark verified locally.
+- [x] 3 P1. Nebius AI Cloud executor: our own Judge0-compatible sandbox (`sandbox/`) deployable as a Nebius Serverless AI endpoint (`docs/NEBIUS-SANDBOX.md`). Docker build, preflight and benchmark verified locally; the `nebius ai endpoint create` flags are not yet verified against the live CLI (BLOCKED.md).
 - [P] 3 P1. Sandbox deployed on Nebius AI Cloud. Needs AI Cloud credentials and a registry (BLOCKED.md).
 - [x] 4. Agent loop as explicit typed stages with budgets and a streamed structured trace. Evidence: `src/lib/agent/stages.ts`, `budget.ts`, `trace.ts`, `tests/unit/budget-trace.test.ts`, `tests/integration/api.test.ts`.
 - [x] 5. Generic shrinker over arrays, strings and graphs, unit- and property-tested. Evidence: `src/lib/core/shrink.ts`, `tests/unit/shrink.test.ts`.

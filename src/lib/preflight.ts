@@ -40,10 +40,14 @@ export async function preflight(env: Env = process.env, http: HttpDeps = {}): Pr
     const g = guardConfig(env);
     return `${Object.keys(prices).length} priced models; ${g.RATE_LIMIT_PER_HOUR}/h per IP, $${g.DAILY_SPEND_CAP_USD}/day cap`;
   });
-  await attempt("config: sandbox", async () => {
-    const ex = makeExecutor({ ...env, NODE_ENV: env.NODE_ENV ?? "production" });
-    return ex.label;
-  });
+  // Like the other optional services, an absent sandbox is a skip: production has no sandbox without JUDGE0_URL
+  // (the judge0 checks below skip for the same reason). A configured but unusable one still fails.
+  const sandboxEnv: Env = { ...env, NODE_ENV: env.NODE_ENV ?? "production" };
+  if (!sandboxEnv.JUDGE0_URL && sandboxEnv.NODE_ENV === "production" && sandboxEnv.ALLOW_LOCAL_EXECUTOR !== "1") {
+    add("config: sandbox", "skip", "JUDGE0_URL not set (production refuses the local executor unless ALLOW_LOCAL_EXECUTOR=1)");
+  } else {
+    await attempt("config: sandbox", async () => makeExecutor(sandboxEnv).label);
+  }
 
   // Nebius Token Factory: the model ids exist, and each answers one tiny prompt.
   const models = modelConfigFromEnv(env);
@@ -62,7 +66,7 @@ export async function preflight(env: Env = process.env, http: HttpDeps = {}): Pr
       }
       return `${ids.length} models; ${models.reasoningModel} and ${models.fastModel} available`;
     });
-    const provider = new NebiusProvider(env.NEBIUS_API_KEY, base, http, QUICK);
+    const provider = new NebiusProvider(env.NEBIUS_API_KEY, base, http, QUICK, models.reasoningModel);
     const prices = (() => {
       try {
         return priceTable(env);
@@ -72,7 +76,7 @@ export async function preflight(env: Env = process.env, http: HttpDeps = {}): Pr
     })();
     for (const model of new Set([models.reasoningModel, models.fastModel])) {
       await attempt(`token factory: chat ${model}`, async () => {
-        const r = await provider.complete({ model, purpose: "understand", replayKey: "preflight", maxTokens: 16, temperature: 0, messages: [{ role: "user", content: "Reply with the word OK." }] });
+        const r = await provider.complete({ model, purpose: "understand", replayKey: "preflight", temperature: 0, messages: [{ role: "user", content: "Reply with the word OK." }] });
         if (!r.text.trim()) throw new Error("empty answer");
         const cost = costUsd(r.model, r.promptTokens, r.completionTokens, prices);
         if (!priceFor(model, prices)) throw new Error(`answered in ${r.latencyMs} ms, but ${model} has no price: set MODEL_PRICES`);

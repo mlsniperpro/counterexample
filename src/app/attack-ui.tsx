@@ -3,27 +3,25 @@
 import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
-import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared, type SharedReport } from "@/lib/share";
+import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared } from "@/lib/share";
 import { attackRun } from "./attack-run";
 import { fmtArgs, ms, toMarkdown } from "./format";
 import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
+import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
+import { initialShare, shareReducer } from "./share-state";
+import { researchFacts } from "./stream";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
 const CUSTOM = "custom";
-const MODE_LABEL = {
-  live: "Live: Nebius Token Factory",
-  replay: "Replay mode: recorded model responses, real execution",
-  unknown: "Server mode unknown (status check failed)",
-} as const;
 
 export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const first = problems[0];
-  const [mode, setMode] = useState<"live" | "replay" | "unknown" | null>(null);
+  const [mode, setMode] = useState<UIMode | null>(null);
   useEffect(() => {
     fetch("/api/problems")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
@@ -37,11 +35,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [statement, setStatement] = useState("");
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
-  const [shared, setShared] = useState<SharedReport | null>(null);
-  /** The link the shared report came from: its identity, so a second link starts a fresh ReportView (no stale "Copied" note or open full fix). */
-  const [sharedKey, setSharedKey] = useState("");
-  /** Why a share link could not be opened; shown at the top, where the shared report would be. */
-  const [shareError, setShareError] = useState("");
+  const [{ shared, key: sharedKey, error: shareError }, dispatchShare] = useReducer(shareReducer, initialShare);
   const [shareNote, setShareNote] = useState("");
   const [shareLink, setShareLink] = useState("");
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
@@ -51,21 +45,25 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       const hash = window.location.hash;
       if (!isShareFragment(hash)) return;
       decodeReport(hash)
-        .then((r) => {
-          setShared(r);
-          setSharedKey(hash);
-          setShareError("");
-        })
-        .catch((e: Error) => {
-          setShared(null);
-          setShareError(`Could not open the shared report: ${e.message}`);
-        });
+        .then((report) => dispatchShare({ type: "opened", report, key: hash }))
+        .catch((e: Error) => dispatchShare({ type: "failed", message: e.message }));
     };
     open();
     window.addEventListener("hashchange", open);
     return () => window.removeEventListener("hashchange", open);
   }, []);
   const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
+  const goButton = useRef<HTMLButtonElement | null>(null);
+  const cancelButton = useRef<HTMLButtonElement | null>(null);
+  /** Set when a run starts: when it ends (done, failed or cancelled), focus returns to the Attack button instead of falling to <body>. */
+  const refocusGo = useRef(false);
+  useEffect(() => {
+    if (running) cancelButton.current?.focus();
+    else if (refocusGo.current) {
+      refocusGo.current = false;
+      goButton.current?.focus();
+    }
+  }, [running]);
   const abort = useRef<AbortController | null>(null);
   const lastRun = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
@@ -93,6 +91,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }
 
   function pick(id: string) {
+    // The chip keeps focus: a run ended by this pick must not pull it to the Attack button.
+    refocusGo.current = false;
     dispatch({ type: "reset" });
     abortRun();
     clearShareHash();
@@ -108,14 +108,14 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
 
   async function run() {
     abortRun();
+    refocusGo.current = true;
     const ac = new AbortController();
     abort.current = ac;
     const runId = ++lastRun.current;
     dispatch({ type: "start", runId });
     setShareNote("");
     setShareLink("");
-    setShared(null);
-    setShareError("");
+    dispatchShare({ type: "clear" });
     clearShareHash();
     const outcome = await attackRun({
       controller: ac,
@@ -164,8 +164,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     window.history.replaceState(null, "", enc.fragment);
   };
   const closeShared = () => {
-    setShared(null);
-    setShareError("");
+    dispatchShare({ type: "clear" });
     clearShareHash();
   };
 
@@ -177,8 +176,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </h1>
         <p className="tagline">A coding agent that breaks your code before your interviewer does.</p>
         <p className="sub">
-          Nemotron <b>Ultra</b> writes a brute-force oracle, Nemotron <b>Super</b> designs adversarial generators, thousands of inputs run in a sandbox, and any
-          mismatch is shrunk to a minimal counterexample. Ultra explains it and proposes a fix, which is re-attacked before it is called fixed.
+          <HeroText mode={mode} />
         </p>
         <div className="badges">
           {mode && <span className={`badge ${mode}`}>{MODE_LABEL[mode]}</span>}
@@ -192,19 +190,24 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </p>
       )}
 
-      {shared && (
-        <div className="shared">
-          <div className="row between">
-            <p className="small muted" role="status">
-              Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server, and nothing in it was re-run or verified here: a link can say anything, so re-run the attack to check it.
-            </p>
+      {/* The note's live region stays mounted and only its text changes: a region inserted together with its text is often not announced. */}
+      <div className={shared ? "shared" : undefined}>
+        <div className={shared ? "row between" : undefined}>
+          <p className="small muted live" role="status">
+            {shared && (
+              <>
+                Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server, and nothing in it was re-run or verified here: a link can say anything, so re-run the attack to check it.
+              </>
+            )}
+          </p>
+          {shared && (
             <button className="ghost" onClick={closeShared}>
               Close
             </button>
-          </div>
-          <ReportView key={sharedKey} r={shared} onCopy={() => navigator.clipboard.writeText(toMarkdown(shared))} />
+          )}
         </div>
-      )}
+        {shared && <ReportView key={sharedKey} r={shared} onCopy={() => navigator.clipboard.writeText(toMarkdown(shared))} />}
+      </div>
 
       <section className="card">
         <h2>1. Problem</h2>
@@ -257,11 +260,11 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
-          <button className="go" onClick={run} disabled={running}>
+          <button className="go" ref={goButton} onClick={run} disabled={running}>
             {running ? "Attacking…" : "Attack this solution"}
           </button>
           {running && (
-            <button className="ghost cancel" onClick={cancel}>
+            <button className="ghost cancel" ref={cancelButton} onClick={cancel}>
               Cancel
             </button>
           )}
@@ -295,9 +298,9 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
                     <span className="st">{e.stage}</span>
                     <span className="msg">{e.msg}</span>
                     {e.kind === "model_call" && e.data && <span className="why">{String(e.data.why)}</span>}
-                    {e.kind === "research" && Array.isArray(e.data?.facts) && (
+                    {e.kind === "research" && researchFacts(e.data).length > 0 && (
                       <ul className="facts">
-                        {(e.data.facts as { fact: string; url: string }[]).map((f, i) => (
+                        {researchFacts(e.data).map((f, i) => (
                           <li key={i}>
                             {f.fact}{" "}
                             <a href={f.url} target="_blank" rel="noreferrer">

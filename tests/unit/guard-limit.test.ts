@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { runs } from "../helpers";
+import { MAX_TOKENS_FAST, MAX_TOKENS_REASONING } from "@/lib/models/config";
 import { Guard, guardConfig, LEASE_MS, MAX_TRACKED_IPS, RESERVE_COMPLETION_TOKENS, RESERVE_PROMPT_TOKENS, worstCaseAttackUsd } from "@/lib/agent/guard";
 import { ConfigError } from "@/lib/errors";
 import { Semaphore } from "@/lib/limit";
@@ -100,6 +101,10 @@ describe("Guard", () => {
     const perUltraCall = (RESERVE_PROMPT_TOKENS * 1 + RESERVE_COMPLETION_TOKENS * 3) / 1e6;
     expect(worstCaseAttackUsd(8, ["ultra", "fast"], prices, 0.05)).toBeCloseTo(8 * perUltraCall);
     expect(worstCaseAttackUsd(8, ["FAST"], prices, 0.05)).toBeCloseTo((8 * (RESERVE_PROMPT_TOKENS * 0.3 + RESERVE_COMPLETION_TOKENS * 0.9)) / 1e6);
+    // Completions are reserved at the model client's real caps (16,384 tokens for the reasoning model), not a stale 4,096.
+    expect(RESERVE_COMPLETION_TOKENS).toBe(Math.max(MAX_TOKENS_REASONING, MAX_TOKENS_FAST));
+    expect(RESERVE_COMPLETION_TOKENS).toBeGreaterThanOrEqual(16_384);
+    expect(worstCaseAttackUsd(1, ["ultra"], prices, 0.05)).toBeCloseTo((32_000 * 1 + 16_384 * 3) / 1e6);
     // An unpriced model is reserved at the flat unpriced rate per call.
     expect(worstCaseAttackUsd(8, ["mystery"], prices, 0.05)).toBeCloseTo(0.4);
   });
@@ -124,6 +129,20 @@ describe("Guard", () => {
   });
 });
 
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+/** With nothing held and nobody waiting: how many acquires are granted at once, found only through acquire and release. All slots are given back. */
+async function freeSlots(s: Semaphore): Promise<number> {
+  let granted = 0;
+  for (let i = 0; i < s.capacity + 1; i++) void s.acquire().then(() => granted++);
+  await tick();
+  const free = granted;
+  // Every acquire, granted now or handed a slot by a release, is released once.
+  for (let i = 0; i < s.capacity + 1; i++) s.release();
+  await tick();
+  return free;
+}
+
 describe("Semaphore", () => {
   it("never runs more than its capacity at once and runs everything", async () => {
     await fc.assert(
@@ -144,7 +163,8 @@ describe("Semaphore", () => {
         );
         expect(done).toEqual(delays.map((_, i) => i));
         expect(peak).toBeLessThanOrEqual(cap);
-        expect(s.inUse).toBe(0);
+        // Every slot is free again.
+        expect(await freeSlots(s)).toBe(cap);
       }),
       { numRuns: runs(30) },
     );
@@ -166,19 +186,16 @@ describe("Semaphore", () => {
         order.push(`${name} end`);
         active--;
       });
-    const tick = () => new Promise((r) => setTimeout(r, 0));
     const a = task("A");
     const b = task("B");
     await tick();
     expect(order).toEqual(["A start"]);
     expect(peak).toBeLessThanOrEqual(1);
-    expect(s.inUse).toBe(1);
     gates.get("A")?.();
     await a;
     await tick();
     expect(order).toEqual(["A start", "A end", "B start"]);
     expect(peak).toBeLessThanOrEqual(1);
-    expect(s.inUse).toBe(1);
     const c = task("C");
     await tick();
     expect(peak).toBeLessThanOrEqual(1);
@@ -191,15 +208,23 @@ describe("Semaphore", () => {
     await c;
     expect(order).toEqual(["A start", "A end", "B start", "B end", "C start", "C end"]);
     expect(peak).toBeLessThanOrEqual(1);
-    expect(s.inUse).toBe(0);
+    expect(await freeSlots(s)).toBe(1);
   });
 
   it("releases the slot when the task throws, and validates capacity", async () => {
     const s = new Semaphore(1);
     await expect(s.run(async () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
-    expect(s.tryAcquire()).toBe(true);
-    expect(s.tryAcquire()).toBe(false);
+    // The slot is free again (a leaked slot would hang here) and holds just one at a time.
+    await s.acquire();
+    let second = false;
+    void s.acquire().then(() => (second = true));
+    await tick();
+    expect(second).toBe(false);
     s.release();
+    await tick();
+    expect(second).toBe(true);
+    s.release();
+    expect(await freeSlots(s)).toBe(1);
     expect(() => new Semaphore(0)).toThrow(RangeError);
   });
 });

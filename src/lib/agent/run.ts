@@ -14,6 +14,7 @@ export type { AgentDeps, AttackInput, Report, StatementInput } from "./types";
 export async function attack(input: AttackInput | StatementInput, deps: AgentDeps): Promise<Report> {
   const ctx = createContext(input, deps);
   const { report } = ctx;
+  for (const w of deps.warnings ?? []) ctx.tracer.emit("understand", "warn", w);
   try {
     await understandStage(ctx);
     const facts = await researchStage(ctx);

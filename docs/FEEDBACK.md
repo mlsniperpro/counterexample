@@ -34,11 +34,11 @@ Everything here comes from reading docs and building against the API shape. No l
 
 ## Nebius AI Cloud (Serverless endpoints and Jobs)
 
-Based on the public OpenAPI spec, the Serverless AI docs and a local Docker build. The endpoint itself is not deployed yet: that needs Nebius AI Cloud credentials (`BLOCKED.md`).
+Based on the public OpenAPI spec, a local Docker build and, for the endpoint command, a late read of the docs (`docs.nebius.com` was blocked from the build session). The endpoint itself is not deployed and the CLI commands have not been run: that needs Nebius AI Cloud credentials (`BLOCKED.md`).
 
 **What worked**
 - `https://api.nebius.cloud/openapi.json` is public and was reachable from our build session (`200`, 1.5 MB), so we could check the Jobs API without an account.
-- The endpoint docs give one `nebius ai endpoint create` command with `--auth token` (callers send `Authorization: Bearer`), which our `Judge0Executor` already speaks (`JUDGE0_AUTH=bearer`). We built the P1 as a small Judge0-compatible sandbox (`sandbox/`, steps in `docs/NEBIUS-SANDBOX.md`) to run as a CPU-only endpoint (`cpu-d3`, `4vcpu-16gb`). The image builds and passes `pnpm preflight` and the benchmark locally.
+- The endpoint docs (read after the build, on 2026-10-26, because `docs.nebius.com` returned 403 to the build session; `docs/FRICTION.md`) give one `nebius ai endpoint create` command with `--auth token` (callers send `Authorization: Bearer`), which our `Judge0Executor` already speaks (`JUDGE0_AUTH=bearer`). Our deploy commands follow that page but are not yet verified against the live CLI. We built the P1 as a small Judge0-compatible sandbox (`sandbox/`, steps in `docs/NEBIUS-SANDBOX.md`) to run as a CPU-only endpoint (`cpu-d3`, `4vcpu-16gb`). The image builds and passes `pnpm preflight` and the benchmark locally.
 
 **What didn't**
 - Serverless Jobs do not fit a batch code runner: the spec has create, list, get, delete, cancel, restart and get-by-name, but **no REST endpoint returns a job's stdout or logs** (only the CLI `nebius ai job logs`, or Loki), and each job provisions its own VM. An interactive attack makes several sandbox calls ("Load per attack" in the README), each expected in well under a second.

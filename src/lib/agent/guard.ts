@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ConfigError } from "../errors";
+import { MAX_TOKENS_FAST, MAX_TOKENS_REASONING } from "../models/config";
 import { priceFor, type Price } from "../models/pricing";
 
 /**
@@ -55,12 +56,14 @@ export const LEASE_MS = 120_000;
 
 /**
  * Worst-case tokens of one model call, for the spend reservation: completions
- * are capped at NebiusProvider's max_tokens (4096); prompts are bounded by the
+ * are capped at NebiusProvider's default max_tokens, MAX_TOKENS_REASONING for
+ * the reasoning model and MAX_TOKENS_FAST for the fast one, so every call is
+ * reserved at the larger of the two; prompts are bounded by the
  * request caps (28,000 characters of statement and code) plus the agent's own
  * prompts and research text, taken as at most 32,000 tokens.
  */
 export const RESERVE_PROMPT_TOKENS = 32_000;
-export const RESERVE_COMPLETION_TOKENS = 4_096;
+export const RESERVE_COMPLETION_TOKENS = Math.max(MAX_TOKENS_REASONING, MAX_TOKENS_FAST);
 
 /**
  * The most one attack can spend: every allowed model call at worst-case

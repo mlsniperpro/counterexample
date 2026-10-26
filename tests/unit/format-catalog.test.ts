@@ -33,7 +33,7 @@ describe("UI formatting", () => {
     expect(md).toContain("solve([0], 0)");
     expect(md).toContain("got:      -1");
     expect(md).toContain("## Fix (verified: re-attacked on 10 judged inputs: 0 failures)");
-    expect(md).toContain("| oracle | u | 1 | unpriced | 10 ms (simulated) |");
+    expect(md).toContain("| oracle | u (replay) | 1 | unpriced | 10 ms (simulated) |");
   });
 });
 

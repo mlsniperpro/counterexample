@@ -19,6 +19,7 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
   - Proxy log: `gateway answered 403 to CONNECT (policy denial or upstream failure)` for each host.
 - **Not a Nebius bug:** it is our environment's allow-list. Tavily (`api.tavily.com`) was reachable (`401` without a key, as expected).
 - **Impact:** the live path is implemented and unit-tested against a mocked endpoint but **not yet run against Token Factory**. Owner to verify with a key, from a machine that can reach `api.tokenfactory.nebius.com`.
+- **Update 2026-10-26:** `curl https://docs.nebius.com/serverless/endpoints/manage` returned `200` from the session that revised `docs/NEBIUS-SANDBOX.md`, which re-read the `nebius ai endpoint create` flags there. Those commands are still unrun against the live CLI (`BLOCKED.md`).
 
 ## 2026-10-24: No keys in the build session
 

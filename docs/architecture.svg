@@ -125,7 +125,7 @@
   <text x="40" y="536" class="s">NebiusProvider: Token Factory /v1/chat/completions</text>
   <text x="40" y="556" class="s">  MODEL_REASONING = Nemotron 3 Ultra (oracle, explain)</text>
   <text x="40" y="576" class="s">  MODEL_FAST = Nemotron 3 Super / Nano (research, generators, spec)</text>
-  <text x="40" y="596" class="s">ReplayProvider: recorded responses, deterministic, no key</text>
+  <text x="40" y="596" class="s">ReplayProvider: hand-written responses, deterministic, no key</text>
   <text x="40" y="616" class="s">RecordingProvider: saves live runs as replay fixtures</text>
   <text x="40" y="636" class="s">Routing "ultra-only" is the benchmark baseline</text>
 
@@ -152,5 +152,6 @@
   <rect x="24" y="734" width="18" height="14" class="box fast" rx="3"/><text x="50" y="746" class="s">Nemotron 3 Super (Token Factory)</text>
   <rect x="290" y="712" width="18" height="14" class="box ext" rx="3"/><text x="316" y="724" class="s">Tavily</text>
   <rect x="290" y="734" width="18" height="14" class="box cloud" rx="3"/><text x="316" y="746" class="s">Nebius AI Cloud</text>
-  <text x="24" y="772" class="s">Generator families are interpreted DSL; only the oracle and fix code run, and only in the sandbox.</text>
+  <text x="24" y="768" class="s">Model-written generators are interpreted; the oracle, the fix</text>
+  <text x="24" y="784" class="s">and your solution run only in the sandbox (the local executor in dev).</text>
 </svg>

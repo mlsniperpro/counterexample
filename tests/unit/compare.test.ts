@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { clipText, displayable, exactReviver, OUTPUT_TEXT_CAP, outputsEqual, showValue } from "@/lib/core/compare";
+import { clipText, displayable, exactIntegersSupported, exactReviver, OUTPUT_TEXT_CAP, outputsEqual, showValue } from "@/lib/core/compare";
 import { jsonValueArb } from "../arbitraries";
 
 describe("outputsEqual", () => {
@@ -61,6 +61,47 @@ describe("outputsEqual on objects and big integers", () => {
     expect(outputsEqual([big("-18446744073709551616")], [big("-18446744073709551616")], "unordered")).toBe(true);
     expect(outputsEqual(big("100000000000000000000"), 1e20, "float")).toBe(true);
     expect(showValue({ n: big("123456789012345678901") })).toBe('{"n":123456789012345678901}');
+  });
+
+  it("marks integer literals too long for a finite number, so they neither equal each other nor null", () => {
+    const parse = (s: string) => JSON.parse(`[${s}]`, exactReviver)[0];
+    const a = parse("1" + "0".repeat(400));
+    const b = parse("1" + "0".repeat(399) + "7");
+    expect(typeof a).toBe("string");
+    expect(outputsEqual(a, b)).toBe(false);
+    expect(outputsEqual(a, null)).toBe(false);
+    expect(outputsEqual(a, parse("1" + "0".repeat(400)))).toBe(true);
+    expect(showValue(a)).toBe("1" + "0".repeat(400));
+    expect(showValue([parse("-" + "9".repeat(350))])).toBe(`[-${"9".repeat(350)}]`);
+    // Plain numbers, floats and exponent forms stay numbers.
+    expect(parse("42")).toBe(42);
+    expect(parse("1.5")).toBe(1.5);
+    expect(parse("1e400")).toBe(Infinity);
+  });
+
+  it("writes only markers that stand as JSON values, never text inside a string", () => {
+    const tricky = { got: '"\u0000int:5', list: ['x,"\u0000int:7"', 'a","\u0000int:8"'], '"\u0000int:3"': 1 };
+    const text = showValue(tricky);
+    expect(JSON.parse(text)).toEqual(tricky);
+    expect(JSON.parse(showValue(tricky, 2))).toEqual(tricky);
+    expect(JSON.parse(showValue({ s: '"\u0000int:5' }))).toEqual({ s: '"\u0000int:5' });
+  });
+
+  it("prints nested and pretty-printed big integers as digits", () => {
+    const big = (s: string) => JSON.parse(`[${s}]`, exactReviver)[0];
+    const v = { a: [big("123456789012345678901"), { b: big("-98765432109876543210") }], c: big("100000000000000000000") };
+    expect(showValue(v)).toBe('{"a":[123456789012345678901,{"b":-98765432109876543210}],"c":100000000000000000000}');
+    const pretty = showValue(v, 2);
+    expect(pretty).toContain('"c": 100000000000000000000');
+    expect(pretty).toContain("    123456789012345678901,");
+    expect(JSON.parse(pretty.replace(/(-?\d{19,})/g, '"$1"'))).toEqual({ a: ["123456789012345678901", { b: "-98765432109876543210" }], c: "100000000000000000000" });
+  });
+
+  it("detects whether JSON.parse hands the reviver the source text", () => {
+    expect(exactIntegersSupported()).toBe(true);
+    // A parser without source-text access (Node 20): the reviver never sees `source`.
+    const old = (text: string, reviver: (k: string, v: unknown) => unknown) => JSON.parse(text, (k, v) => reviver(k, v));
+    expect(exactIntegersSupported(old)).toBe(false);
   });
 
   it("clips display text with a visible marker, and leaves short text alone", () => {

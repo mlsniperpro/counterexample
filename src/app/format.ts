@@ -16,6 +16,12 @@ export function fixSummary(f: { verified: boolean; reattackInputs: number; reatt
 }
 
 /** Arguments as text; showValue writes the exact big integers (exactReviver's markers) as plain digits. */
+/** The counterexample's heading: an order-dependent failure is not shrunk, and an exhausted shrink may not be minimal. */
+export function cxHeading(cx: { shrinkExhausted: boolean; orderDependent?: { precedingInputs: number } }): string {
+  if (cx.orderDependent) return `Counterexample (fails only after ${cx.orderDependent.precedingInputs} earlier call(s) in the same process: the solution keeps state between calls)`;
+  return cx.shrinkExhausted ? "Counterexample (shrinking stopped early, may not be minimal)" : "Minimal counterexample";
+}
+
 export const fmtArgs = (a: unknown[]) => a.map((x) => showValue(x)).join(", ");
 
 /** At most `max` characters of `s`, with "…" marking a cut (never splitting a surrogate pair). */
@@ -44,12 +50,12 @@ export const VERDICT: Record<Report["verdict"], string> = {
 export function toMarkdown(r: SharedReport): string {
   const lines = [`# Counterexample report: ${r.problem.title}`, "", `**Verdict:** ${VERDICT[r.verdict]}. ${r.message}`, ""];
   if (r.counterexample) {
-    lines.push(r.counterexample.shrinkExhausted ? "## Counterexample (shrinking stopped early, may not be minimal)" : "## Minimal counterexample", "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${showValue(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
+    lines.push(`## ${cxHeading(r.counterexample)}`, "", "```", `solve(${fmtArgs(r.counterexample.args)})`, `expected: ${showValue(r.counterexample.expected)}`, `got:      ${r.counterexample.got}`, "```", "");
   }
   if (r.explanation) lines.push("## Why", "", r.explanation, "");
   if (r.fix) lines.push(`## Fix (${r.fix.verified ? "verified" : "NOT verified"}: ${fixSummary(r.fix)})`, "", "```" + r.solution.language, r.fix.code.trim(), "```", "");
   lines.push("## Model routing", "", "| step | model | calls | cost | latency |", "| --- | --- | --- | --- | --- |");
-  for (const s of r.stages) lines.push(`| ${s.purpose} | ${s.model} | ${s.calls} | ${usd(s.costUsd)} | ${ms(s.latencyMs)}${s.simulated ? " (simulated)" : ""} |`);
+  for (const s of r.stages) lines.push(`| ${s.purpose} | ${s.model}${s.simulated ? " (replay)" : ""} | ${s.calls} | ${usd(s.costUsd)} | ${ms(s.latencyMs)}${s.simulated ? " (simulated)" : ""} |`);
   lines.push("", `${r.stats.inputsTested} inputs, ${r.stats.runs} sandbox runs, ${r.stats.modelCalls} model calls, ${usd(r.stats.costUsd)}. Provider: ${r.setup.provider}; executor: ${r.setup.executor}.`);
   return lines.join("\n");
 }

@@ -38,7 +38,7 @@ code, pre, textarea.code { font-family: var(--mono); font-size: 0.88rem; }
 .tagline { font-size: 1.15rem; margin: 4px 0 8px; font-weight: 600; }
 .sub { color: var(--muted); max-width: 760px; margin: 0 0 12px; }
 .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-.badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; color: var(--muted); background: var(--card); }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; color: var(--muted); background: var(--card); max-width: 100%; overflow-wrap: anywhere; }
 .badge.live { border-color: var(--accent); color: var(--accent-ink); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; min-width: 0; }
 .card h2 { font-size: 1rem; margin: 0 0 10px; }
@@ -115,5 +115,5 @@ th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: 
 .diff .dl { white-space: pre; position: relative; }
 .diff .dl.add { background: color-mix(in srgb, var(--good) 16%, transparent); }
 .diff .dl.del { background: color-mix(in srgb, var(--bad) 14%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--bad) 60%, transparent); }
-.diff .sign { display: inline-block; width: 1.4em; color: var(--muted); user-select: none; }
+.diff .sign { display: inline-block; width: 1.4em; color: var(--ink); user-select: none; }
 button.small { font-size: 0.78rem; padding: 2px 8px; }

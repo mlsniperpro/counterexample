@@ -157,3 +157,36 @@ describe("POST /api/attack spend cap (fake Token Factory)", () => {
     expect((await next.json()).error).toMatch(/model budget/);
   });
 });
+
+describe("preflight skips what is not configured", () => {
+  it("reports an absent sandbox as skip in production, like the judge0 checks, and fails only a configured one that is unusable", async () => {
+    const noSandbox: Record<string, string> = { ...fakeEnv(fakes) };
+    for (const k of ["JUDGE0_URL", "JUDGE0_TOKEN", "JUDGE0_AUTH"]) delete noSandbox[k];
+    const checks = await preflight({ ...noSandbox, NODE_ENV: "production" });
+    const byName = Object.fromEntries(checks.map((c) => [c.name, c]));
+    expect(byName["config: sandbox"]).toMatchObject({ status: "skip", detail: expect.stringMatching(/JUDGE0_URL not set/) });
+    expect(byName["judge0: languages"]?.status).toBe("skip");
+    expect(checks.filter((c) => c.status === "fail")).toEqual([]);
+    // Allowing the local executor makes the sandbox configuration real again.
+    const local = await preflight({ ...noSandbox, NODE_ENV: "production", ALLOW_LOCAL_EXECUTOR: "1" });
+    expect(local.find((c) => c.name === "config: sandbox")).toMatchObject({ status: "pass" });
+    // A configured but unusable sandbox is still a failure, never a skip.
+    const bad = await preflight({ ...noSandbox, JUDGE0_URL: "not a url", NODE_ENV: "production" });
+    expect(bad.find((c) => c.name === "config: sandbox")?.status).toBe("fail");
+  });
+
+  it("asks each model for its default token limit instead of a 16-token cap that would cut a reasoning answer", async () => {
+    const sent: { model: string; max_tokens: number }[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      if (String(url).endsWith("/chat/completions")) sent.push(JSON.parse(String(init.body)));
+      return fetch(url, init);
+    }) as unknown as typeof fetch;
+    const env = { ...fakeEnv(fakes), NODE_ENV: "production" };
+    await preflight(env, { fetchImpl });
+    const models = modelConfigFromEnv(env);
+    expect(sent.map((x) => [x.model, x.max_tokens])).toEqual([
+      [models.reasoningModel, 16384],
+      [models.fastModel, 8192],
+    ]);
+  });
+});

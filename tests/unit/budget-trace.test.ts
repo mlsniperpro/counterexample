@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Budget, DEFAULT_BUDGETS } from "@/lib/agent/budget";
+import { showValue } from "@/lib/core/compare";
 import { Tracer, type TraceEvent } from "@/lib/agent/trace";
 import { AttackCancelled, BudgetExceeded } from "@/lib/errors";
 
@@ -58,7 +59,8 @@ describe("Tracer", () => {
       [1, 250, "shrink"],
     ]);
     expect(t.events[0]).not.toHaveProperty("data");
-    const lines = t.jsonl().trimEnd().split("\n");
+    // trace.jsonl is the events one per line, written with showValue (the UI does the same).
+    const lines = t.events.map((e) => showValue(e)).join("\n").split("\n");
     expect(lines.map((l) => JSON.parse(l))).toEqual(t.events);
   });
 });

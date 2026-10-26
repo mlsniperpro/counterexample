@@ -105,12 +105,15 @@ function genInt(spec: IntSpec, rng: Rng): number {
   return randInt(rng, min, max);
 }
 
+/** How many values an array's pool really holds: a pool larger than the longest array can never be drawn from in full, so it is capped there. */
+const poolSize = (spec: ArraySpec): number => (spec.pool && spec.pool > 0 ? Math.min(spec.pool, spec.len.max) : 0);
+
 function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   if (spec.of.kind === "graph") throw new Error("graph is not allowed inside array");
   const of = spec.of;
   const n = randInt(rng, spec.len.min, spec.len.max);
-  let pool: unknown[] | undefined;
-  if (spec.pool && spec.pool > 0) pool = Array.from({ length: spec.pool }, () => genValue(of, rng));
+  const size = poolSize(spec);
+  const pool = size > 0 ? Array.from({ length: size }, () => genValue(of, rng)) : undefined;
   const out: unknown[] = [];
   const seen = new Set<string>();
   let attempts = 0;
@@ -296,7 +299,8 @@ export function maxValues(spec: TypeSpec): number {
     case "string":
       return spec.len.max;
     case "array":
-      return spec.len.max * maxValues(spec.of);
+      // The elements, plus the pool they are drawn from (it is generated first).
+      return (spec.len.max + poolSize(spec)) * maxValues(spec.of);
     case "tuple":
       return spec.items.reduce((a, x) => a + maxValues(x), 0);
     case "oneOf":

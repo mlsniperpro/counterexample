@@ -2,8 +2,10 @@ import { ReplayMissError } from "../errors";
 import type { ModelProvider, ModelRequest, ModelResponse, Purpose } from "./types";
 
 /**
- * Recorded model responses: fixtures[replayKey][purpose] is either one text or
- * a list (one per attempt; the last one repeats).
+ * Replay fixtures: fixtures[replayKey][purpose] is either one text or a list
+ * (one per attempt; the last one repeats). The shipped ones (src/fixtures/replay.ts)
+ * are hand-written stand-ins for model answers; `pnpm bench --live --record`
+ * writes real responses in the same shape.
  */
 export type ReplayFixtures = Record<string, Partial<Record<Purpose, string | string[]>>>;
 
@@ -21,7 +23,7 @@ function simulatedLatency(model: string, prompt: number, completion: number): nu
 }
 
 /**
- * Deterministic replay provider: returns recorded responses so the whole agent
+ * Deterministic replay provider: returns fixture responses so the whole agent
  * loop runs in tests (and for judges) without an API key. Token counts are
  * estimated from text length and latency is simulated, and both are marked so.
  */
@@ -42,7 +44,7 @@ export class ReplayProvider implements ModelProvider {
     }
     if (entry === undefined) {
       throw new ReplayMissError(
-        `replay: no recorded "${req.purpose}" response for "${req.replayKey}". ` +
+        `replay: no fixture "${req.purpose}" response for "${req.replayKey}". ` +
           `Replay mode only covers the built-in problems; set NEBIUS_API_KEY for live mode.`,
       );
     }

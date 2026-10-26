@@ -27,7 +27,14 @@ const isNum = (x: unknown): x is number => typeof x === "number";
 const allObj = (x: unknown, ok: (o: Obj) => boolean) => Array.isArray(x) && x.every((o) => isObj(o) && ok(o));
 const optional = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
 
-const validEvent = (e: unknown) => isObj(e) && isNum(e.seq) && isNum(e.t) && isStr(e.stage) && isStr(e.kind) && isStr(e.msg) && optional(e.data, isObj);
+const isFact = (f: unknown): f is { fact: string; url: string } => isObj(f) && isStr(f.fact) && isStr(f.url);
+const validEvent = (e: unknown) =>
+  isObj(e) && isNum(e.seq) && isNum(e.t) && isStr(e.stage) && isStr(e.kind) && isStr(e.msg) && optional(e.data, isObj) && (!isObj(e.data) || optional(e.data.facts, (f) => Array.isArray(f) && f.every(isFact)));
+
+/** The cited facts of a research trace event, ignoring anything malformed (the render must never throw on a stream line). */
+export function researchFacts(data: Record<string, unknown> | undefined): { fact: string; url: string }[] {
+  return Array.isArray(data?.facts) ? data.facts.filter(isFact) : [];
+}
 
 /** The fields the UI reads from a report, checked so a malformed line cannot crash the page. */
 function validReport(r: unknown): boolean {
@@ -90,44 +97,49 @@ function parseLine(line: string): StreamMsg {
 
 /**
  * Read the attack stream line by line, handing each message to onMsg. A
- * stream that ends without a report or error line, or with a partial line
- * left in the buffer (the connection was cut mid-line), is reported as
- * incomplete instead of being silently dropped. A line that is not a message
- * throws UNREADABLE_MESSAGE. The report ends the read at once: a server that
- * then stalls without closing the connection cannot keep the run "attacking".
- * However it ends, the reader is cancelled, so a stream left half-read does
- * not keep the request (and the server's attack slot) open.
+ * stream that ends without a report or error line, or with bytes left after
+ * the report or error line, is reported as incomplete instead of being
+ * silently dropped. A final line with no trailing newline is parsed like any
+ * other (so it may still be the report), and a line that is not a message,
+ * including a final line cut mid-way, throws UNREADABLE_MESSAGE. The report
+ * or an error line ends the read at once: a server that then stalls without
+ * closing the connection cannot keep the run "attacking". However it ends,
+ * the reader is cancelled, so a stream left half-read does not keep the
+ * request (and the server's attack slot) open.
  */
 export async function readAttackStream(body: ReadableStream<Uint8Array>, onMsg: (m: StreamMsg) => void): Promise<StreamEnd> {
   const reader = body.getReader();
   const dec = new TextDecoder();
   let buf = "";
+  /** Set once a report or error line has arrived: the run is over, so a connection that stays open is closed rather than awaited. */
   let terminal = false;
-  /** Set once the report has arrived: the run is over, so a connection that stays open is closed rather than awaited. */
-  let reported = false;
   const take = (line: string) => {
     if (!line.trim()) return;
     const msg = parseLine(line);
     if (msg.type === "report" || msg.type === "error") terminal = true;
-    if (msg.type === "report") reported = true;
     onMsg(msg);
   };
   try {
-    while (!reported) {
+    while (!terminal) {
       const { value, done } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let nl: number;
-      while (!reported && (nl = buf.indexOf("\n")) >= 0) {
+      while (!terminal && (nl = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
         take(line);
       }
     }
+    if (!terminal) {
+      // The server closed the stream: what is left is a last line without its newline.
+      const last = buf + dec.decode();
+      buf = "";
+      take(last);
+    }
   } finally {
     // A no-op on a finished stream; on an early exit (a bad line, a throwing onMsg) it stops the download.
     await reader.cancel().catch(() => {});
   }
-  buf += dec.decode();
   return { complete: terminal && !buf.trim() };
 }

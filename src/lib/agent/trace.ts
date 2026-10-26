@@ -1,4 +1,3 @@
-import { showValue } from "../core/compare";
 export type Stage = "understand" | "research" | "oracle" | "attack" | "run" | "shrink" | "explain" | "reattack" | "report";
 
 export type TraceEvent = {
@@ -25,11 +24,5 @@ export class Tracer {
     this.events.push(e);
     this.sink?.(e);
     return e;
-  }
-
-  /** The trace as JSON Lines (trace.jsonl). */
-  jsonl(): string {
-    // showValue, not JSON.stringify: big integers are written as their exact digits, not as the internal marker.
-    return this.events.map((e) => showValue(e)).join("\n") + "\n";
   }
 }

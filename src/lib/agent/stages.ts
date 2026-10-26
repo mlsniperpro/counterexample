@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
-import { smallScopeInputs } from "../core/smallscope";
-import { argsConform } from "../core/spec";
+import { smallScope, smallScopeInputs } from "../core/smallscope";
+import { argsConform, type TypeSpec } from "../core/spec";
 import { AppError, AttackCancelled, BudgetExceeded, errorMessage, ModelOutputError } from "../errors";
 import type { Solution } from "../problems/types";
 import { researchPlan } from "../research/plan";
@@ -62,10 +62,12 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
   const plan = researchPlan(problem, solution, ctx.input.research ?? "auto");
   if (plan.suggestion) ctx.tracer.emit("understand", "info", plan.suggestion, { suggestion: "research" });
   if (plan.queries.length === 0) return [];
-  startStage(ctx, "research", `Researching with Tavily: ${plan.reasons.join("; ")}`);
+  const client = ctx.deps.research;
+  // Replay mode serves recorded results; the trace must not say a live search ran.
+  const source = client?.name === "replay" ? "recorded search results" : "Tavily";
+  startStage(ctx, "research", `Researching with ${source}: ${plan.reasons.join("; ")}`);
   const research: NonNullable<typeof ctx.report.research> = { queries: plan.queries.map((q) => q.query), facts: [], influencedFamilies: [] };
   ctx.report.research = research;
-  const client = ctx.deps.research;
   if (!client) {
     research.error = "no research client configured (set TAVILY_API_KEY)";
     ctx.tracer.emit("research", "warn", `Research needed but skipped: ${research.error}`);
@@ -77,7 +79,7 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
   for (const q of plan.queries) {
     try {
       const r = await client.search(q.query, ctx.signal);
-      ctx.tracer.emit("research", "research", `Tavily: "${q.query}" returned ${r.results.length} result(s)`, { query: q.query, reason: q.reason, urls: r.results.map((x) => x.url), client: client.name });
+      ctx.tracer.emit("research", "research", `${source === "Tavily" ? "Tavily: " : "Recorded search results: "}"${q.query}" returned ${r.results.length} result(s)`, { query: q.query, reason: q.reason, urls: r.results.map((x) => x.url), client: client.name });
       if (r.dropped) ctx.tracer.emit("research", "warn", `Dropped ${r.dropped} malformed search result(s) (non-http(s) URL or wrong shape)`);
       if (r.results.length === 0) continue;
       const focus = q.reason === "api" ? `the documented behaviour of ${q.label} that can make a solution wrong` : "official constraints and edge cases";
@@ -133,6 +135,25 @@ export async function oracleStage(ctx: AttackContext): Promise<boolean> {
   return false;
 }
 
+/** The small-scope family. Honest about a cut: when the small inputs outnumber the cap it says how many it kept, and that they were sampled evenly. */
+function smallScopeFamily(ctx: AttackContext, specs: TypeSpec[]): Family {
+  const cap = Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily);
+  const { inputs, total, capped } = smallScope(specs, cap);
+  const why = "bounded exhaustive testing: most bugs have a small counterexample";
+  const truncated = inputs.length < total;
+  if (truncated) {
+    ctx.tracer.emit("attack", "info", `small-scope: ${inputs.length} of ${capped ? "at least " : ""}${total} small inputs kept, sampled evenly across the enumeration (every ${(total / inputs.length).toFixed(1)}th), not a prefix`, { kept: inputs.length, total, capped });
+  }
+  return {
+    name: "small-scope",
+    rationale: truncated ? `${inputs.length} of ${capped ? "at least " : ""}${total} small inputs of the declared types, sampled evenly (${why}).` : `Every small input of the declared types (${why}).`,
+    citations: [],
+    args: specs,
+    count: cap,
+    source: "exhaustive",
+  };
+}
+
 /** The fast model's generator families, validated, with citations limited to this run's research. */
 async function modelFamiliesFor(ctx: AttackContext, facts: ResearchFact[]): Promise<Family[]> {
   const { problem, solution } = ctx.input;
@@ -160,7 +181,7 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
   const modelFamilies = (ctx.input.generators ?? "model") === "model";
   const plan: Family[] = [{ name: "examples", rationale: "The statement's own examples.", citations: [], args: [], count: problem.examples.length, source: "examples" }];
   if (!baselineOnly) {
-    plan.push({ name: "small-scope", rationale: "Every small input of the declared types (bounded exhaustive testing: most bugs have a small counterexample).", citations: [], args: specs, count: Math.min(SMALL_SCOPE, ctx.limits.inputsPerFamily), source: "exhaustive" });
+    plan.push(smallScopeFamily(ctx, specs));
     if (modelFamilies) {
       try {
         plan.push(...(await modelFamiliesFor(ctx, facts)));
@@ -194,32 +215,51 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
   return plan;
 }
 
-/** `confirmed`: the mismatch reproduced on a fresh re-run. */
-type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean };
+/**
+ * `confirmed`: the mismatch reproduced on a fresh re-run. `orderDependent`: it
+ * reproduced only after `precedingInputs` earlier inputs ran in the same process.
+ */
+type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean; orderDependent?: { precedingInputs: number } };
+
+const bySize = (a: { args: unknown[] }, b: { args: unknown[] }) => JSON.stringify(a.args).length - JSON.stringify(b.args).length;
 
 /**
  * Re-judge new hits on a fresh run before trusting them, smallest first, in
  * batches of CONFIRM_HITS until one batch has a hit that fails again: a
  * sandbox can time out or crash for reasons that are not the solution's
  * (load, a shared time budget), and a bug must reproduce before it is
- * claimed. Returns the confirmed hits (with their fresh judgement) followed by
- * the not yet re-checked rest, or nothing when no hit reproduced (the run
- * then goes on).
+ * claimed. Each checked hit runs in its own process, so state an earlier call
+ * left behind cannot make a passing input look wrong. Returns the confirmed
+ * hits (with their fresh judgement) followed by the not yet re-checked rest,
+ * or nothing when no hit reproduced (the run then goes on).
+ *
+ * When no hit fails alone, `chunk` (the inputs the hits were found in) is run
+ * once more in the original order in one process. Hits that fail again there
+ * are deterministic, not flaky: the solution keeps state between calls. The
+ * smallest of them is returned alone, marked `orderDependent`.
  */
-export async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit[]> {
-  const bySize = [...found].sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length);
+export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unknown[][]): Promise<Hit[]> {
+  const sorted = [...found].sort(bySize);
   const dropped: unknown[][] = [];
   let result: Hit[] = [];
-  for (let at = 0; at < bySize.length && !result.length; at += CONFIRM_HITS) {
-    const checked = bySize.slice(at, at + CONFIRM_HITS);
-    const again = await ctx.judge.compare("run", ctx.input.solution, checked.map((h) => h.args));
+  for (let at = 0; at < sorted.length && !result.length; at += CONFIRM_HITS) {
     const confirmed: Hit[] = [];
-    checked.forEach((h, i) => {
-      const j = again[i];
+    for (const h of sorted.slice(at, at + CONFIRM_HITS)) {
+      const [j] = await ctx.judge.compare("run", ctx.input.solution, [h.args]);
       if (j && j.status === "mismatch") confirmed.push({ ...h, j, confirmed: true });
       else dropped.push(h.args);
-    });
-    if (confirmed.length) result = [...confirmed, ...bySize.slice(at + CONFIRM_HITS)];
+    }
+    if (confirmed.length) result = [...confirmed, ...sorted.slice(at + CONFIRM_HITS)];
+  }
+  if (!result.length && chunk && dropped.length) {
+    const ordered = await orderDependentHit(ctx, sorted, chunk);
+    if (ordered) {
+      ctx.tracer.emit("run", "info", `${dropped.length} mismatch(es) pass when run alone but fail again in the original order: the solution keeps state between calls, so the failure is deterministic`, {
+        inputs: dropped.slice(0, 10),
+        precedingInputs: ordered.orderDependent?.precedingInputs,
+      });
+      return [ordered];
+    }
   }
   if (dropped.length) {
     ctx.droppedMismatches += dropped.length;
@@ -228,6 +268,17 @@ export async function confirmHits(ctx: AttackContext, found: Hit[]): Promise<Hit
     });
   }
   return result;
+}
+
+/** Re-runs `chunk` in order in one process; the smallest hit that fails again, after at least one earlier input, or undefined. */
+async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
+  const again = await ctx.judge.compare("run", ctx.input.solution, chunk);
+  for (const h of sorted) {
+    const at = chunk.indexOf(h.args);
+    const j = again[at];
+    if (at > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: at } };
+  }
+  return undefined;
 }
 
 function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
@@ -280,7 +331,7 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
       st.oracleSkipped += judged.filter((j) => j.status === "oracle_error").length;
       const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name, confirmed: false }] : []));
       if (!found.length) continue;
-      const kept = await confirmHits(ctx, found);
+      const kept = await confirmHits(ctx, found, chunk);
       st.mismatches += kept.length;
       if (kept.length) {
         hits = kept;
@@ -315,8 +366,9 @@ export function isCompileFailure(hits: Hit[], examples: number): boolean {
 export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Counterexample> {
   const first = hits.filter((h) => h.confirmed).sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length)[0];
   if (!first) throw new Error("shrinkStage needs at least one confirmed hit");
-  startStage(ctx, "shrink", `Shrinking a counterexample from ${first.family} (delta debugging)`);
   const original = { args: first.args, family: first.family };
+  if (first.orderDependent) return keepOrderDependent(ctx, first, first.orderDependent, original);
+  startStage(ctx, "shrink", `Shrinking a counterexample from ${first.family} (delta debugging)`);
   ctx.report.counterexample = { args: first.args, expected: first.j.expected, got: first.j.got, original, shrinkSteps: 0, shrinkEvals: 0, shrinkExhausted: true };
   ctx.report.verdict = "counterexample";
   ctx.report.message = "Found a counterexample (not yet shrunk).";
@@ -364,6 +416,22 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
   return cx;
 }
 
+/** An order-dependent hit is reported as found: shrinking runs candidates alone, which would lose the condition that makes it fail. */
+function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit["orderDependent"]>, original: Counterexample["original"]): Counterexample {
+  startStage(ctx, "shrink", `Not shrinking the counterexample from ${hit.family}: it fails only after earlier calls in the same process`);
+  const cx: Counterexample = { args: hit.args, expected: hit.j.expected, got: hit.j.got, original, shrinkSteps: 0, shrinkEvals: 0, shrinkExhausted: true, orderDependent: order };
+  ctx.report.counterexample = cx;
+  ctx.report.verdict = "counterexample";
+  ctx.report.message = "The solution fails on this input only after earlier calls in the same process: it keeps state between calls. Run alone, it is correct.";
+  ctx.tracer.emit("shrink", "counterexample", `Counterexample (order-dependent, not shrunk): ${call(cx.args)} expected ${showValue(cx.expected)}, got ${cx.got}. It fails only after ${order.precedingInputs} earlier input(s) in the same process: the solution keeps state between calls. Run alone, it is correct.`, {
+    args: cx.args,
+    expected: cx.expected,
+    got: cx.got,
+    orderDependent: order,
+  });
+  return cx;
+}
+
 /** The reasoning model explains and fixes; every fix is re-attacked on all earlier inputs plus a fresh seed before it is called verified. */
 export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Family[], tested: unknown[][]): Promise<void> {
   const { problem, solution } = ctx.input;
@@ -372,7 +440,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
     startStage(ctx, "explain", a === 0 ? "Explaining the bug and proposing a fix" : "The fix failed: asking for another");
-    const text = await ctx.models.call("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback), ctx.solutionKey, a);
+    const text = await ctx.models.call("explain", "reasoning", "explain", explainPrompt(problem, solution, cx.args, cx.expected, cx.got, feedback, cx.orderDependent !== undefined), ctx.solutionKey, a);
     ctx.report.explanation = extractExplanation(text);
     ctx.tracer.emit("explain", "info", ctx.report.explanation, { attempt: a });
     let fix: Solution;
@@ -381,6 +449,8 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     } catch (e) {
       if (!(e instanceof ModelOutputError)) throw e;
       // An explanation without code is still useful; there is just nothing to re-attack.
+      // A fix left over from an earlier attempt belongs to the earlier explanation: the report keeps one coherent attempt.
+      delete ctx.report.fix;
       ctx.tracer.emit("explain", "warn", "No fix was proposed (the answer had no code block); the counterexample and explanation stand on their own");
       return;
     }

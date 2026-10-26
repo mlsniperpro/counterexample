@@ -35,16 +35,59 @@ describe("readAttackStream (the UI's NDJSON reader)", () => {
     expect(end.complete).toBe(true);
   });
 
+  it("stops reading at an error line: later lines are not delivered and a stream left open is cancelled", async () => {
+    const { stream, seen } = (() => {
+      const seen = { cancelled: false };
+      const stream = new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(new TextEncoder().encode(`${mode}\n${JSON.stringify({ type: "error", error: "boom" })}\n${event}\n${report}\n`));
+        },
+        cancel() {
+          seen.cancelled = true;
+        },
+      });
+      return { stream, seen };
+    })();
+    const msgs: StreamMsg[] = [];
+    const end = await readAttackStream(stream, (m) => msgs.push(m));
+    expect(msgs.map((m) => m.type)).toEqual(["mode", "error"]);
+    expect(end.complete).toBe(false); // bytes were left after the terminal line
+    expect(seen.cancelled).toBe(true);
+  });
+
   it("flags a stream cut before any report or error line", async () => {
     const { msgs, end } = await read(`${mode}\n${event}\n`);
     expect(msgs).toHaveLength(2);
     expect(end.complete).toBe(false);
   });
 
-  it("flags a stream cut mid-line instead of silently dropping the partial line", async () => {
-    const { msgs, end } = await read(`${mode}\n${event}\n${report.slice(0, 20)}`);
+  it("reports a final line cut mid-way as unreadable, after delivering the lines before it", async () => {
+    const msgs: StreamMsg[] = [];
+    await expect(readAttackStream(body(`${mode}\n${event}\n${report.slice(0, 20)}`), (m) => msgs.push(m))).rejects.toThrow(UNREADABLE_MESSAGE);
     expect(msgs.map((m) => m.type)).toEqual(["mode", "event"]);
-    expect(end.complete).toBe(false);
+  });
+
+  it("parses a final line that has no trailing newline, so a complete report is not called a cut", async () => {
+    const { msgs, end } = await read(`${mode}\n${report}`);
+    expect(msgs.map((m) => m.type)).toEqual(["mode", "report"]);
+    expect(end.complete).toBe(true);
+    // Also when the line is split across chunks and ends in a multi-byte character.
+    const err = JSON.stringify({ type: "error", error: "→ fail" });
+    const bytes = new TextEncoder().encode(err);
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(bytes.slice(0, bytes.length - 3));
+        c.enqueue(bytes.slice(bytes.length - 3));
+        c.close();
+      },
+    });
+    const got: StreamMsg[] = [];
+    expect((await readAttackStream(stream, (m) => got.push(m))).complete).toBe(true);
+    expect(got).toEqual([{ type: "error", error: "→ fail" }]);
+    // A final line that is not a terminal message is delivered, and the run is still incomplete.
+    const tail = await read(`${mode}\n${event}`);
+    expect(tail.msgs.map((m) => m.type)).toEqual(["mode", "event"]);
+    expect(tail.end.complete).toBe(false);
   });
 
   it("flags leftover bytes after the report line", async () => {
@@ -168,6 +211,18 @@ describe("readAttackStream (the UI's NDJSON reader)", () => {
       await bad(withReport({ research: { ...fullReport().research, facts: "none" } }));
       await bad(withReport({ research: { ...fullReport().research, facts: [{ fact: "f" }] } }));
       await bad(withReport({ research: { ...fullReport().research, influencedFamilies: [1] } }));
+    });
+
+    it("rejects a research event whose facts are not {fact, url} strings, and accepts one that is", async () => {
+      const research = (data: unknown) => ({ type: "event", event: { ...traceEvent(0), kind: "research", data } });
+      await bad(research({ facts: [null] }));
+      await bad(research({ facts: ["text"] }));
+      await bad(research({ facts: [{ fact: "f" }] }));
+      await bad(research({ facts: [{ fact: 1, url: "u" }] }));
+      await bad(research({ facts: {} }));
+      const ok = research({ facts: [{ fact: "f", url: "https://example.com" }] });
+      expect((await read(`${JSON.stringify(ok)}\n`)).msgs).toHaveLength(1);
+      expect((await read(`${JSON.stringify(research({ queries: ["q"] }))}\n`)).msgs).toHaveLength(1);
     });
 
     it("rejects a mode line without a string executor, and an error line without string text", async () => {

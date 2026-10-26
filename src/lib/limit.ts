@@ -7,19 +7,11 @@ export class Semaphore {
     if (!Number.isInteger(capacity) || capacity < 1) throw new RangeError(`capacity must be a positive integer, got ${capacity}`);
   }
 
-  get inUse(): number {
-    return this.active;
-  }
-
-  /** Try to take a slot without waiting. */
-  tryAcquire(): boolean {
-    if (this.active >= this.capacity) return false;
-    this.active++;
-    return true;
-  }
-
   async acquire(): Promise<void> {
-    if (this.tryAcquire()) return;
+    if (this.active < this.capacity) {
+      this.active++;
+      return;
+    }
     await new Promise<void>((resolve) => this.waiting.push(resolve));
   }
 

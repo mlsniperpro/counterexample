@@ -13,7 +13,7 @@
  * for Playwright (`pnpm exec playwright install chromium`).
  */
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import net from "node:net";
@@ -26,6 +26,23 @@ const LONG_ARGS = Array.from({ length: 60 }, (_, i) => 1_000_000 + i * 7919);
 
 if (!existsSync(`${root}.next/BUILD_ID`)) {
   console.error("e2e: no production build found (.next/BUILD_ID is missing). Run `pnpm build` first, then `pnpm e2e`.");
+  process.exit(2);
+}
+
+// A stale build would test yesterday's UI: refuse when any source file is newer than the build.
+function newestUnder(dir) {
+  let newest = { path: "", mtimeMs: 0 };
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = `${dir}/${entry.name}`;
+    const found = entry.isDirectory() ? newestUnder(path) : { path, mtimeMs: statSync(path).mtimeMs };
+    if (found.mtimeMs > newest.mtimeMs) newest = found;
+  }
+  return newest;
+}
+const builtAt = statSync(`${root}.next/BUILD_ID`).mtimeMs;
+const newest = newestUnder(`${root}src`);
+if (newest.mtimeMs > builtAt) {
+  console.error(`e2e: the build is older than ${newest.path.slice(root.length)} (changed ${new Date(newest.mtimeMs).toISOString()}, built ${new Date(builtAt).toISOString()}). Run \`pnpm build\` again, then \`pnpm e2e\`.`);
   process.exit(2);
 }
 
@@ -186,7 +203,7 @@ async function main() {
 
   step = "attack a built-in to a verdict";
   await page.goto(base);
-  await page.getByText("Replay mode: recorded model responses, real execution").waitFor({ timeout: 15_000 });
+  await page.getByText("Replay mode: hand-written stand-ins for model answers, real execution").waitFor({ timeout: 15_000 });
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator("h2.verdict").innerText(), "Broken: minimal counterexample found", "verdict");
@@ -280,15 +297,19 @@ async function main() {
   const lines = [
     { type: "mode", mode: "replay", executor: "Local" },
     { type: "event", event: { seq: 0, t: 1, stage: "research", kind: "research", msg: `Fetched ${LONG_URL}`, data: { facts: [{ fact: `Documented at ${LONG_URL}`, url: "https://example.com/doc" }] } } },
-    { type: "error", error: `Failed to reach ${LONG_URL}` },
     { type: "report", report: longTextReport() },
   ];
   await page.route("**/api/attack", respond(lines.map((l) => JSON.stringify(l)).join("\n") + "\n"));
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 10_000 });
-  await page.locator("p.err", { hasText: "Failed to reach" }).waitFor();
   check((await page.locator(".cx p.muted").innerText()).includes("…"), "the long original arguments are cut with an ellipsis");
   await noHorizontalOverflow(page, "report with long text");
+  await page.unroute("**/api/attack");
+  // An error line ends the stream (it is terminal, like a report), so a long error is checked in its own run.
+  await page.route("**/api/attack", respond([{ type: "mode", mode: "replay", executor: "Local" }, { type: "error", error: `Failed to reach ${LONG_URL}` }].map((l) => JSON.stringify(l)).join("\n") + "\n"));
+  await attackButton(page).click();
+  await page.locator("p.err", { hasText: "Failed to reach" }).waitFor();
+  await noHorizontalOverflow(page, "error with long text");
   await page.unroute("**/api/attack");
   ok(step);
 

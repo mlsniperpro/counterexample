@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { attack, type Report } from "@/lib/agent/run";
 import { makeDeps } from "@/lib/agent/setup";
-import { Tracer, type TraceEvent } from "@/lib/agent/trace";
+import { showValue } from "@/lib/core/compare";
+import type { TraceEvent } from "@/lib/agent/trace";
 import { BUILT_INS, getProblem } from "@/lib/problems/catalog";
 import { DEFAULT_FAST_MODEL, DEFAULT_REASONING_MODEL } from "@/lib/models/config";
 import { readFileSync } from "node:fs";
@@ -42,9 +43,11 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
     expect(byPurpose).toEqual({ research: DEFAULT_FAST_MODEL, oracle: DEFAULT_REASONING_MODEL, generators: DEFAULT_FAST_MODEL, explain: DEFAULT_REASONING_MODEL });
     expect(calls.every((c) => typeof c.data!.why === "string" && c.data!.simulated === true)).toBe(true);
     expect(bs.trace.some((e) => e.kind === "exec")).toBe(true);
-    const tr = new Tracer(0, () => 0);
-    tr.emit("run", "info", "x");
-    expect(JSON.parse(tr.jsonl().trim())).toMatchObject({ stage: "run", msg: "x" });
+    // trace.jsonl: one event per line, as the UI writes it.
+    const lines = bs.trace.map((e) => showValue(e)).join("\n").split("\n");
+    expect(lines).toHaveLength(bs.trace.length);
+    expect(JSON.parse(lines[0]!)).toMatchObject({ seq: 0, stage: "understand" });
+    expect(lines.map((l) => JSON.parse(l))).toEqual(JSON.parse(JSON.stringify(bs.trace)));
     expect(bs.stats.timeToFirstCounterexampleMs).toBeGreaterThan(0);
     expect(bs.stats.costUsd).toBeGreaterThan(0);
   });
@@ -65,7 +68,7 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
       expect(r.research?.facts.length, b.problem.id).toBeGreaterThan(0);
       expect(r.research?.influencedFamilies.length, b.problem.id).toBeGreaterThan(0);
       expect(r.verdict, b.problem.id).toBe("counterexample");
-      expect(r.trace.some((e) => e.kind === "stage_start" && e.msg.startsWith("Researching with Tavily: Research the web was requested")), b.problem.id).toBe(true);
+      expect(r.trace.some((e) => e.kind === "stage_start" && e.msg.startsWith("Researching with recorded search results: Research the web was requested")), b.problem.id).toBe(true);
     }
   });
 

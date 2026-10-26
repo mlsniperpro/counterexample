@@ -19,7 +19,7 @@ const familySchema = z.object({
   citations: z.array(z.string().max(500)).nullish().transform((c) => (c ?? []).slice(0, 10)),
 });
 
-export type ParsedFamilies = { families: Family[]; rejected: { name: string; reason: string }[] };
+type ParsedFamilies = { families: Family[]; rejected: { name: string; reason: string }[] };
 
 /**
  * Validate the fast model's generator families. A family whose argument

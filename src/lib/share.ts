@@ -68,6 +68,8 @@ const sharedReportSchema: z.ZodType<SharedReport> = z.object({
       shrinkEvals: count,
       // Links made before this field existed decode as shrunk to completion, which is what they claimed.
       shrinkExhausted: z.boolean().default(false),
+      // Set when the input fails only after earlier calls in the same process (a solution that keeps state).
+      orderDependent: z.object({ precedingInputs: count }).optional(),
     })
     .optional(),
   explanation: str(CAP.explanation).optional(),

@@ -41,11 +41,14 @@ Verified in the build session (Docker 29.9.2):
 
 ## Deploy as a Nebius Serverless AI endpoint (owner, needs Nebius AI Cloud credentials)
 
+**Flags not yet verified against the live CLI.** None of these commands has been run: the build session had no Nebius AI Cloud account, and its network policy denied `docs.nebius.com` (403, `docs/FRICTION.md`). On 2026-10-26 the flags below (`--name`, `--image`, `--container-port`, `--env`, `--auth token`, `--token`, `--platform`, `--preset`, `--disk-size`), the `Authorization: Bearer` header, the 20 GiB minimum disk for CPU-only workloads and the URL lookup were re-read against [Managing endpoints in Serverless AI](https://docs.nebius.com/serverless/endpoints/manage), and `cpu-d3` and `4vcpu-16gb` against [VM types](https://docs.nebius.com/compute/virtual-machines/types); they match the pages' text. If the CLI rejects a flag, trust the CLI's `--help`, correct this file and add the exact error to `docs/FRICTION.md`.
+
 1. Push the image to a registry the endpoint can pull from (for example the Nebius Container Registry, or GHCR):
    ```bash
    docker build -t <registry>/counterexample-sandbox:1 sandbox/
    docker push <registry>/counterexample-sandbox:1
    ```
+   A private registry also needs `--registry-username` and `--registry-password` (or `--registry-secret`) on the create command below; a public image, or one in Container Registry in the same project, needs none.
 2. Create the endpoint. It is CPU only, on platform `cpu-d3`, preset `4vcpu-16gb`; CPU-only workloads need at least 20 GiB of disk. Endpoint token auth makes callers send `Authorization: Bearer <token>`; use the same token for `SANDBOX_TOKEN` (the image will not start without it). No extra capability or flag is needed for network isolation: the per-run seccomp filter works unprivileged. The preset's memory is the container's memory limit.
    ```bash
    TOKEN=$(openssl rand -hex 24)
@@ -71,7 +74,7 @@ Verified in the build session (Docker 29.9.2):
 5. Check: `pnpm preflight` must show `PASS judge0: languages` and `PASS judge0: run`, and `curl -s https://<endpoint-url>/health` must show `"network":"blocked"` (a 503 with `"network":"unavailable"` means the platform does not allow seccomp filters, and the sandbox refuses to run code).
 
 Sources:
-- [Managing endpoints in Serverless AI](https://docs.nebius.com/serverless/endpoints/manage): the `nebius ai endpoint create` flags, `--auth token` (Bearer), and the URL lookup.
+- [Managing endpoints in Serverless AI](https://docs.nebius.com/serverless/endpoints/manage): the `nebius ai endpoint create` flags, `--auth token` (Bearer), and the URL lookup (read 2026-10-26; the commands themselves are unrun).
 - [VM types](https://docs.nebius.com/compute/virtual-machines/types): `cpu-d3` presets.
 
 ## Why an endpoint and not a Serverless Job per batch

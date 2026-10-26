@@ -62,6 +62,31 @@ describe("shrinker", () => {
     expect(r.minimal).toEqual([2, [[0, 1, -1]]]);
   });
 
+  it("drops isolated nodes in bulk first, relabelling the rest", () => {
+    const nodeCounts = [...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])].map((c) => c[0]);
+    // Isolated: 1, 2, 4. All of them at once, then the upper half (4), then one at a time.
+    expect(nodeCounts.slice(0, 5)).toEqual([3, 5, 5, 5, 5]);
+    expect([...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])][0]).toEqual([3, [[0, 1, 1], [1, 2, 2]]]);
+    expect([...argCandidates([6, [[0, 3, 1], [3, 5, 2]]])][1]).toEqual([5, [[0, 3, 1], [3, 4, 2]]]);
+  });
+
+  it("shrinks a 1000-node graph with one edge to two nodes within a small budget", async () => {
+    const spec: TypeSpec[] = [{ kind: "graph", n: { min: 1, max: 1000 }, m: { min: 0, max: 10 }, weight: { min: 0, max: 9 }, dag: true }];
+    const fails = (a: unknown[]) => (a[1] as number[][]).length > 0;
+    const r = await shrink([1000, [[0, 1, 5]]], { isValid: (a) => argsConform(a, spec), stillFails: pred(fails), maxEvals: 300 });
+    expect(r.exhausted).toBe(false);
+    expect((r.minimal as [number, number[][]])[0]).toBe(2);
+    expect(r.evals).toBeLessThan(300);
+  });
+
+  it("falls back to single-node drops when a bulk drop loses the failure", async () => {
+    const spec: TypeSpec[] = [{ kind: "graph", n: { min: 1, max: 20 }, m: { min: 0, max: 5 }, weight: { min: 0, max: 9 } }];
+    // Fails only for exactly 6 nodes, whatever the edges: bulk drops go too far, one node at a time stays on the line.
+    const fails = (a: unknown[]) => a[0] === 6;
+    const r = await shrink([12, [[0, 1, 0]]], { isValid: (a) => argsConform(a, spec), stillFails: pred(fails) });
+    expect((r.minimal as [number, number[][]])[0]).toBe(6);
+  });
+
   it("most candidates are strictly smaller, and the driver only accepts those", async () => {
     const start = [[5, -3, 8], "abc", 17];
     const cands = [...argCandidates(start)];

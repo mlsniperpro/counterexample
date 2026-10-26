@@ -22,7 +22,7 @@ You paste a problem and a solution: your interview answer, or code an AI wrote. 
 
 **Token Factory and Nemotron.** Every model call goes through Token Factory's OpenAI-compatible API. Ultra handles the two steps where a mistake is expensive (the oracle and the root cause); Super handles the cheap, parallelisable ones (generators, research summaries). The benchmark compares this routing against Ultra everywhere, for cost and time to first counterexample.
 
-**AI Cloud.** The attacked code runs in the Counterexample sandbox (`sandbox/`): one small Judge0-compatible container, deployable as a Nebius Serverless AI endpoint with token auth, so the models run on Token Factory and the code they attack runs on Nebius AI Cloud. We chose an endpoint over Serverless Jobs because jobs have no REST endpoint for reading a job's output and provision a VM per job (`docs/NEBIUS-SANDBOX.md`, `docs/FRICTION.md`).
+**AI Cloud.** The attacked code runs in the Counterexample sandbox (`sandbox/`): one small Judge0-compatible container, built to run as a Nebius AI Cloud endpoint with token auth (deploy pending, `BLOCKED.md`; the deploy commands have not been run against the live CLI), so the models run on Token Factory and the code they attack would run on Nebius AI Cloud. We chose an endpoint over Serverless Jobs because jobs have no REST endpoint for reading a job's output and provision a VM per job (`docs/NEBIUS-SANDBOX.md`, `docs/FRICTION.md`).
 
 ## How we used Tavily
 
@@ -30,10 +30,10 @@ Research runs when the statement leans on external facts or the user ticks "Rese
 
 ## Results
 
-Every number below is produced by `bench/run.ts` (`pnpm bench --readme`) in replay mode: recorded model answers that we wrote, with real execution. They measure the pipeline, not Nemotron's judgement, until the live run. _Owner: paste the live-mode table after `pnpm bench --live --readme`._
+Every number below is produced by `bench/run.ts` (`pnpm bench --readme`) in replay mode: hand-written stand-ins for model answers, with real execution. They measure the pipeline, not Nemotron's judgement, until the live run. _Owner: paste the live-mode table after `pnpm bench --live --readme`._
 
-- **54 solutions** in 13 problems: 38 known-buggy (each documents its bug) and 16 correct, in Python and JavaScript. The agent finds **38 of 38** with **0 false alarms**, and every proposed fix is verified by re-attack.
-- **Where the models matter.** We ran two ablations under the same budgets. On the 30 base-tier bugs, the deterministic families alone (small-scope exhaustive, mutations, random) already find all 30. On the 8 hard-tier bugs, which show only at worst-case sizes or on specific structure (exponential backtracking on a long unsplittable run, a memo that forgets failures, a modulus applied too late, a distance array that overflows on a long chain), **the model-designed families (recorded answers in replay; Nemotron Super writes them live) find 8 of 8, and both ablations find 0 of 8.**
+- **54 solutions** in 13 problems: 38 known-buggy (each documents its bug) and 16 correct, in Python and JavaScript. The agent finds **38 of 38** with **0 false alarms**, and every proposed fix is verified by re-attack. In replay mode each fix is the problem's correct reference solution, so "fixes verified 38 of 38" is a pipeline check, not fix quality.
+- **Where the models matter.** We ran two ablations under the same budgets. On the 30 base-tier bugs, the deterministic families alone (small-scope exhaustive, mutations, random) already find all 30. On the 8 hard-tier bugs, which show only at worst-case sizes or on specific structure (exponential backtracking on a long unsplittable run, a memo that forgets failures, a modulus applied too late, a distance array that overflows on a long chain), **author-written families (hand-written fixtures, stand-ins for what Super is prompted to write) find 8 of 8 and both ablations find 0 of 8. That 8 of 8 is by construction, because we wrote those families knowing the bug classes; the live run will show whether Super writes such families itself.**
 - **Soak.** Hundreds of single-point mutants of every solution are attacked, and every claimed counterexample is checked against a reference solution: 0 false claims and 0 misses.
 
 ## What's next

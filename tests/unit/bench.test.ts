@@ -60,6 +60,26 @@ describe("benchmark library", () => {
     expect(md).toContain("| `c` | base | correct | counterexample |");
   });
 
+  it("says what fixture mode measures, and marks a counterexample whose shrinking stopped early as not minimal", () => {
+    const base = { tier: "hard" as const, buggy: true, config: "routed" as const, verdict: "counterexample" as const, ttfcMs: 1, costUsd: 0, unpricedCalls: 0, modelCalls: 1, runs: 1, timeLimitMs: 300, inputs: 1, wallMs: 1, message: "", fixVerified: true };
+    const rows: Row[] = [
+      { ...base, key: "hard/a", minimal: [[1, 2]], shrinkExhausted: true },
+      { ...base, key: "hard/b", minimal: [[3]], shrinkExhausted: false },
+      { ...base, key: "hard/c", minimal: [[4]] },
+    ];
+    const md = markdown(rows, "fixture", "Local");
+    expect(md).toContain("`[[1,2]]` (not minimal) |");
+    expect(md).toContain("`[[3]]` |");
+    expect(md).toContain("`[[4]]` |");
+    expect(md.match(/\(not minimal\)/g)).toHaveLength(1);
+    const mode = md.split("\n")[0]!;
+    expect(mode).toContain("replayed hand-written stand-ins for model answers");
+    expect(mode).toContain('each benchmark "fix" is the problem\'s correct reference solution, so "Fixes verified" is a pipeline check, not fix quality');
+    expect(mode).not.toMatch(/recorded/);
+    // Live mode has real fixes: the caveat belongs to fixture mode only.
+    expect(markdown(rows, "live", "Judge0").split("\n")[0]).toBe("Mode: **live**. Executor: Judge0.");
+  });
+
   it("reports each tier separately for the routed run and both ablations", () => {
     const row = (key: string, tier: Row["tier"], buggy: boolean, verdict: Row["verdict"], config: Row["config"]): Row => ({
       key, tier, buggy, config, verdict, ttfcMs: null, costUsd: 0, unpricedCalls: 0, modelCalls: 1, runs: 1, timeLimitMs: 300, inputs: 1, wallMs: 1, message: "", fixVerified: verdict === "counterexample" ? true : undefined,

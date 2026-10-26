@@ -14,6 +14,9 @@ const WHY: Record<Purpose, string> = {
   explain: "Root-causing a bug from one minimal input and writing a fix needs deep reasoning: the reasoning model.",
 };
 
+/** Appended to a model_call trace line when the answer came from recorded fixtures, not a live call. */
+export const REPLAYED_NOTE = " (replayed answer, not a live call)";
+
 function whyFor(purpose: Purpose, routing: ModelConfig["routing"]): string {
   return routing === "ultra-only" ? "Ultra-only baseline: every call goes to the reasoning model." : WHY[purpose];
 }
@@ -70,7 +73,9 @@ export class ModelCaller {
     row.completionTokens += res.completionTokens;
     row.costUsd = row.costUsd === null || cost === null ? null : row.costUsd + cost;
     row.latencyMs += res.latencyMs;
-    this.tracer.emit(stage, "model_call", `${purpose} via ${res.model}`, {
+    // A replayed answer must not read as if the named model really ran.
+    const replayed = res.simulated || this.provider.name === "replay";
+    this.tracer.emit(stage, "model_call", `${purpose} via ${res.model}${replayed ? REPLAYED_NOTE : ""}`, {
       purpose,
       role,
       model: res.model,

@@ -66,6 +66,7 @@ async function main(args: string[]) {
         timeLimitMs: problem.timeLimitMs,
         inputs: r.stats.inputsTested,
         minimal: r.counterexample?.args,
+        shrinkExhausted: r.counterexample?.shrinkExhausted,
         foundBy: r.counterexample?.original.family,
         foundByModel: r.counterexample ? r.families.find((f) => f.name === r.counterexample?.original.family)?.source === "model" : undefined,
         fixVerified: r.fix?.verified,

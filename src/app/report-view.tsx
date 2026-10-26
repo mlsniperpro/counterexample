@@ -5,7 +5,7 @@ import { showValue } from "@/lib/core/compare";
 import { lineDiff } from "@/lib/diff";
 import type { SharedReport } from "@/lib/share";
 import { copyNote } from "./clipboard";
-import { ellipsize, fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
+import { cxHeading, ellipsize, fixSummary, fmtArgs, ms, usd, VERDICT } from "./format";
 
 type Props = {
   r: SharedReport;
@@ -47,7 +47,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
 
       {r.counterexample && (
         <div className="cx">
-          <div className="label">{r.counterexample.shrinkExhausted ? "Counterexample (shrinking stopped early, may not be minimal)" : "Minimal counterexample"}</div>
+          <div className="label">{cxHeading(r.counterexample)}</div>
           <code className="big">solve({fmtArgs(r.counterexample.args)})</code>
           <div className="cmp">
             <div>
@@ -149,6 +149,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
                 </td>
                 <td>
                   <code>{s.model.split("/").pop()}</code>
+                  {s.simulated && <span className="small muted"> (replay)</span>}
                 </td>
                 <td>{s.calls}</td>
                 <td>{s.promptTokens + s.completionTokens}</td>
@@ -162,7 +163,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
           </tbody>
         </table>
       </div>
-      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: token counts estimated from text length, latency simulated.</p>}
+      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: no model ran. A hand-written stand-in answered each step, so the model column names the model that step uses live; token counts are estimated from text length and latency is simulated.</p>}
 
       <div className="stats">
         <div>

@@ -16,8 +16,25 @@ Not clean.
   - medium: `shape: "path"` was missing from the model's DSL doc;
   - medium: `pool` bypassed the value caps (~30 s of synchronous generation);
   - low: 309+ digit integers compared as null; exact integers silently off before Node 21; small-scope cut as a prefix and claimed "every"; a stale fix next to a newer explanation; dead code and replay research wording.
-- **Security:** 1 high, 2 medium, 1 low. The report was cut off; the details are being collected. The high is a CPU denial of service from oversized solution output.
-- **Judge and UI:** pending.
+- **Security** (3 confirmed, fixed in `7649452`):
+  - high: a huge result line froze the server's event loop. One 10 MB line cost about 12.5 s of CPU; it now costs 8 ms. Lines over 256,000 characters are refused unread, the exact-integer reviver runs only when a 16+ digit run is present, and the output cap is now 8 MB.
+  - high: the comparison cost compounded across an attack. This is bounded by the same caps.
+  - high: POSIX message queues could outlive a run through `/dev/mqueue`. Every mq_* syscall is now denied, and `/dev/mqueue` is locked and swept. A test fails on the old sandbox, and the container shows 711 with the queue create denied.
+- **Judge and docs** (1 high, 7 medium, 8 low):
+  - high: replay stand-ins were called "recorded model responses";
+  - medium: unverified live claims in SUBMISSION; circular "fixes verified"; non-minimal hard-tier counterexamples; the live max_tokens and finish_reason risk; break-it.md missing; unverified Nebius CLI flags; the svg footnote overlap;
+  - low: stale numbers, preflight wording, recorded-fixtures wording, the soak table, replay Tavily wording, stale screenshots, public-repo hygiene.
+- **UI and tests** (1 medium, 8 low). Every round-8 item is fixed or partly fixed; axe reports 0 violations across 5 built-ins x 2 widths x 2 themes; `pnpm e2e` passes, including under load.
+  - Medium: ReportView rendering is mostly untested; 7 mutations survive.
+  - Low:
+    - a long executor host widens the page at 390 px;
+    - malformed research facts inside an event crash the render;
+    - an error line is not treated as terminal;
+    - a final partial line reads as a cut;
+    - the diff sign contrast;
+    - e2e docs and a stale-build check;
+    - focus is left on BODY, and the shared banner live region is not always mounted;
+    - BIG_RE splices markers inside escaped strings.
 
 ## Round 8 (2026-10-25, `0e938c2`, parallel audits on Sonnet; findings verified by the main session before fixing)
 

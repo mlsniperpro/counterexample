@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { smallScopeInputs } from "@/lib/core/smallscope";
+import { smallScope, smallScopeInputs } from "@/lib/core/smallscope";
 import { argsConform } from "@/lib/core/spec";
 import { PROBLEMS, getProblem } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
@@ -22,6 +22,25 @@ describe("small-scope (bounded exhaustive) inputs", () => {
     expect(coins.length).toBeGreaterThan(50);
     const graphs = smallScopeInputs(specsOf("shortest-paths"), 400);
     expect(graphs.some(([n, es]) => n === 3 && (es as number[][]).length === 2 && (es as number[][]).some((e) => e[2]! < 0))).toBe(true);
+  });
+
+  it("samples evenly across the whole enumeration when it must cut, not a prefix", () => {
+    const specs = specsOf("binary-search");
+    const full = smallScope(specs, 10_000);
+    expect(full).toMatchObject({ total: 371, capped: false });
+    const cut = smallScope(specs, 300);
+    expect(cut.total).toBe(371);
+    expect(cut.inputs).toHaveLength(300);
+    expect(new Set(cut.inputs.map((x) => JSON.stringify(x))).size).toBe(300);
+    // Every kept input is from the full list, in order, and the first one is kept.
+    const index = cut.inputs.map((x) => full.inputs.findIndex((y) => JSON.stringify(y) === JSON.stringify(x)));
+    expect(index[0]).toBe(0);
+    expect(index).toEqual([...index].sort((a, b) => a - b));
+    // A prefix would stop inside the arrays of length 2; the sample reaches the longest arrays too.
+    const lengths = new Set(cut.inputs.map((x) => (x[0] as unknown[]).length));
+    expect(lengths).toEqual(new Set(full.inputs.map((x) => (x[0] as unknown[]).length)));
+    expect(Math.max(...index)).toBeGreaterThan(360);
+    expect(smallScopeInputs(specs, 300)).toEqual(cut.inputs);
   });
 
   it("contributes nothing (and allocates nothing big) for graphs that are not small", () => {

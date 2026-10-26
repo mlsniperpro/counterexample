@@ -132,4 +132,13 @@ describe("runReducer (the attack run's state machine)", () => {
     for (const a of after) expect(runReducer(done, a), a.type).toBe(done);
     expect(done.events).toHaveLength(1);
   });
+
+  it("keeps the server's error line when the stream's ending is then reported as a cut, a timeout or a dropped connection", () => {
+    const withError = [{ type: "start", runId: 1 }, msg(1, { type: "error", error: "Too many attacks" })] satisfies RunAction[];
+    const outcomes = [{ complete: false }, { complete: true }, { thrown: new TypeError("network error") }, { thrown: abortError(), abortReason: TIMED_OUT }] as const;
+    for (const outcome of outcomes) {
+      const s = play(...withError, { type: "finish", runId: 1, outcome });
+      expect(s, JSON.stringify(outcome)).toMatchObject({ running: false, runId: 0, error: "Too many attacks" });
+    }
+  });
 });

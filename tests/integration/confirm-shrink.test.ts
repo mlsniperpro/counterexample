@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { attack } from "@/lib/agent/run";
 import { createContext } from "@/lib/agent/context";
 import { makeDeps } from "@/lib/agent/setup";
+import { explainPrompt } from "@/lib/agent/prompts";
 import { CONFIRM_HITS, confirmHits, RUN_CHUNK, shrinkStage } from "@/lib/agent/stages";
 import type { TraceEvent } from "@/lib/agent/trace";
 import { FIXTURES } from "@/fixtures/replay";
@@ -253,3 +254,122 @@ describe("confirming hits", () => {
     expect(r.stats.inputsTested).toBe(full.stats.inputsTested);
   });
 });
+
+describe("a solution that keeps state between calls", () => {
+  // Correct binary search, except for a memo keyed by target alone: wrong once another array has the same target.
+  const stateful = {
+    language: "python" as const,
+    code: [
+      "def solve(nums, target, _memo={}):",
+      "    if target in _memo:",
+      "        return _memo[target]",
+      "    lo, hi, r = 0, len(nums) - 1, -1",
+      "    while lo <= hi:",
+      "        mid = (lo + hi) // 2",
+      "        if nums[mid] == target:",
+      "            r = mid",
+      "            break",
+      "        if nums[mid] < target:",
+      "            lo = mid + 1",
+      "        else:",
+      "            hi = mid - 1",
+      "    _memo[target] = r",
+      "    return r",
+      "",
+    ].join("\n"),
+    entry: "solve",
+  };
+
+  it("reports an order-dependent counterexample that passes alone, never a flaky one", async () => {
+    const r = await attack({ problem: bs.problem, solution: stateful, research: "off" }, deps());
+    expect(r.verdict).toBe("counterexample");
+    const cx = r.counterexample!;
+    expect(cx.orderDependent?.precedingInputs).toBeGreaterThan(0);
+    expect(cx.shrinkSteps).toBe(0);
+    expect(cx.shrinkEvals).toBe(0);
+    expect(r.message).toBe("The solution fails on this input only after earlier calls in the same process: it keeps state between calls. Run alone, it is correct.");
+    expect(r.trace.some((e) => /flaky/.test(e.msg))).toBe(false);
+    expect(r.trace.some((e) => e.kind === "counterexample" && /keeps state between calls/.test(e.msg))).toBe(true);
+    expect(r.trace.some((e) => e.stage === "shrink" && e.kind === "exec")).toBe(false);
+    // Run alone, in a fresh process, the input passes.
+    const d = deps();
+    const alone = await d.executor.run({ language: "python", code: stateful.code, entry: "solve", inputs: [cx.args], timeLimitMs: 2000, memoryLimitMb: 256 });
+    const oracle = await d.executor.run({ language: "python", code: r.oracle!.code, entry: "solve", inputs: [cx.args], timeLimitMs: 2000, memoryLimitMb: 256 });
+    expect(alone.outcomes[0]).toMatchObject({ ok: true, out: (oracle.outcomes[0] as { out: unknown }).out });
+    // The explain stage still runs, and its prompt mentions the statefulness.
+    expect(r.explanation).toBeDefined();
+  });
+
+  it("tells the explain model about the state, and only then", () => {
+    const text = (stateful: boolean) => explainPrompt(bs.problem, stateful ? bs.demo : bs.demo, [[1], 1], 0, "-1", undefined, stateful)[1]!.content;
+    expect(text(true)).toMatch(/only after earlier calls in the same process/);
+    expect(text(false)).not.toMatch(/earlier calls/);
+  });
+
+  it("still drops a one-off failure that does not come back in the original order", async () => {
+    const solution = { language: "python" as const, code: "def solve(x):\n    return x  # under test\n", entry: "solve" };
+    const oracle = "def solve(x):\n    return x\n";
+    let solutionRuns = 0;
+    const executor: Executor = {
+      name: "fake",
+      label: "fake",
+      async run(req: RunRequest) {
+        const isSolution = req.code === solution.code;
+        if (isSolution) solutionRuns++;
+        // Only the very first run of the solution (the original chunk) is wrong, and only at its third input.
+        const outcomes = req.inputs.map(([x], i) => ({ ok: true as const, out: isSolution && solutionRuns === 1 && i === 2 ? -1 : (x as number), ms: 0 }));
+        return { outcomes, wallMs: 0, processes: 1 };
+      },
+    };
+    const problem = { ...bs.problem, params: [{ name: "x", type: { kind: "int" as const, min: 0, max: 100 } }], examples: [] };
+    const ctx = createContext({ problem, solution, research: "off" }, { ...deps(), executor });
+    ctx.judge.oracleCode = oracle;
+    const chunk = [[10], [11], [12], [13]];
+    const found = [{ args: chunk[2] as unknown[], family: "f", confirmed: false, j: { status: "mismatch" as const, expected: 12, got: "-1" } }];
+    expect(await confirmHits(ctx, found, chunk)).toEqual([]);
+    expect(ctx.droppedMismatches).toBe(1);
+  });
+});
+
+describe("the small-scope family says when it was cut", () => {
+  it("names how many of the small inputs it kept, and traces the sampling", async () => {
+    const r = await attack({ problem: bs.problem, solution: correct, research: "off" }, deps());
+    const small = r.families.find((f) => f.name === "small-scope")!;
+    expect(small.rationale).toBe("300 of 371 small inputs of the declared types, sampled evenly (bounded exhaustive testing: most bugs have a small counterexample).");
+    expect(small.rationale).not.toMatch(/^Every/);
+    expect(r.trace.some((e) => e.stage === "attack" && e.kind === "info" && /small-scope: 300 of 371 small inputs kept, sampled evenly/.test(e.msg))).toBe(true);
+  });
+
+  it("still says every small input when nothing was cut", async () => {
+    const isqrt = BUILT_INS.find((b) => b.problem.id === "isqrt");
+    if (!isqrt) throw new Error("isqrt is not a built-in");
+    const r = await attack({ problem: isqrt.problem, solution: isqrt.demo, research: "off", generators: "no-model" }, deps());
+    expect(r.families.find((f) => f.name === "small-scope")!.rationale).toMatch(/^Every small input/);
+    expect(r.trace.some((e) => /sampled evenly/.test(e.msg))).toBe(false);
+  });
+});
+
+describe("the explanation and the fix in a report belong to the same attempt", () => {
+  it("drops the failed fix when the next answer has an explanation but no code", async () => {
+    const same = "```python\n" + bs.demo.code + "\n```";
+    const fx: ReplayFixtures = {
+      ...FIXTURES,
+      "binary-search": { ...FIXTURES["binary-search"], explain: [`EXPLANATION: First guess.\n\n${same}`, "EXPLANATION: Second thoughts, but I will not write code."] },
+    };
+    const r = await attack({ problem: bs.problem, solution: bs.demo, research: "off" }, deps(fx));
+    expect(r.verdict).toBe("counterexample");
+    expect(r.explanation).toBe("Second thoughts, but I will not write code.");
+    // Absent, not set to undefined: the report is serialised with undefined as null.
+    expect(r).not.toHaveProperty("fix");
+    expect(r.trace.some((e) => e.kind === "warn" && /No fix was proposed/.test(e.msg))).toBe(true);
+    // The first attempt did run and fail before it was dropped.
+    expect(r.trace.some((e) => e.stage === "reattack" && /Fix still fails/.test(e.msg))).toBe(true);
+  });
+
+  it("keeps a fix that comes with its own explanation", async () => {
+    const r = await attack({ problem: bs.problem, solution: bs.demo, research: "off" }, deps());
+    expect(r.explanation).toBeDefined();
+    expect(r.fix?.verified).toBe(true);
+  });
+});
+

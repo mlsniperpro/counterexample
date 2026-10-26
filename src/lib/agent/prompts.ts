@@ -40,7 +40,7 @@ const DSL_DOC = `Input DSL (JSON):
 - {"kind":"tuple","items":[T,...],"nondecreasing":bool}
 - {"kind":"const","value":v}
 - {"kind":"oneOf","options":[T,...]}
-- {"kind":"graph","n":{"min":a,"max":b},"m":{"min":a,"max":b},"weight":{"min":a,"max":b},"dag":bool}   (expands to two arguments: n and edges [[u,v,w],...])
+- {"kind":"graph","n":{"min":a,"max":b},"m":{"min":a,"max":b},"weight":{"min":a,"max":b},"dag":bool,"shape":"random"|"path"}   (expands to two arguments: n and edges [[u,v,w],...]; "dag" keeps only edges u<v; "path" starts with the chain 0->1->...->n-1 and fills the rest randomly, since random edges almost never form a long chain: use it for deep graphs)
 Limits: lengths up to ${SPEC_LIMITS.maxLen}, graphs up to ${SPEC_LIMITS.maxNodes} nodes and ${SPEC_LIMITS.maxEdges} edges, nesting up to ${SPEC_LIMITS.maxDepth} levels, at most ${SPEC_LIMITS.maxValuesPerInput} values per input, and a family is cut to the inputs that fit in ${SPEC_LIMITS.maxValuesPerFamily} values in total (so few huge inputs, or many small ones). A graph may only be a top-level argument.`;
 
 export function generatorsPrompt(p: Problem, s: Solution, facts: ResearchFact[]): ChatMessage[] {
@@ -74,12 +74,13 @@ export function explainPrompt(
   expected: unknown,
   got: string,
   feedback?: string,
+  orderDependent = false,
 ): ChatMessage[] {
   return [
     { role: "system", content: SYSTEM },
     {
       role: "user",
-      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => showValue(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.
+      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => showValue(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.${orderDependent ? " Run alone on a fresh process this input passes: the solution fails on it only after earlier calls in the same process, so look for state it keeps between calls (a global, a cache or memo, a mutable default argument)." : ""}
 
 Problem: ${p.title}
 ${p.statement}

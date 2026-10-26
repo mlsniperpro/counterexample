@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ellipsize, fixSummary, fmtArgs, toMarkdown } from "@/app/format";
+import { cxHeading, ellipsize, fixSummary, fmtArgs, toMarkdown } from "@/app/format";
 import { exactReviver } from "@/lib/core/compare";
 import { fullReport } from "../app-fixtures";
 
@@ -65,5 +65,13 @@ describe("ellipsize", () => {
     expect(ellipsize("abcd", 3)).toBe("abc…");
     expect(ellipsize("ab😀cd", 3)).toBe("ab…");
     expect(ellipsize("x".repeat(500), 120)).toHaveLength(121);
+  });
+});
+
+describe("counterexample heading", () => {
+  it("names an order-dependent failure, an exhausted shrink, and a minimal counterexample", () => {
+    expect(cxHeading({ shrinkExhausted: true, orderDependent: { precedingInputs: 3 } })).toMatch(/fails only after 3 earlier call\(s\).*keeps state/);
+    expect(cxHeading({ shrinkExhausted: true })).toMatch(/may not be minimal/);
+    expect(cxHeading({ shrinkExhausted: false })).toBe("Minimal counterexample");
   });
 });

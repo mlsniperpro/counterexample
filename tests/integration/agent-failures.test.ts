@@ -26,6 +26,22 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.trace.some((e) => e.kind === "warn" && /Research question failed, continuing/.test(e.msg))).toBe(true);
   });
 
+  it("calls replayed research recorded search results, and a live client Tavily", async () => {
+    const b = builtIn("binary-search");
+    const replayed = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());
+    const lines = replayed.trace.filter((e) => e.stage === "research" && (e.kind === "stage_start" || e.kind === "research")).map((e) => e.msg);
+    expect(lines[0]).toMatch(/^Researching with recorded search results: /);
+    expect(lines.some((m) => /^Recorded search results: ".+" returned \d+ result\(s\)$/.test(m))).toBe(true);
+    expect(lines.some((m) => /Tavily/.test(m))).toBe(false);
+    // A client that is not the replay one keeps the Tavily wording.
+    const replay = deps().research!;
+    const live: ResearchClient = { name: "tavily", search: (q, signal) => replay.search(q, signal) };
+    const real = await attack({ problem: b.problem, solution: b.demo, research: "force" }, { ...deps(), research: live });
+    const realLines = real.trace.filter((e) => e.stage === "research" && (e.kind === "stage_start" || e.kind === "research")).map((e) => e.msg);
+    expect(realLines[0]).toMatch(/^Researching with Tavily: /);
+    expect(realLines.some((m) => /^Tavily: ".+" returned \d+ result\(s\)$/.test(m))).toBe(true);
+  });
+
   it("says so when research is needed but no client is configured", async () => {
     const b = builtIn("binary-search");
     const r = await attack({ problem: b.problem, solution: b.demo }, { ...deps(), research: null });

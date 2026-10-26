@@ -2,6 +2,13 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+STATE 2026-10-26 ~17:10 UTC: round 9 is fully fixed in this push.
+- Security: `7649452`.
+- Core, judge and UI: this commit. It adds order-dependent counterexamples for stateful solutions, bulk graph shrinking (dag n 876 → 215/460), honest replay wording, 16k/8k max_tokens with finish_reason handling, the guard reservation at 16,384 tokens, and more.
+- Checks: lint, typecheck, 435/435 tests, build, and `pnpm e2e` (all 7 checks) are green. The bench was regenerated: 38/38 found, 0 false alarms; the hard tier is 8/8 against 0/8 for both ablations.
+- A soak of all 54 solutions at 3 seeds is running in a scratch worktree on `91c…`-era code; rerun it on the final commit.
+- Next: audit round 10 (4 Sonnet auditors) on this HEAD; then repeat until 2 clean rounds in a row, then the evidence, break-it.md, the gate, the PR body and the final comment.
+
 RESUMED 2026-10-26 15:48 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ (lease active). The round-8 UI/test WIP below is now VERIFIED green on `8440d3a`: lint (0 warnings), typecheck clean, `pnpm test` 381/381, `pnpm build`, and `pnpm e2e` (7 browser checks passed). Round 9 (4 parallel Sonnet audits on `8440d3a`: core, security, judge/docs, UI/tests) is in flight; the UI audit also checks each round-8 UI finding.
 
 WIND DOWN (2026-10-25 ~14:20 UTC, owner request): the lease is released; the work moves to a fresh session.

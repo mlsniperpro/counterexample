@@ -1,3 +1,4 @@
+import { exactIntegersSupported } from "../core/compare";
 import { FIXTURES, RESEARCH_RESULTS } from "../../fixtures/replay";
 import { Judge0Executor } from "../exec/judge0";
 import { LocalExecutor } from "../exec/local";
@@ -48,6 +49,11 @@ export function makeExecutor(env: Env = process.env): Executor {
   return new LocalExecutor();
 }
 
+/** Problems with this runtime that every attack should show in its trace; empty when there are none. */
+export function startupWarnings(exactIntegers = exactIntegersSupported()): string[] {
+  return exactIntegers ? [] : ["This Node.js version cannot read exact big integers from JSON (needs Node 21+): outputs that differ only beyond 2^53 will compare equal, so overflow bugs can be missed. Run on Node 22 or newer."];
+}
+
 export function makeDeps(opts: { mode?: Mode; routing?: Routing; env?: Env; fixtures?: ReplayFixtures } = {}): AgentDeps {
   const env = opts.env ?? process.env;
   const mode = resolveMode(env, opts.mode);
@@ -57,6 +63,7 @@ export function makeDeps(opts: { mode?: Mode; routing?: Routing; env?: Env; fixt
     executor: makeExecutor(env),
     research: makeResearch(mode, env),
     prices: priceTable(env),
+    warnings: startupWarnings(),
   };
 }
 

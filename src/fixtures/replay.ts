@@ -12,16 +12,16 @@ import { REFERENCES } from "../lib/problems/demos.generated";
 const py = (s: string) => "```python\n" + s.trim() + "\n```";
 const json = (o: unknown) => "```json\n" + JSON.stringify(o, null, 2) + "\n```";
 
-export const LEETCODE_704 = "https://leetcode.com/problems/binary-search/description/";
-export const BS_EDGE_DISCUSS = "https://en.wikipedia.org/wiki/Binary_search_algorithm#Implementation_issues";
-export const ISQRT_WIKI = "https://en.wikipedia.org/wiki/Integer_square_root";
-export const CHANGE_MAKING_WIKI = "https://en.wikipedia.org/wiki/Change-making_problem";
-export const DIJKSTRA_WIKI = "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm";
-export const MDN_SORT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort";
-export const MDN_RIGHT_SHIFT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift";
-export const MDN_MATH_ROUND = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round";
-export const PY_ROUND = "https://docs.python.org/3/library/functions.html#round";
-export const LEETCODE_3 = "https://leetcode.com/problems/longest-substring-without-repeating-characters/description/";
+const LEETCODE_704 = "https://leetcode.com/problems/binary-search/description/";
+const BS_EDGE_DISCUSS = "https://en.wikipedia.org/wiki/Binary_search_algorithm#Implementation_issues";
+const ISQRT_WIKI = "https://en.wikipedia.org/wiki/Integer_square_root";
+const CHANGE_MAKING_WIKI = "https://en.wikipedia.org/wiki/Change-making_problem";
+const DIJKSTRA_WIKI = "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm";
+const MDN_SORT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort";
+const MDN_RIGHT_SHIFT = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift";
+const MDN_MATH_ROUND = "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round";
+const PY_ROUND = "https://docs.python.org/3/library/functions.html#round";
+const LEETCODE_3 = "https://leetcode.com/problems/longest-substring-without-repeating-characters/description/";
 
 export const RESEARCH_RESULTS: Record<string, SearchResult[]> = {
   // API documentation (questions asked because of what the code calls; see src/lib/research/plan.ts).

@@ -95,17 +95,32 @@ const isEdgeList = (v: unknown): v is number[][] =>
   Array.isArray(v) && v.every((e) => Array.isArray(e) && e.length >= 2 && e.every((x) => Number.isInteger(x)));
 
 /**
- * Graph-aware step for an (n, edges) argument pair: delete one node that no
- * edge touches and renumber the nodes above it. Node 0 is kept (it is often
- * the source).
+ * Graph-aware step for an (n, edges) argument pair: delete nodes that no edge
+ * touches and renumber the nodes above them. Bulk drops come first (all
+ * isolated nodes, then the upper half of them), so a 1000-node graph with a
+ * few edges shrinks in a handful of rounds instead of one node per round;
+ * single-node drops follow for the cases where a bulk drop loses the failure.
+ * Node 0 is kept (it is often the source).
  */
 function* dropIsolatedNodes(n: number, edges: number[][]): Generator<[number, number[][]]> {
   const used = new Set(edges.flatMap((e) => e.slice(0, 2)));
-  for (let k = n - 1; k >= 1; k--) {
-    if (used.has(k)) continue;
-    const relabel = (x: number) => (x > k ? x - 1 : x);
-    yield [n - 1, edges.map((e) => [...e.slice(0, 2).map(relabel), ...e.slice(2)])];
-  }
+  const isolated: number[] = [];
+  for (let k = n - 1; k >= 1; k--) if (!used.has(k)) isolated.push(k);
+  const without = (drop: number[]): [number, number[][]] => {
+    const gone = new Set(drop);
+    // A node's new label is its old one minus the dropped nodes below it.
+    const below: number[] = [];
+    let removed = 0;
+    for (let x = 0; x < n; x++) {
+      below.push(removed);
+      if (gone.has(x)) removed++;
+    }
+    const relabel = (x: number) => (Number.isInteger(x) && x >= 0 && x < n ? x - (below[x] ?? 0) : x);
+    return [n - drop.length, edges.map((e) => [...e.slice(0, 2).map(relabel), ...e.slice(2)])];
+  };
+  if (isolated.length > 1) yield without(isolated);
+  if (isolated.length > 2) yield without(isolated.slice(0, Math.floor(isolated.length / 2)));
+  for (const k of isolated) yield without([k]);
 }
 
 /** Candidates for an argument list: shrink one argument at a time. */
@@ -122,7 +137,7 @@ export function* argCandidates(args: unknown[]): Generator<unknown[]> {
   }
 }
 
-export type ShrinkOptions = {
+type ShrinkOptions = {
   isValid: (args: unknown[]) => boolean;
   /** Returns, for each candidate, whether it still reproduces the failure. */
   stillFails: (batch: unknown[][]) => Promise<boolean[]>;
@@ -130,7 +145,7 @@ export type ShrinkOptions = {
   maxEvals?: number;
 };
 
-export type ShrinkResult = { minimal: unknown[]; steps: number; evals: number; exhausted: boolean };
+type ShrinkResult = { minimal: unknown[]; steps: number; evals: number; exhausted: boolean };
 
 export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<ShrinkResult> {
   const batchSize = opts.batchSize ?? 64;

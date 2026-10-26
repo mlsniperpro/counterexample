@@ -94,20 +94,44 @@ function product(lists: unknown[][], cap: number): unknown[][] {
   return acc;
 }
 
-/** Up to `cap` small argument lists for these parameter specs, all within the problem's constraints. */
-export function smallScopeInputs(specs: TypeSpec[], cap: number): unknown[][] {
+/** Most combinations enumerated before filtering; a bigger space is cut here, and `capped` says so. */
+const MAX_ENUMERATED = 20_000;
+
+export type SmallScope = {
+  /** At most `cap` argument lists, all within the problem's constraints. */
+  inputs: unknown[][];
+  /** How many distinct valid small inputs the enumeration produced (the true size when `capped` is false). */
+  total: number;
+  /** True when the enumeration itself hit its limit, so `total` is a lower bound. */
+  capped: boolean;
+};
+
+/**
+ * Small argument lists for these parameter specs. When there are more than
+ * `cap`, they are sampled evenly across the whole enumeration (a stride), not
+ * cut off after a prefix: a prefix would cover only the first parameter's
+ * smallest values (for binary search, only arrays of length 1 and 2).
+ */
+export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
   // Each graph spec contributes two arguments (n, edges) as one unit.
   const units = specs.map((s) => (s.kind === "graph" ? graphs(s) : values(s, true).map((v) => [v])));
-  const combos = product(units, cap * 4).map((parts) => (parts as unknown[][]).flat(1));
+  const combos = product(units, MAX_ENUMERATED).map((parts) => (parts as unknown[][]).flat(1));
   const seen = new Set<string>();
-  const out: unknown[][] = [];
+  const all: unknown[][] = [];
   for (const args of combos) {
-    if (out.length >= cap) break;
     if (!argsConform(args, specs)) continue;
     const key = JSON.stringify(args);
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(args);
+    all.push(args);
   }
-  return out;
+  const capped = combos.length >= MAX_ENUMERATED;
+  if (all.length <= cap) return { inputs: all, total: all.length, capped };
+  const inputs = Array.from({ length: cap }, (_, i) => all[Math.floor((i * all.length) / cap)] as unknown[]);
+  return { inputs, total: all.length, capped };
+}
+
+/** Up to `cap` small argument lists for these parameter specs, all within the problem's constraints. */
+export function smallScopeInputs(specs: TypeSpec[], cap: number): unknown[][] {
+  return smallScope(specs, cap).inputs;
 }

@@ -7,14 +7,33 @@ export type CompareMode = "exact" | "unordered" | "float";
  * low digits (the overflow bugs this tool exists to find) would compare equal.
  */
 const BIG = "\u0000int:";
-const BIG_RE = /"\\u0000int:(-?\d+)"/g;
+/** A marker only counts where a JSON value stands (after `[`, `,`, `:` or at the start, before `,`, `]`, `}` or the end, so never an object key): a quote inside a string is always escaped, so text like "\"\u0000int:5" never matches. */
+const BIG_RE = /(^|[[,:]\s*)"\\u0000int:(-?\d+)"(?=\s*(?:[,\]}]|$))/g;
 
-/** JSON.parse reviver: unsafe integer literals become exact marker strings. Needs source-text access (Node 21+); without it values stay numbers. */
+/**
+ * JSON.parse reviver: unsafe integer literals become exact marker strings, also
+ * those too long for a finite number (309+ digits parse to Infinity, and would
+ * otherwise equal each other and null). Needs source-text access (Node 21+);
+ * without it values stay numbers, see `exactIntegersSupported`.
+ */
 export function exactReviver(_key: string, value: unknown, ctx?: { source?: string }): unknown {
-  if (typeof value === "number" && Number.isInteger(value) && !Number.isSafeInteger(value) && ctx?.source && /^-?\d+$/.test(ctx.source)) {
+  if (typeof value === "number" && !Number.isSafeInteger(value) && ctx?.source && /^-?\d+$/.test(ctx.source)) {
     return BIG + ctx.source;
   }
   return value;
+}
+
+let exactSupported: boolean | undefined;
+
+/**
+ * Whether this runtime's JSON.parse hands the reviver the source text, which
+ * exact big integers need (Node 21+). Checked once per process; `parse` is
+ * injectable for tests and then bypasses the cached answer.
+ */
+export function exactIntegersSupported(parse: (text: string, reviver: typeof exactReviver) => unknown = JSON.parse): boolean {
+  const probe = () => (parse("[9007199254740993]", exactReviver) as unknown[])[0] === `${BIG}9007199254740993`;
+  if (parse !== JSON.parse) return probe();
+  return (exactSupported ??= probe());
 }
 
 /** The exact digits of an unsafe integer held as a number, in the same marker form, so number and marker forms compare alike. */
@@ -38,7 +57,7 @@ function canon(v: unknown): string {
 /** JSON text for display and for every JSON the app writes out (stream, trace, report files), with big integers written as plain digits. */
 export function showValue(v: unknown, space?: number): string {
   const s = JSON.stringify(v, (_k, x) => normalise(x), space);
-  return s === undefined ? "undefined" : s.replace(BIG_RE, "$1");
+  return s === undefined ? "undefined" : s.replace(BIG_RE, "$1$2");
 }
 
 /** Longest output text kept for display, traces, reports and prompts; a solution can print megabytes. */

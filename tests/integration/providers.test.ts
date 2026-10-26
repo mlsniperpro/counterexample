@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { rejectionOf } from "../helpers";
 import { makeExecutor, makeProvider, makeResearch, resolveMode } from "@/lib/agent/setup";
-import { ReplayMissError, UpstreamError } from "@/lib/errors";
+import { ModelOutputError, ReplayMissError, UpstreamError } from "@/lib/errors";
+import { DEFAULT_REASONING_MODEL, MAX_TOKENS_FAST, MAX_TOKENS_REASONING } from "@/lib/models/config";
 import { NebiusProvider } from "@/lib/models/nebius";
 import { RecordingProvider, ReplayProvider } from "@/lib/models/replay";
 import { ReplayResearch, TavilyClient } from "@/lib/research/tavily";
@@ -26,8 +27,61 @@ describe("Nebius Token Factory provider", () => {
     const r = await p.complete(req);
     expect(f.seen[0]!.url).toBe("https://api.tokenfactory.nebius.com/v1/chat/completions");
     expect((f.seen[0]!.init.headers as Record<string, string>).authorization).toBe("Bearer sk-test");
-    expect(JSON.parse(String(f.seen[0]!.init.body))).toMatchObject({ model: "m", messages: req.messages, max_tokens: 4096 });
+    expect(JSON.parse(String(f.seen[0]!.init.body))).toMatchObject({ model: "m", messages: req.messages, max_tokens: 8192 });
     expect(r).toMatchObject({ text: "hi", model: "nvidia/x", promptTokens: 12, completionTokens: 3, simulated: false, unmetered: false });
+  });
+
+  describe("max_tokens (hidden reasoning counts against it)", () => {
+    const ok = () => Response.json({ choices: [{ message: { content: "hi" }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
+    const sentMaxTokens = async (p: NebiusProvider, f: ReturnType<typeof fetchSequence>, r: Parameters<NebiusProvider["complete"]>[0]) => {
+      await p.complete(r);
+      return (JSON.parse(String(f.seen.at(-1)!.init.body)) as { max_tokens: number }).max_tokens;
+    };
+
+    it("defaults to 16384 for the reasoning model and 8192 for a fast one", async () => {
+      expect([MAX_TOKENS_REASONING, MAX_TOKENS_FAST]).toEqual([16384, 8192]);
+      const f = fetchSequence([ok]);
+      const p = new NebiusProvider("k", undefined, f.http);
+      expect(await sentMaxTokens(p, f, { ...req, model: DEFAULT_REASONING_MODEL })).toBe(16384);
+      expect(await sentMaxTokens(p, f, { ...req, model: DEFAULT_REASONING_MODEL.toUpperCase() })).toBe(16384);
+      expect(await sentMaxTokens(p, f, { ...req, model: "nvidia/nemotron-3-super-120b-a12b" })).toBe(8192);
+    });
+
+    it("follows MODEL_REASONING from the environment, so ultra-only routing gets the larger cap on every call", async () => {
+      const f = fetchSequence([ok]);
+      const p = new NebiusProvider("k", undefined, f.http, undefined, "acme/big-thinker");
+      expect(await sentMaxTokens(p, f, { ...req, model: "acme/big-thinker" })).toBe(16384);
+      expect(await sentMaxTokens(p, f, { ...req, model: DEFAULT_REASONING_MODEL })).toBe(8192);
+      expect(NebiusProvider.fromEnv({ NEBIUS_API_KEY: "k", MODEL_REASONING: "acme/big-thinker" })?.maxTokensFor("acme/big-thinker")).toBe(16384);
+      expect(NebiusProvider.fromEnv({ NEBIUS_API_KEY: "k" })?.maxTokensFor(DEFAULT_REASONING_MODEL)).toBe(16384);
+    });
+
+    it("lets one call choose its own limit", async () => {
+      const f = fetchSequence([ok]);
+      const p = new NebiusProvider("k", undefined, f.http);
+      expect(await sentMaxTokens(p, f, { ...req, model: DEFAULT_REASONING_MODEL, maxTokens: 64 })).toBe(64);
+      expect(await sentMaxTokens(p, f, { ...req, maxTokens: 20_000 })).toBe(20_000);
+    });
+
+    it("turns finish_reason length with no content into a typed model-output error naming the limit", async () => {
+      for (const message of [{ content: "" }, { content: null }, { content: "  \n" }, {}]) {
+        const f = fetchSequence([() => Response.json({ choices: [{ message, finish_reason: "length" }], usage: { prompt_tokens: 5, completion_tokens: 8192 } })]);
+        const err = await rejectionOf<ModelOutputError>(new NebiusProvider("k", undefined, f.http).complete(req));
+        expect(err).toBeInstanceOf(ModelOutputError);
+        expect(err.code).toBe("model_output");
+        expect(err.message).toBe(
+          'token-factory: m hit the max_tokens limit (8192) before it wrote any answer (finish_reason "length"; hidden reasoning counts against the limit). Raise the limit: MAX_TOKENS_REASONING / MAX_TOKENS_FAST in src/lib/models/config.ts, or maxTokens on the call.',
+        );
+        expect(f.seen).toHaveLength(1); // not retried: the same request would fail the same way
+      }
+    });
+
+    it("still returns a truncated but non-empty answer, and an empty one that did not hit the limit", async () => {
+      const cut = fetchSequence([() => Response.json({ choices: [{ message: { content: "```python\ndef solve(" }, finish_reason: "length" }] })]);
+      expect((await new NebiusProvider("k", undefined, cut.http).complete(req)).text).toBe("```python\ndef solve(");
+      const stop = fetchSequence([() => Response.json({ choices: [{ message: { content: "" }, finish_reason: "stop" }] })]);
+      expect((await new NebiusProvider("k", undefined, stop.http).complete(req)).text).toBe("");
+    });
   });
 
   it("retries rate limits, then succeeds", async () => {
