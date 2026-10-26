@@ -1,5 +1,7 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+PICKED UP 2026-10-26 22:27 UTC by session_01MhqWcN2Xy12avz8LfXtVq9 (new account; lease active). Inherited HEAD `60c13c4` is green: lint, typecheck, 482/482 tests. The round-10 finding-1 tests exist (tests/integration/confirm-shrink.test.ts "re-attacking a fix on an order-dependent counterexample"). Audit round 11 (4 Sonnet auditors: core incl. re-verifying the 9 round-10 core items, security, judge/docs, UI/tests incl. axe) and a 3-seed soak of all solutions are running. The sandbox image is built (`counterexample-sandbox`). Next steps below are unchanged.
+
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
 FINISH AND WIND DOWN (2026-10-26 ~19:10 UTC, owner request: weekly usage nearly used up; the successor may be on another account). The lease is released.
