@@ -2,6 +2,30 @@
 
 Updated 2026-10-25 ~13:20 UTC by session_01Q1oMvNAnBQBDukXyvqyhQZ. The owner said RESUME after the wind-down; the lease is active again.
 
+WIND DOWN (2026-10-26 ~17:15 UTC, owner request). The lease is released and the work moves to a fresh session.
+- Pushed and green on `7204867` and its handoff follow-ups: rounds 6 to 9 are fully fixed.
+  - Checks: lint clean, typecheck clean, 435/435 tests, `pnpm build`, and `pnpm e2e` (7 browser checks) all pass.
+  - Bench regenerated: 38/38 found, 0 false alarms; the hard tier finds 8/8 routed against 0/8 for both ablations.
+  - Soak on the pre-round-9 code: 1509 attacks, 0 unsound, 0 missed.
+- Stopped with no results:
+  - The round-10 audits (4 Sonnet auditors on `7204867`). The security auditor had confirmed all syscall denials before it was stopped. No findings are recorded.
+  - The soak rerun on `7204867`, killed early.
+- Next steps, in order:
+  1. Claim the lease.
+  2. Run audit round 10 with 4 parallel Sonnet auditors (core, security, judge/docs, UI/tests) on HEAD. Verify each finding, then fix it.
+  3. Repeat the audits until 2 consecutive rounds are clean.
+  4. On the final HEAD, gather the evidence:
+     - `pnpm bench --readme`;
+     - `pnpm soak --all --seeds 3 -j 2 --readme` (about 70 minutes);
+     - `FC_NUM_RUNS=5000 pnpm exec vitest run tests/unit --testTimeout 3600000`;
+     - the sandbox bench, quiet and under load: rebuild the image with `DOCKER_BUILDKIT=0 docker build -t counterexample-sandbox sandbox/` (start `dockerd` first), then `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox` and `JUDGE0_URL=http://localhost:2358 JUDGE0_TOKEN=x pnpm bench --only binary-search`;
+     - a fresh-clone README run;
+     - `pnpm build && pnpm e2e`;
+     - axe-core.
+  5. Write break-it.md (TESTED_COMMIT = HEAD) and reaudit.md (AUDITED_COMMIT = HEAD, CLEAN_AUDITS_IN_A_ROW = 2, OPEN_CRITICAL and OPEN_HIGH = 0).
+  6. Run `bash .agent/win-gate.sh COUNTEREXAMPLE` and push.
+  7. Rewrite the PR #1 body; it is stale (old benchmark table, P1 "not built", no rounds 4 to 9). Post the final status comment.
+
 STATE 2026-10-26 ~17:10 UTC: round 9 is fully fixed in this push.
 - Security: `7649452`.
 - Core, judge and UI: this commit. It adds order-dependent counterexamples for stateful solutions, bulk graph shrinking (dag n 876 → 215/460), honest replay wording, 16k/8k max_tokens with finish_reason handling, the guard reservation at 16,384 tokens, and more.
