@@ -1,5 +1,33 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+FINISH AND WIND DOWN (2026-10-26 ~23:30 UTC, owner request: this account's usage is at 94%). session_01MhqWcN2Xy12avz8LfXtVq9 has released the lease. A successor may be on another account and have only this repo.
+- Goal: WIN the Nebius x NVIDIA hackathon. Code freeze is 2026-10-29T15:00Z. PR #1 (`counterexample` -> `main`); never open a second PR.
+- Done and pushed, green:
+  - Round 11 is fully fixed:
+    - `5966c4f`: core and security;
+    - `4da9353`: UI and tests;
+    - `bda6cc8`: bench regenerated, 38/38 found, 0 false alarms, 38/38 fixes verified, ablations unchanged.
+  - The details are under "Round 11" in reaudit.md.
+- Gate at wind-down, on the final HEAD: `GATE: FAIL (3): only 0 clean full audit(s) in a row; two consecutive audits must find nothing new`.
+  - Every code check passed: checks.sh (lint, ruff, typecheck, 492/492 tests, FC 1000, the bench on one problem, build, e2e with 8 steps including the new focus step), the package scripts and the secret scan.
+  - The remaining failures are audit evidence only: no clean rounds, AUDITED_COMMIT PENDING, and break-it.md missing.
+- Left unfinished: the round-12 audits (core, security, judge/docs, UI/tests on `4da9353`/`bda6cc8`) were stopped before reporting, so there are no round-12 findings. The FC_NUM_RUNS=5000 confirmation run on HEAD was also stopped. Nothing was reverted.
+- Next steps, in order:
+  1. Claim the lease.
+  2. Rerun round 12 with 4 Sonnet auditors (model "sonnet", effort "high"). Tell them to report only demonstrated defects, and verify each finding before fixing it. Repeat until 2 rounds in a row are clean.
+  3. Gather the evidence on the final HEAD:
+     - `FC_NUM_RUNS=5000 pnpm exec vitest run tests/unit --testTimeout 3600000`. It must show 0 unhandled errors; the small-scope property now yields between cases;
+     - `pnpm soak --all --seeds 3 -j 2 --readme`. bench/results/soak-all.* predate rounds 9 to 11;
+     - the sandbox bench, quiet and under load;
+     - a fresh clone;
+     - axe-core;
+     - `pnpm screenshots`.
+  4. Write break-it.md (TESTED_COMMIT) and the reaudit.md header (AUDITED_COMMIT, CLEAN_AUDITS_IN_A_ROW=2). Update the WIN-CHECKLIST test count (492 now) and the SUBMISSION soak wording if the soak changes.
+  5. Run the gate, push, update the PR body, and post the final status.
+- Open findings: none known (round 11 is fully fixed; round 12 has not reported).
+- Commands: see "Commands" below. They include the owner rules on subagents (model "sonnet", effort "high") and on pushing (push when a substantial task is green, no timer, one PR), plus the sandbox image build.
+- Gotcha: never run `pkill -f vitest` in a command whose own text contains "vitest"; it kills its own shell.
+
 STATE 2026-10-26 ~23:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active).
 - Round 11 is fully fixed and pushed. Not clean: core 5, security 2, judge 3 (low), UI 4.
   - `5966c4f`: core and security fixes.
