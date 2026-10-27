@@ -83,8 +83,10 @@ export async function POST(req: Request) {
         void _omit;
         send({ type: "report", report: rest });
       } catch (e) {
-        // attack() turns failures into verdicts; reaching here is a bug, so log it.
+        // attack() turns failures into verdicts; reaching here is a bug, so log it. What it spent is unknown, so the
+        // whole reservation stays charged: a crash must never refund money the model calls may already have cost.
         console.error("attack crashed", e);
+        spent.costUsd = Math.max(spent.costUsd, reserveUsd);
         send({ type: "error", error: errorMessage(e) });
       } finally {
         release();

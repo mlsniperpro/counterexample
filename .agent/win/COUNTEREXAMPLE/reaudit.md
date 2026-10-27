@@ -7,6 +7,15 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 14 (2026-10-27, `b67762a`/`985e3d2`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Security** (incomplete: the auditor stopped partway, so it is rerun). Its two leads were checked by the main session:
+  - low, fixed: if `attack()` ever threw, the route settled the spend at 0 and refunded the whole live reservation ($0.65), though model calls may have cost money. A crash now keeps the reservation charged. `tests/integration/route-crash.test.ts` fails on the old code;
+  - low, docs: the 1,000,000-character result budget applies per process (or Judge0 submission), not per attack. The README now says so.
+  - Measured: forged records are capped (6 ms for 8 MB), and an 8 MB stdout with no markers takes 150 ms to scan. A full Judge0 attack with 250 K-character results peaked at a 377 ms stall.
+- **Core, UI and tests, judge:** pending.
+
 ## Round 13 (2026-10-27, `a3f70e3`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean. The round-12 fixes hold: small-scope is byte-identical to the previous commit on all 39 catalog cases, and no legitimate final record is lost.
