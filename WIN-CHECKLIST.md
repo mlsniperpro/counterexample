@@ -54,7 +54,7 @@ Legend:
 - [P] 8. Live benchmark numbers (`pnpm bench --live --readme`). Needs the Nebius key (BLOCKED.md).
 - [x] 9. Rate limit by IP and daily model-spend cap. Evidence: `src/lib/agent/guard.ts`, `tests/unit/guard-limit.test.ts`.
 - [P] 9. Vercel deployment with env vars. Needs the owner's Vercel project and keys (BLOCKED.md).
-- [x] 10. `docs/FEEDBACK.md`, `docs/FRICTION.md`, `docs/VIDEO.md`, `SUBMISSION.md`, `docs/architecture.svg`.
+- [x] 10. `docs/FEEDBACK.md`, `docs/FRICTION.md`, `docs/VIDEO.md`, `docs/SUBMISSION.md` (every Devpost field, paste-ready), `docs/architecture.svg`.
 - [P] 10. Demo video filmed and published. Needs the owner's footage and YouTube (BLOCKED.md).
 - [P] Public repo before submission. Owner action (BLOCKED.md).
 - [x] Done-when: replay end to end in tests (`tests/e2e/agent-replay.test.ts`); live marked owner-to-verify.
