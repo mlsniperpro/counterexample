@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 450 tests when counted on 2026-10-26 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 492 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -145,4 +145,19 @@ Legend:
 - [x] Round 10 judge and docs, fixed in the docs and the report panel (details in `reaudit.md`):
   - medium: the README and `docs/VIDEO.md` described a coin-change result the app no longer produces; replay now gives `solve([2, 5], 6)` expected 3, got -1, shrunk from `[[2, 19], 24]` in 4 steps, with the fix re-attacked on 1,232 inputs, found first by the small-scope family. The README says so, and the video now shows Shortest paths, where small-scope finds nothing and a model-designed family does;
   - medium: the README, SUBMISSION and this checklist now say that 3 to 4 of the 8 hard-tier counterexamples hit the shrink budget and are reported as "not minimal";
-  - low: the README soak table is marked as an earlier run (pre-round 9, base tier) to be regenerated on the final commit; the video no longer says "cheaper and faster than Ultra everywhere" (it now cites the replay-estimated benchmark and says so); the report panel in replay mode reads "Research (hand-written stand-in for Tavily)" (`tests/unit/report-view.test.ts`); the README states the spend-cap arithmetic (about $0.65 reserved per live attack, at most 3 in flight at the default $2 cap); `docs/FEEDBACK.md` gives the real client length (85 lines); the README no longer gives a precise minimal timeout length.
+  - low: the README soak table is marked as an earlier run (pre-round 9, base tier) to be regenerated on the final commit; the video no longer says "cheaper and faster than Ultra everywhere" (it now cites the replay-estimated benchmark and says so); the report panel in replay mode reads "Research (hand-written stand-in for Tavily)" (`tests/unit/report-view.test.ts`); the README states the spend-cap arithmetic (about $0.65 reserved per live attack, at most 3 in flight at the default $2 cap); `docs/FEEDBACK.md` gives the real client length (under 100 lines); the README no longer gives a precise minimal timeout length.
+- [x] Round 10 UI and tests: the audit was stopped twice before reporting. Round 11 covered UI and tests in full (below).
+- [x] Round 11 core and security (audit of `60c13c4`; fixed with regression tests in `5966c4f`; details in `reaudit.md`):
+  - high: the shrinker took any (int, list of pairs) as a graph, so n = 2^31-1 ran a per-node loop until the heap ran out; it is now a graph only within the node limit and with in-range endpoints (`tests/unit/shrink.test.ts`);
+  - high: a fixed-length array or string spec froze small-scope (length 200: 11.7 s; length 2,000 did not finish). Each length is now built directly and the enumeration is bounded by values (27 ms) (`tests/unit/smallscope.test.ts`, including a property test against the old layered construction);
+  - high: shrinking a fixed-length input scanned O(N²) invalid removals synchronously. The scan now yields to the event loop every 100,000 values, stops at a scan budget and stops on abort (`tests/unit/shrink.test.ts`);
+  - medium: `maxValues` counted a `const` as one value (an array of a 200-element const ran 43 s); it now counts the contents, and the spec is refused;
+  - medium: a 503 on the generator call ended the attack; it now costs only the model's families, with a warning (`tests/integration/agent-failures.test.ts`);
+  - medium: IPv6 clients rotated addresses inside their /64 for fresh rate-limit buckets; limits are now keyed by the /64 (`tests/integration/api.test.ts`);
+  - low: an explanation cut inside its code block kept the half block (`tests/unit/parse.test.ts`).
+- [x] Round 11 UI and tests (fixed in `4da9353`):
+  - medium: when a run ended, focus jumped from the code editor to Attack, so the next Space started a new attack. Focus now moves only from Cancel, `<body>` or nowhere (`focusIsIdle`, `tests/unit/run-state.test.ts`, plus an e2e step that fails on the old code);
+  - low: focus fell to `<body>` after the fix-view toggle and after closing a shared report; both are fixed and covered by the same e2e step;
+  - low: wall-clock speed bounds flaked under CPU load; they now measure the worker process's CPU time (`cpuClock` in `tests/helpers.ts`), with the same bounds;
+  - low: `ms()` printed "1000 ms" for 999.5 ms; it now rounds first (`tests/unit/format.test.ts`).
+- [x] Round 11 judge and docs: the stale FEEDBACK client length, the README hard-tier wording, and the bench, which was regenerated at `bda6cc8` (38/38 found, 0 false alarms, unchanged).
