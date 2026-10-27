@@ -1,5 +1,14 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-27 18:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 13 is fixed and pushed. Not clean.
+  - `d494fef`: security critical (forged stdout records, `parseLines` capped at the chunk's input count), a core medium and 2 core lows.
+  - `b67762a`: judge docs (1 medium, 3 low).
+  - The round-13 UI/tests audit hit the usage limit at about 15:00 and was resumed at 18:39.
+- Round 14 core and security audits are running on `b67762a`.
+- Checks on `d494fef`: lint, typecheck, 511/511 tests, build, and e2e (9 steps). Bench regenerated: unchanged.
+- Submission milestone: done (see the 14:20 entry); `docs/SUBMISSION.md` was corrected in `b67762a`.
+
 STATE 2026-10-27 ~15:10 UTC:
 - Round 12 is fully fixed in this push; see reaudit.md. Judge 3 low; security 1 high, 1 medium, 1 low; core 3 medium, 1 low; UI/tests 1 medium, 5 low.
 - Checks: lint, typecheck, 505/505 tests, build, and e2e (9 steps).
