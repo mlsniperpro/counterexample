@@ -3,7 +3,7 @@ import { cpuClock } from "../helpers";
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@/lib/core/rng";
 import { generateInputs } from "@/lib/agent/families";
-import { argsConform, arity, compareJson, conforms, genArgs, genValue, inputsWithinBudget, maxValues, parseTypeSpec, SPEC_LIMITS, type ArraySpec, type TypeSpec } from "@/lib/core/spec";
+import { argsConform, arity, compareJson, sortJson, conforms, genArgs, genValue, inputsWithinBudget, maxValues, parseTypeSpec, SPEC_LIMITS, type ArraySpec, type TypeSpec } from "@/lib/core/spec";
 import { ModelOutputError } from "@/lib/errors";
 import { PROBLEMS } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
@@ -300,5 +300,26 @@ describe("value accounting for empty and tiny strings", () => {
     const r = generateInputs({ name: "n", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
     expect(r.inputs.length + r.dropped).toBeGreaterThan(0);
     expect(cpu()).toBeLessThan(100);
+  });
+});
+
+describe("sortJson", () => {
+  it("orders exactly as sorting with compareJson does", () => {
+    fc.assert(
+      fc.property(fc.array(fc.oneof(fc.integer(), fc.double({ noNaN: true }), fc.string(), fc.array(fc.integer(), { maxLength: 3 }))), (xs) => {
+        const ours = [...xs];
+        sortJson(ours);
+        // Ties may land in any order; their serialisations line up exactly.
+        expect(ours.map((x) => JSON.stringify(x))).toEqual([...xs].sort(compareJson).map((x) => JSON.stringify(x)));
+      }),
+    );
+  });
+
+  it("serialises each element once, so 10,000 nested arrays sort quickly", () => {
+    const xs = Array.from({ length: 10_000 }, (_, i) => Array.from({ length: 20 }, (_, j) => (i * 7919 + j * 104729) % 1000));
+    const cpu = cpuClock();
+    sortJson(xs);
+    // The comparator alone took over a second here.
+    expect(cpu()).toBeLessThan(400);
   });
 });

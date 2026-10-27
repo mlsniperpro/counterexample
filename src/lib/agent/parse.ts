@@ -88,7 +88,11 @@ export function stripThinking(text: string): string {
     out += text.slice(at, o.index);
     at = c.index + c[0].length;
   }
-  return (out + text.slice(at)).trim();
+  const rest = out + text.slice(at);
+  // Some reasoning templates open the trace in the prompt, so the answer holds only its closing tag: drop everything up to it.
+  let after = 0;
+  for (const m of rest.matchAll(/<\/think>/gi)) after = m.index + m[0].length;
+  return rest.slice(after).trim();
 }
 
 /** The answer a reader would see: no reasoning trace, and nothing after a `<think>` that never closes (an answer cut inside its thinking has no answer in it). */

@@ -61,6 +61,8 @@ describe("model output parsing", () => {
     expect(extractExplanation("EXPLANATION: Because x" + "\n".repeat(64_000) + "done")).toBe("Because x" + "\n".repeat(64_000) + "done");
     expect(stripThinking("<think>".repeat(10_000) + "answer")).toBe("<think>".repeat(10_000) + "answer");
     expect(cpu()).toBeLessThan(300);
+    // A template that opens the trace in the prompt leaves only its closing tag: the answer is what follows the last one.
+    expect(stripThinking("draft ```py\nwrong\n``` </think>FIX:\n```py\nright\n```")).toBe("FIX:\n```py\nright\n```");
     // Same results as before on ordinary text.
     expect(stripThinking("a<THINK>x</think>b<think>y</THINK>c<think>open")).toBe("abc<think>open");
     expect(extractExplanation("  Explanation: two.\n\nFIX:\n```py\nx\n```")).toBe("two.");

@@ -150,7 +150,7 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
     out.push(v);
   }
   if (spec.sorted) {
-    out.sort(compareJson);
+    sortJson(out);
     if (spec.sorted === "desc") out.reverse();
   }
   return out;
@@ -184,6 +184,26 @@ export function genArgs(specs: TypeSpec[], rng: Rng): unknown[] {
   }
   return args;
 }
+
+/**
+ * Sort in compareJson's order, in place. Numbers compare as numbers; anything else is serialised once per element,
+ * not twice per comparison (10,000 nested arrays took over a second with the comparator alone).
+ */
+export function sortJson(xs: unknown[]): void {
+  if (xs.every((x) => typeof x === "number")) {
+    (xs as number[]).sort((a, b) => a - b);
+    return;
+  }
+  const keyed = xs.map((x) => ({ x, k: typeof x === "number" ? undefined : JSON.stringify(x) }));
+  keyed.sort((a, b) => (a.k === undefined && b.k === undefined ? (a.x as number) - (b.x as number) : compareKeys(a, b)));
+  keyed.forEach((e, i) => (xs[i] = e.x));
+}
+
+const compareKeys = (a: { x: unknown; k?: string }, b: { x: unknown; k?: string }): number => {
+  const sa = a.k ?? JSON.stringify(a.x);
+  const sb = b.k ?? JSON.stringify(b.x);
+  return sa < sb ? -1 : sa > sb ? 1 : 0;
+};
 
 export function compareJson(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b;

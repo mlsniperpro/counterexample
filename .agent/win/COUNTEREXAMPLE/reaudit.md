@@ -17,7 +17,20 @@ Not clean.
   - BLOCKED's preflight step now names the exact detail to look for, since the check passes with a removal note before the date;
   - the unverifiable "judging 1 to 15 December" is removed (the Devpost dates page answers 403 here), and SUBMISSION now says 14 audit rounds, not ten.
   - Not fixed, by design: `LEASE` and `pids` stay tracked. The lease is the cross-session lock that the hand-off protocol commits and pushes, and the gate reads `pids`. Neither holds a secret.
-- **Core, security, UI and tests:** pending.
+- **Security** (3 medium, 1 low; synchronous stalls from steered inputs), fixed:
+  - `sorted` generation serialised both sides of every comparison (10,000 nested arrays took 1.2 to 2.7 s). `sortJson` now serialises each element once; a property test shows it orders exactly like `compareJson`;
+  - three smallest-first sorts in `stages.ts` did the same (22 inputs of 200,000 values took 4.1 s). `smallestFirst` now measures each input once;
+  - `fixStage` regenerated every family and deduplicated in one tick (2.3 s). It now yields between families, and `dedupe` is digest-keyed and yields every 1,000,000 characters;
+  - low: `Judge.compare` handled a chunk's results (up to about 0.6 s at the caps) in one tick. It now yields after each result.
+  - Clean: the guard, the prompts, URLs, escaping, share decode, mutate, shrink and small-scope.
+- **Core** (1 medium, 4 low), fixed with tests:
+  - medium: a time bomb. From 2026-11-09, a preflight test using the real clock would fail (`pnpm test` in December). Every preflight test now has a fixed clock, and without `NEBIUS_API_KEY` the removal check is a skip. The whole suite passes with the clock set to 2026-12-05 (528/528);
+  - low: removed ids are matched without case;
+  - low: the oracle prompt's signature spells a graph parameter as `<name>_n, <name>_edges`;
+  - low: Python `async def` now gets the same clear runtime error as JavaScript;
+  - low: an answer holding only a closing `</think>` (the trace opened in the prompt) is cut after its last closing tag.
+- **UI and tests:** pending.
+- Checks: lint, typecheck, 528/528 tests, build, and e2e (10 steps).
 
 ## Round 14 (2026-10-27, `b67762a`/`985e3d2`, 4 parallel Sonnet audits; findings verified by the main session)
 

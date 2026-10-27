@@ -4,6 +4,9 @@ import type { Problem, Solution } from "../problems/types";
 import type { ChatMessage } from "../models/types";
 import type { ResearchFact } from "../research/tavily";
 
+/** The oracle's parameter list: a graph parameter is two arguments (its node count and edge list), as the harness calls it. */
+export const signature = (p: Problem) =>
+  p.params.map((x) => (x.type.kind === "graph" && !x.name.includes(",") ? `${x.name}_n, ${x.name}_edges` : x.name)).join(", ");
 const fmtParams = (p: Problem) => p.params.map((x) => `- ${x.name}: ${JSON.stringify(x.type)}`).join("\n");
 const fmtExamples = (p: Problem) =>
   p.examples.map((e) => `- solve(${e.args.map((a) => showValue(a)).join(", ")}) == ${showValue(e.output)}`).join("\n");
@@ -28,7 +31,7 @@ Returns: ${p.returns}
 Examples:
 ${fmtExamples(p)}
 
-Answer with one Python 3 code block defining \`def solve(${p.params.map((x) => x.name).join(", ")}):\`. Use only the standard library. Return JSON-serialisable values (lists, not tuples or sets; None for null).${feedback ? `\n\nYour previous oracle was wrong:\n${feedback}\nFix it.` : ""}`,
+Answer with one Python 3 code block defining \`def solve(${signature(p)}):\`. Use only the standard library. Return JSON-serialisable values (lists, not tuples or sets; None for null).${feedback ? `\n\nYour previous oracle was wrong:\n${feedback}\nFix it.` : ""}`,
     },
   ];
 }

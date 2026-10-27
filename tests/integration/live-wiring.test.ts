@@ -10,6 +10,9 @@ import { preflight } from "@/lib/preflight";
 import { BUILT_INS } from "@/lib/problems/catalog";
 import { fakeEnv, startFakes, type Fakes } from "../fakes/services";
 
+/** A fixed clock before Token Factory's announced model removals, so the suite does not change verdict with the date. */
+const BEFORE_REMOVALS = new Date("2026-10-27T12:00:00Z");
+
 let fakes: Fakes;
 beforeAll(async () => {
   fakes = await startFakes({ rateLimitFirst: 1 });
@@ -18,7 +21,7 @@ afterAll(async () => fakes.close());
 
 describe("live path over real HTTP (fake Token Factory, Tavily and Judge0)", () => {
   it("preflight passes every check once credentials are set", async () => {
-    const checks = await preflight({ ...fakeEnv(fakes), NODE_ENV: "production" }, {}, new Date("2026-10-27T12:00:00Z"));
+    const checks = await preflight({ ...fakeEnv(fakes), NODE_ENV: "production" }, {}, BEFORE_REMOVALS);
     expect(checks.filter((c) => c.status !== "pass"), JSON.stringify(checks, null, 2)).toEqual([]);
     expect(checks.map((c) => c.name)).toEqual([
       "config: prices and guards",
@@ -41,9 +44,19 @@ describe("live path over real HTTP (fake Token Factory, Tavily and Judge0)", () 
     expect(await preflight({ ...env, MODEL_FAST: "nvidia/Nemotron-3.5-Super-VL" }, {}, new Date("2026-12-01T00:00:00Z")).then((cs) => cs.find((c) => c.name === "config: model removals"))).toMatchObject({ status: "pass", detail: "no configured model is announced for removal" });
   });
 
+  it("preflight skips the removal check without a key (no model is called), and matches removed ids without case", async () => {
+    const after = new Date("2026-12-05T00:00:00Z");
+    const env = { ...fakeEnv(fakes), NODE_ENV: "production" };
+    const noKey: Record<string, string> = { ...env };
+    delete noKey.NEBIUS_API_KEY;
+    expect((await preflight(noKey, {}, after)).find((c) => c.name === "config: model removals")).toMatchObject({ status: "skip" });
+    const shouted = await preflight({ ...env, MODEL_FAST: "NVIDIA/Nemotron-3-Super-120B-A12B" }, {}, after);
+    expect(shouted.find((c) => c.name === "config: model removals")).toMatchObject({ status: "fail", detail: expect.stringMatching(/was removed from Token Factory on 2026-11-09/) });
+  });
+
   it("preflight names the problem when a model id, a key or a language id is wrong", async () => {
     const env = fakeEnv(fakes);
-    const checks = await preflight({ ...env, MODEL_FAST: "nvidia/nemotron-nano-does-not-exist", TAVILY_API_KEY: "wrong", JUDGE0_LANG_PYTHON: "63", NODE_ENV: "production" });
+    const checks = await preflight({ ...env, MODEL_FAST: "nvidia/nemotron-nano-does-not-exist", TAVILY_API_KEY: "wrong", JUDGE0_LANG_PYTHON: "63", NODE_ENV: "production" }, {}, BEFORE_REMOVALS);
     const byName = Object.fromEntries(checks.map((c) => [c.name, c]));
     expect(byName["token factory: model list"]?.detail).toMatch(/not offered: nvidia\/nemotron-nano-does-not-exist\. Nemotron models offered: nvidia\/Nemotron-3-Ultra/);
     expect(byName["tavily: search"]).toMatchObject({ status: "fail", detail: expect.stringMatching(/HTTP 401/) });
@@ -171,16 +184,16 @@ describe("preflight skips what is not configured", () => {
   it("reports an absent sandbox as skip in production, like the judge0 checks, and fails only a configured one that is unusable", async () => {
     const noSandbox: Record<string, string> = { ...fakeEnv(fakes) };
     for (const k of ["JUDGE0_URL", "JUDGE0_TOKEN", "JUDGE0_AUTH"]) delete noSandbox[k];
-    const checks = await preflight({ ...noSandbox, NODE_ENV: "production" });
+    const checks = await preflight({ ...noSandbox, NODE_ENV: "production" }, {}, BEFORE_REMOVALS);
     const byName = Object.fromEntries(checks.map((c) => [c.name, c]));
     expect(byName["config: sandbox"]).toMatchObject({ status: "skip", detail: expect.stringMatching(/JUDGE0_URL not set/) });
     expect(byName["judge0: languages"]?.status).toBe("skip");
     expect(checks.filter((c) => c.status === "fail")).toEqual([]);
     // Allowing the local executor makes the sandbox configuration real again.
-    const local = await preflight({ ...noSandbox, NODE_ENV: "production", ALLOW_LOCAL_EXECUTOR: "1" });
+    const local = await preflight({ ...noSandbox, NODE_ENV: "production", ALLOW_LOCAL_EXECUTOR: "1" }, {}, BEFORE_REMOVALS);
     expect(local.find((c) => c.name === "config: sandbox")).toMatchObject({ status: "pass" });
     // A configured but unusable sandbox is still a failure, never a skip.
-    const bad = await preflight({ ...noSandbox, JUDGE0_URL: "not a url", NODE_ENV: "production" });
+    const bad = await preflight({ ...noSandbox, JUDGE0_URL: "not a url", NODE_ENV: "production" }, {}, BEFORE_REMOVALS);
     expect(bad.find((c) => c.name === "config: sandbox")?.status).toBe("fail");
   });
 
@@ -191,7 +204,7 @@ describe("preflight skips what is not configured", () => {
       return fetch(url, init);
     }) as unknown as typeof fetch;
     const env = { ...fakeEnv(fakes), NODE_ENV: "production" };
-    await preflight(env, { fetchImpl });
+    await preflight(env, { fetchImpl }, BEFORE_REMOVALS);
     const models = modelConfigFromEnv(env);
     expect(sent.map((x) => [x.model, x.max_tokens])).toEqual([
       [models.reasoningModel, 16384],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explainPrompt, generatorsPrompt, oraclePrompt, understandPrompt } from "@/lib/agent/prompts";
+import { explainPrompt, generatorsPrompt, oraclePrompt, signature, understandPrompt } from "@/lib/agent/prompts";
 import type { Problem } from "@/lib/problems/types";
 
 const BIG = "\u0000int:15999999992000000001";
@@ -54,5 +54,15 @@ describe("the explain prompt with an input that could not be shrunk", () => {
 describe("understand prompt", () => {
   it("says when to compare as floats", () => {
     expect(text(understandPrompt("Return the average.", "x", "python"))).toMatch(/Use "float" when the answer holds non-integer numbers/);
+  });
+});
+
+describe("the oracle's signature", () => {
+  it("spells a graph parameter as the two arguments the harness passes", () => {
+    const g = { kind: "graph", n: { min: 1, max: 3 }, m: { min: 0, max: 2 }, weight: { min: 0, max: 1 } } as const;
+    expect(signature({ ...problem, params: [{ name: "graph", type: g }, { name: "k", type: { kind: "int", min: 0, max: 1 } }] })).toBe("graph_n, graph_edges, k");
+    // The built-ins already name it as two arguments.
+    expect(signature({ ...problem, params: [{ name: "n, edges", type: g }] })).toBe("n, edges");
+    expect(text(oraclePrompt({ ...problem, params: [{ name: "g", type: g }] }))).toContain("def solve(g_n, g_edges):");
   });
 });

@@ -124,6 +124,11 @@ describe("LocalExecutor (dev only)", () => {
     expect(r2.outcomes[0]).toMatchObject({ ok: false, error: "compile" });
   });
 
+  it("reports a Python async function as a runtime error that says why", async () => {
+    const r = await local.run({ ...base, language: "python", code: "async def solve(a):\n    return a + 1\n", inputs: [[1]] });
+    expect(r.outcomes[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/returned a coroutine: make it synchronous/) });
+  });
+
   it("reports a JavaScript async function as a runtime error, not as returning {}", async () => {
     const r = await local.run({ ...base, language: "javascript", code: "async function solve(a) { return a + 1; }", inputs: [[1]] });
     expect(r.outcomes[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/returned a Promise: make it synchronous/) });

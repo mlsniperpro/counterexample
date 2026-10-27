@@ -25,7 +25,8 @@ export const MODEL_REMOVALS: Record<string, { removedOn: string; replacement: st
 
 /** The announced removal of a configured model, as of `now`: whether it is already gone, and what to say. */
 export function modelRemoval(model: string, now: Date): { removed: boolean; note: string } | undefined {
-  const r = MODEL_REMOVALS[model];
+  // Ids are matched without case, as Token Factory's model list is (preflight's model check does the same).
+  const r = Object.entries(MODEL_REMOVALS).find(([id]) => id.toLowerCase() === model.toLowerCase())?.[1];
   if (!r) return undefined;
   const removed = now.toISOString().slice(0, 10) >= r.removedOn;
   return { removed, note: `${model} ${removed ? "was removed" : "is scheduled for removal"} from Token Factory on ${r.removedOn}; set the model variable to a current id (Token Factory suggests ${r.replacement})` };

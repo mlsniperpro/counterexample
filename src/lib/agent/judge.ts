@@ -56,13 +56,19 @@ export class Judge {
   async compare(stage: Stage, target: Solution, inputs: unknown[][], who: "solution" | "fix" = "solution"): Promise<Judgement[]> {
     if (inputs.length === 0) return [];
     const [sol, ora] = await Promise.all([this.exec(stage, who, target, inputs), this.exec(stage, "oracle", this.oracle(), inputs)]);
-    return inputs.map((_, i) => {
-      const o = ora[i];
-      const s = sol[i];
-      if (!o || !s) throw new ExecutorError(`executor returned ${sol.length}/${ora.length} outcomes for ${inputs.length} inputs`);
-      if (!o.ok) return { status: "oracle_error", got: showOutcome(s) };
-      const agree = s.ok && outputsEqual(s.out, o.out, this.problem.compare);
-      return { status: agree ? "agree" : "mismatch", expected: displayable(o.out), got: showOutcome(s) };
-    });
+    if (sol.length < inputs.length || ora.length < inputs.length) throw new ExecutorError(`executor returned ${sol.length}/${ora.length} outcomes for ${inputs.length} inputs`);
+    const out: Judgement[] = [];
+    for (let i = 0; i < inputs.length; i++) {
+      const o = ora[i] as RunOutcome;
+      const s = sol[i] as RunOutcome;
+      if (!o.ok) out.push({ status: "oracle_error", got: showOutcome(s) });
+      else {
+        const agree = s.ok && outputsEqual(s.out, o.out, this.problem.compare);
+        out.push({ status: agree ? "agree" : "mismatch", expected: displayable(o.out), got: showOutcome(s) });
+      }
+      // Comparing and displaying results up to the parse caps costs up to about 0.6 s per chunk: one result per slice.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    return out;
   }
 }

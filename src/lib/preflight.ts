@@ -53,11 +53,13 @@ export async function preflight(env: Env = process.env, http: HttpDeps = {}, now
   // Factory does not reroute), the ids exist, and each answers one tiny prompt.
   const models = modelConfigFromEnv(env);
   const removals = [models.reasoningModel, models.fastModel].flatMap((m) => modelRemoval(m, now) ?? []);
-  add(
-    "config: model removals",
-    removals.some((r) => r.removed) ? "fail" : "pass",
-    removals.length ? `${removals.map((r) => r.note).join("; ")} (MODEL_REASONING, MODEL_FAST)` : "no configured model is announced for removal",
-  );
+  if (!env.NEBIUS_API_KEY) add("config: model removals", "skip", "NEBIUS_API_KEY not set (no model is called)");
+  else
+    add(
+      "config: model removals",
+      removals.some((r) => r.removed) ? "fail" : "pass",
+      removals.length ? `${removals.map((r) => r.note).join("; ")} (MODEL_REASONING, MODEL_FAST)` : "no configured model is announced for removal",
+    );
   if (!env.NEBIUS_API_KEY) {
     add("token factory: model list", "skip", "NEBIUS_API_KEY not set");
     add("token factory: chat", "skip", "NEBIUS_API_KEY not set");

@@ -16,7 +16,7 @@ export function buildProgram(language: Language, code: string, entry: string): s
   if (language === "python") {
     // The code runs as its own module named "solution", so an `if __name__ == "__main__":` block stays inert.
     const source = Buffer.from(code, "utf8").toString("base64");
-    return `import sys as __cx_sys, json as __cx_json, time as __cx_time, math as __cx_math, types as __cx_types, base64 as __cx_b64
+    return `import sys as __cx_sys, json as __cx_json, time as __cx_time, inspect as __cx_inspect, math as __cx_math, types as __cx_types, base64 as __cx_b64
 __cx_mod = __cx_types.ModuleType("solution")
 __cx_mod.__file__ = "solution.py"
 __cx_sys.modules["solution"] = __cx_mod
@@ -46,6 +46,8 @@ def __cx_main():
         __t0 = __cx_time.perf_counter()
         try:
             __r = __f(*__args)
+            if __cx_inspect.isawaitable(__r):
+                raise TypeError("the function returned a coroutine: make it synchronous (async solutions are not supported)")
             __line = __cx_dumps({"ok": True, "out": __r, "ms": round((__cx_time.perf_counter() - __t0) * 1000, 3)})
         except RecursionError as __e:
             __line = __cx_json.dumps({"ok": False, "error": "runtime", "message": "RecursionError: " + str(__e)[:200]})

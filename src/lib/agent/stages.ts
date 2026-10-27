@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { clipText, outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
@@ -243,7 +244,16 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
  */
 type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean; orderDependent?: { precedingInputs: number; sequence: unknown[][] } };
 
-const bySize = (a: { args: unknown[] }, b: { args: unknown[] }) => JSON.stringify(a.args).length - JSON.stringify(b.args).length;
+/** Smallest serialised arguments first. Each item is measured once, not twice per comparison (22 inputs of 200,000 values took 4 s). */
+function smallestFirst<T extends { args: unknown[] }>(xs: T[]): T[] {
+  return xs
+    .map((x) => ({ x, n: JSON.stringify(x.args).length }))
+    .sort((a, b) => a.n - b.n)
+    .map((e) => e.x);
+}
+
+/** Let the event loop run (other requests, the deadline timer) between slices of synchronous work. */
+const breathe = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /**
  * Re-judge new hits on a fresh run before trusting them, smallest first, in
@@ -261,7 +271,7 @@ const bySize = (a: { args: unknown[] }, b: { args: unknown[] }) => JSON.stringif
  * smallest of them is returned alone, marked `orderDependent`.
  */
 export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unknown[][]): Promise<Hit[]> {
-  const sorted = [...found].sort(bySize);
+  const sorted = smallestFirst(found);
   const dropped: unknown[][] = [];
   let result: Hit[] = [];
   for (let at = 0; at < sorted.length && !result.length; at += CONFIRM_HITS) {
@@ -386,7 +396,7 @@ export function isCompileFailure(hits: Hit[], examples: number): boolean {
  * during shrinking still keeps a real counterexample.
  */
 export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Counterexample> {
-  const first = hits.filter((h) => h.confirmed).sort((a, b) => JSON.stringify(a.args).length - JSON.stringify(b.args).length)[0];
+  const first = smallestFirst(hits.filter((h) => h.confirmed))[0];
   if (!first) throw new Error("shrinkStage needs at least one confirmed hit");
   const original = { args: first.args, family: first.family };
   if (first.orderDependent) return keepOrderDependent(ctx, first, first.orderDependent, original);
@@ -458,14 +468,20 @@ function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit
 /** The reasoning model explains and fixes; every fix is re-attacked on all earlier inputs plus a fresh seed before it is called verified. */
 export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Family[], tested: unknown[][]): Promise<void> {
   const { problem, solution } = ctx.input;
-  const fresh = plan.filter((f) => f.source !== "examples").flatMap((f) => inputsFor(ctx, f, tested, "reattack").inputs);
+  // Regenerating every family is seconds of synchronous work for large inputs: let the event loop run between families.
+  const fresh: unknown[][] = [];
+  for (const f of plan) {
+    if (f.source === "examples") continue;
+    for (const x of inputsFor(ctx, f, tested, "reattack").inputs) fresh.push(x);
+    await breathe();
+  }
   const others = [cx.args, cx.original.args, ...tested, ...fresh, ...problem.examples.map((e) => e.args)];
   // An order-dependent counterexample passes run alone, even on the buggy code: the fix is first run on the exact
   // sequence that made it fail (repeats included), in one chunk and in order, and the counterexample is judged at its place in it.
   const sequence = cx.orderDependent?.sequence ?? [];
   const unordered = cx.orderDependent !== undefined && sequence.length === 0;
   const inSequence = new Set(sequence.map((x) => JSON.stringify(x)));
-  const reattack = [...sequence, ...dedupe(others).filter((x) => !inSequence.has(JSON.stringify(x)))];
+  const reattack = [...sequence, ...(await dedupe(others)).filter((x) => !inSequence.has(JSON.stringify(x)))];
   const cxAt = Math.max(0, sequence.length - 1);
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
@@ -521,17 +537,31 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
       unjudged,
     });
     if (verified) return;
-    const worst = bad.sort((x, y) => JSON.stringify(x.args).length - JSON.stringify(y.args).length)[0];
+    const worst = smallestFirst(bad)[0];
     if (worst) feedback = `${call(worst.args)} should return ${clipText(showValue(worst.j.expected))} but your fix returned ${worst.j.got}.`;
   }
 }
 
-function dedupe(xs: unknown[][]): unknown[][] {
+/** Characters serialised between yields while deduplicating. */
+const DEDUPE_SLICE = 1_000_000;
+
+/** First occurrences only, in order. Keyed by a digest (the inputs can be megabytes), yielding to the event loop as it goes. */
+async function dedupe(xs: unknown[][]): Promise<unknown[][]> {
   const seen = new Set<string>();
-  return xs.filter((x) => {
-    const k = JSON.stringify(x);
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  const out: unknown[][] = [];
+  let since = 0;
+  for (const x of xs) {
+    const text = JSON.stringify(x);
+    since += text.length;
+    const k = createHash("sha1").update(text).digest("base64");
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(x);
+    }
+    if (since >= DEDUPE_SLICE) {
+      since = 0;
+      await breathe();
+    }
+  }
+  return out;
 }
