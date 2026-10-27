@@ -7,6 +7,18 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 15 (2026-10-27, `c90b859`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Judge** (6 low). A fresh clone gives 523/523; the replay runs and a full bench reproduce every figure, and the Token Factory claims match the official docs. Fixed:
+  - the UI copy still said "thousands of inputs" (`mode-copy.tsx`); it now says "hundreds of inputs (thousands of runs)". The screenshots are retaken on the final UI;
+  - FEEDBACK and FRICTION said "about 150 chunks"; they now say 31 to 385 or more batches, median 57, from the bench;
+  - the Sandboxes limits are now cited from the official limits page (50 simultaneous operations, 10 MiB per stream, no-network VMs);
+  - BLOCKED's preflight step now names the exact detail to look for, since the check passes with a removal note before the date;
+  - the unverifiable "judging 1 to 15 December" is removed (the Devpost dates page answers 403 here), and SUBMISSION now says 14 audit rounds, not ten.
+  - Not fixed, by design: `LEASE` and `pids` stay tracked. The lease is the cross-session lock that the hand-off protocol commits and pushes, and the gate reads `pids`. Neither holds a secret.
+- **Core, security, UI and tests:** pending.
+
 ## Round 14 (2026-10-27, `b67762a`/`985e3d2`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.

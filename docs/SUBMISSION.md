@@ -108,7 +108,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 - **False alarms are worse than misses.** A correct binary search looked broken under a loaded sandbox. We now confirm every mismatch alone in a fresh process before claiming it. A failure that only appears after earlier calls is reported as "order-dependent" (the solution keeps state), never as flaky.
 - **Judge0 has one time limit per submission.** We size batches so every input keeps its full limit inside the 15 s CPU cap, and blame a timeout on an input only after it times out alone.
 - **Exact answers.** Integers past 2^53 lose digits in JavaScript, so an overflow in the last digit would go unnoticed. We compare them by their exact digits.
-- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and ten rounds of hostile audits found and fixed more than 150 issues.
+- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (14 rounds by 27 October) found and fixed more than 150 issues.
 - **No keys in the build environment.** The Token Factory API and docs were unreachable from our build sandbox, so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
 
 ## Accomplishments that we're proud of

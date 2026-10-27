@@ -43,7 +43,7 @@ Based on the public OpenAPI spec, a local Docker build and, for the endpoint com
 
 **What didn't**
 - Serverless Jobs do not fit a batch code runner: the spec has create, list, get, delete, cancel, restart and get-by-name, but **no REST endpoint returns a job's stdout or logs** (only the CLI `nebius ai job logs`, or Loki), and each job provisions its own VM. An interactive attack makes several sandbox calls ("Load per attack" in the README), each expected in well under a second.
-- **Token Factory Sandboxes** (beta, access by request) is described as an isolated environment for agents to "execute code, evaluate results". We found it only on 2026-10-27 and have not tried it (`FRICTION.md`). It looks like the natural home for this project's runs; what we would need to know first is the per-operation start-up cost, since an attack sends about 150 chunks, and the output limits.
+- **Token Factory Sandboxes** (beta, access by request) is described as an isolated environment for agents to "execute code, evaluate results". We found it only on 2026-10-27 and have not tried it (`FRICTION.md`). It looks like the natural home for this project's runs; what we would need to know first is the per-operation start-up cost, since an attack sends 31 to 385 or more Judge0-sized batches (median 57, `bench/results/fixture.md`). Its documented limits fit: 50 simultaneous operations in beta, recorded stdout and stderr of up to 10 MiB per stream (our cap is 8 MB), and `networking.enabled=false` for a VM with no network.
 - `docs.nebius.com` was blocked by our build session's allow-list (`CONNECT tunnel failed, response 403`); that is our environment, not Nebius.
 
 **Onboarding**
