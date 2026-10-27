@@ -13,6 +13,24 @@ export const DEFAULT_FAST_MODEL = "nvidia/nemotron-3-super-120b-a12b";
 export const MAX_TOKENS_REASONING = 16_384;
 export const MAX_TOKENS_FAST = 8_192;
 
+/**
+ * Model ids Token Factory has announced it will remove from its serverless API, with the date and its recommended
+ * replacement (https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md). It does not reroute
+ * requests, so a removed id fails every call; preflight checks the configured ids against this table.
+ */
+export const MODEL_REMOVALS: Record<string, { removedOn: string; replacement: string }> = {
+  "nvidia/nemotron-3-super-120b-a12b": { removedOn: "2026-11-09", replacement: "nvidia/Nemotron-3.5-Super-VL" },
+  "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": { removedOn: "2026-11-09", replacement: "nvidia/Nemotron-3_5-Lightning" },
+};
+
+/** The announced removal of a configured model, as of `now`: whether it is already gone, and what to say. */
+export function modelRemoval(model: string, now: Date): { removed: boolean; note: string } | undefined {
+  const r = MODEL_REMOVALS[model];
+  if (!r) return undefined;
+  const removed = now.toISOString().slice(0, 10) >= r.removedOn;
+  return { removed, note: `${model} ${removed ? "was removed" : "is scheduled for removal"} from Token Factory on ${r.removedOn}; set the model variable to a current id (Token Factory suggests ${r.replacement})` };
+}
+
 /** "routed": Ultra for oracle and explanation, Super/Nano for everything else. "ultra-only": Ultra everywhere. */
 export type Routing = "routed" | "ultra-only";
 

@@ -9,7 +9,8 @@ Kept as we build (required written feedback for the hackathon). Items marked **p
 - `usage.prompt_tokens` / `completion_tokens` in the response are what our per-step cost panel needs.
 
 **What didn't / friction**
-- We could not find an official, crawlable page listing exact model ids and prices; only third-party catalogs had them, with inconsistent capitalisation (`nvidia/Nemotron-3-Ultra-550b-a55b` vs `nvidia/nemotron-3-super-120b-a12b`). A public catalog page (or a documented unauthenticated `GET /v1/models`) would save every team a guess.
+- On 2026-10-24 we could not reach any official page listing exact model ids and prices (the docs were blocked from our build session); only third-party catalogs had them, with inconsistent capitalisation (`nvidia/Nemotron-3-Ultra-550b-a55b` vs `nvidia/nemotron-3-super-120b-a12b`). When the docs became reachable on 2026-10-27, Nemotron ids appeared only in deprecation notices, and the Ultra id appeared nowhere. A public catalog page (or a documented unauthenticated `GET /v1/models`) would save every team a guess.
+- **Model lifecycle:** our default fast model, `nvidia/nemotron-3-super-120b-a12b`, is announced for removal on 2026-11-09, before judging, and requests are not rerouted (`FRICTION.md`, 2026-10-27). We added a preflight check against the announced removals; a `deprecated_at` field in `GET /v1/models` would let every tool do that without a hand-kept table.
 - **Pending live run:** onboarding with the `NEBIUS-DEVPOST-GLOBAL26` credit code and whether billing accepts a Kenyan account; rate limits on Ultra under ~10 concurrent calls; real latency for Ultra vs Super (our fixture mode simulates it).
 
 **Would we use it again?** Yes for this kind of agent: one OpenAI-compatible endpoint serving both a large reasoning model and a fast model is exactly what per-step routing needs. The verdict gets revisited with real latency and cost numbers after the live benchmark.
@@ -24,10 +25,10 @@ Everything here comes from reading docs and building against the API shape. No l
 
 **What didn't / open questions (pending live run)**
 - Does Ultra's reasoning arrive in `content` or a separate field, and does it include `<think>` blocks? We strip `<think>...</think>` defensively (`stripThinking` in `src/lib/agent/parse.ts`).
-- How reliably each model follows "answer with one JSON object" for the generator DSL. We do not send `response_format`; every family is validated and invalid ones are dropped with a trace warning, so the rejection rate is measurable from a live trace.
+- How reliably each model follows "answer with one JSON object" for the generator DSL. Token Factory documents `response_format` (`json_object` and `json_schema`) for models whose card has the "JSON mode" tag; we do not send it yet, since we could not see which Nemotron cards carry the tag. Every family is validated and invalid ones are dropped with a trace warning, so the rejection rate is measurable from a live trace, and it is the number that would justify switching to `json_schema`.
 
 **Onboarding**
-- The model ids came only from third-party catalogs, with inconsistent capitalisation: `nvidia/Nemotron-3-Ultra-550b-a55b` vs `nvidia/nemotron-3-super-120b-a12b` (`FRICTION.md`, 2026-10-24). The hackathon overview suggests "Nano or Super" for fast calls, but we found no Nemotron 3 Nano id on Token Factory, so we default to Super.
+- The model ids came only from third-party catalogs, with inconsistent capitalisation: `nvidia/Nemotron-3-Ultra-550b-a55b` vs `nvidia/nemotron-3-super-120b-a12b` (`FRICTION.md`, 2026-10-24). The hackathon overview suggests "Nano or Super" for fast calls. The only Nano id we later found in the docs, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, is announced for removal on 2026-11-09 (replacement `nvidia/Nemotron-3_5-Lightning`), so we default to Super, which is announced for removal on the same day (`BLOCKED.md` has the owner step).
 - Asks: a model card per Nemotron model on Token Factory that states (1) the exact id, (2) where reasoning text is returned and whether it can be turned off or capped, (3) whether JSON mode / `response_format` is supported, and (4) the context and output token limits.
 
 **Would we use it again?** Yes, provisionally. The two-tier family is the right shape for a routed agent; we will confirm with the live benchmark's real latency, cost and JSON-rejection numbers.
@@ -42,6 +43,7 @@ Based on the public OpenAPI spec, a local Docker build and, for the endpoint com
 
 **What didn't**
 - Serverless Jobs do not fit a batch code runner: the spec has create, list, get, delete, cancel, restart and get-by-name, but **no REST endpoint returns a job's stdout or logs** (only the CLI `nebius ai job logs`, or Loki), and each job provisions its own VM. An interactive attack makes several sandbox calls ("Load per attack" in the README), each expected in well under a second.
+- **Token Factory Sandboxes** (beta, access by request) is described as an isolated environment for agents to "execute code, evaluate results". We found it only on 2026-10-27 and have not tried it (`FRICTION.md`). It looks like the natural home for this project's runs; what we would need to know first is the per-operation start-up cost, since an attack sends about 150 chunks, and the output limits.
 - `docs.nebius.com` was blocked by our build session's allow-list (`CONNECT tunnel failed, response 403`); that is our environment, not Nebius.
 
 **Onboarding**

@@ -3,7 +3,7 @@ import { guardConfig } from "./agent/guard";
 import { makeExecutor } from "./agent/setup";
 import { errorMessage } from "./errors";
 import { Judge0Executor } from "./exec/judge0";
-import { DEFAULT_BASE_URL, modelConfigFromEnv } from "./models/config";
+import { DEFAULT_BASE_URL, modelConfigFromEnv, modelRemoval } from "./models/config";
 import { NebiusProvider } from "./models/nebius";
 import { costUsd, priceFor, priceTable } from "./models/pricing";
 import { DEFAULT_RETRY, getJson, type HttpDeps } from "./net/http";
@@ -23,7 +23,7 @@ const languagesSchema = z.array(z.object({ id: z.number().int(), name: z.string(
 
 const QUICK = { ...DEFAULT_RETRY, attempts: 2, timeoutMs: 60_000 };
 
-export async function preflight(env: Env = process.env, http: HttpDeps = {}): Promise<Check[]> {
+export async function preflight(env: Env = process.env, http: HttpDeps = {}, now: Date = new Date()): Promise<Check[]> {
   const checks: Check[] = [];
   const add = (name: string, status: CheckStatus, detail: string) => checks.push({ name, status, detail });
   const attempt = async (name: string, fn: () => Promise<string>) => {
@@ -49,8 +49,15 @@ export async function preflight(env: Env = process.env, http: HttpDeps = {}): Pr
     await attempt("config: sandbox", async () => makeExecutor(sandboxEnv).label);
   }
 
-  // Nebius Token Factory: the model ids exist, and each answers one tiny prompt.
+  // Nebius Token Factory: no configured model is announced for removal (a removed id fails every call, and Token
+  // Factory does not reroute), the ids exist, and each answers one tiny prompt.
   const models = modelConfigFromEnv(env);
+  const removals = [models.reasoningModel, models.fastModel].flatMap((m) => modelRemoval(m, now) ?? []);
+  add(
+    "config: model removals",
+    removals.some((r) => r.removed) ? "fail" : "pass",
+    removals.length ? `${removals.map((r) => r.note).join("; ")} (MODEL_REASONING, MODEL_FAST)` : "no configured model is announced for removal",
+  );
   if (!env.NEBIUS_API_KEY) {
     add("token factory: model list", "skip", "NEBIUS_API_KEY not set");
     add("token factory: chat", "skip", "NEBIUS_API_KEY not set");

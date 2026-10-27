@@ -11,6 +11,7 @@ Facts checked against the repo at the commit that last changed this file. The nu
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
 - [ ] The live benchmark is pasted in, if a key was available (`pnpm bench --live --readme`); otherwise keep the "replay mode" wording below as it is.
 - [ ] The feedback form is filled from `docs/FEEDBACK.md`.
+- [ ] Before 2026-11-09, `MODEL_FAST` in the deployment is a current Nemotron id: Token Factory removes `nvidia/nemotron-3-super-120b-a12b` that day (`BLOCKED.md`). Update the model ids in "Which NVIDIA open models" below if they change.
 - [ ] Check the Devpost form for hackathon-specific questions not listed here. The build session could not open devpost.com (HTTP 403), so the custom questions below are written from the rules in `BRIEF.md`.
 
 ## Project name

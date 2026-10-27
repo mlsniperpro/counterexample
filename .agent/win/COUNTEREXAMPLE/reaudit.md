@@ -28,7 +28,14 @@ Not clean.
   - low: a JavaScript `async function solve` was judged as returning `{}`. It is now a runtime error that says why;
   - low: `class Solution` methods are unsupported; the README now says so;
   - low: `codeOnly` was quadratic (the same fix as security's).
-- **Judge:** see the docs commit after this one.
+- **Judge** (1 high, 2 medium, 1 low; verified by the main session against the Token Factory docs):
+  - high: the default fast model `nvidia/nemotron-3-super-120b-a12b` is removed from Token Factory on 2026-11-09, before judging, and requests are not rerouted. Fixed:
+    - a `MODEL_REMOVALS` table, and a preflight check "config: model removals" that names the date and the replacement and fails from the date (tests with an injected clock);
+    - an owner step in BLOCKED and a box in the SUBMISSION checklist;
+    - the default is kept, because it works for the submission and the replacement is unverified;
+  - medium: FEEDBACK and FRICTION said no official page lists ids, that JSON mode is undocumented, and that no Nano id exists. All are corrected, with the deprecation-page ids, the json.md `response_format` doc, and the Ultra id still unconfirmed;
+  - medium: Token Factory Sandboxes (beta, by request) was not evaluated. FRICTION and FEEDBACK entries now say why and what it would take;
+  - low: the checklist test count (now 521).
 
 ## Round 13 (2026-10-27, `a3f70e3`, 4 parallel Sonnet audits; findings verified by the main session)
 

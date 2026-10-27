@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 511 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 521 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -188,3 +188,17 @@ Legend:
     - the SUBMISSION Nebius AI Cloud wording is conditional (the deploy is pending);
     - the Ultra-only median is 11.3 s;
     - this checklist's non-minimal count and test count are updated.
+- [x] Round 14 (audit of `b67762a` and `985e3d2`; fixed in `f8c7f67`, `88152ed` and the docs commit after them; details in `reaudit.md`):
+  - security:
+    - a crashed attack keeps its spend reservation (`tests/integration/route-crash.test.ts`);
+    - `parseLines` jumps between markers;
+    - linear parsing of explanations, `<think>`, `codeOnly` and `errorSummary`;
+  - core:
+    - memoized small-scope sizes, with a value budget per parameter;
+    - `oracle_unreliable` when most inputs are unjudged;
+    - float mode is exact only below 2^50;
+    - an async JS solve is a runtime error;
+    - `class Solution` is documented as unsupported;
+  - judge:
+    - the default fast model's announced removal on 2026-11-09: a preflight check, the BLOCKED owner step, and the SUBMISSION checklist;
+    - FEEDBACK and FRICTION corrected (ids, JSON mode, Sandboxes).

@@ -18,11 +18,12 @@ afterAll(async () => fakes.close());
 
 describe("live path over real HTTP (fake Token Factory, Tavily and Judge0)", () => {
   it("preflight passes every check once credentials are set", async () => {
-    const checks = await preflight({ ...fakeEnv(fakes), NODE_ENV: "production" });
+    const checks = await preflight({ ...fakeEnv(fakes), NODE_ENV: "production" }, {}, new Date("2026-10-27T12:00:00Z"));
     expect(checks.filter((c) => c.status !== "pass"), JSON.stringify(checks, null, 2)).toEqual([]);
     expect(checks.map((c) => c.name)).toEqual([
       "config: prices and guards",
       "config: sandbox",
+      "config: model removals",
       "token factory: model list",
       "token factory: chat nvidia/Nemotron-3-Ultra-550b-a55b",
       "token factory: chat nvidia/nemotron-3-super-120b-a12b",
@@ -30,6 +31,14 @@ describe("live path over real HTTP (fake Token Factory, Tavily and Judge0)", () 
       "judge0: languages",
       "judge0: run",
     ]);
+  });
+
+  it("preflight warns before an announced model removal and fails from its date, naming the replacement", async () => {
+    const env = { ...fakeEnv(fakes), NODE_ENV: "production", MODEL_FAST: "nvidia/nemotron-3-super-120b-a12b" };
+    const removal = async (date: string) => (await preflight(env, {}, new Date(date))).find((c) => c.name === "config: model removals");
+    expect(await removal("2026-11-08T23:59:00Z")).toMatchObject({ status: "pass", detail: expect.stringMatching(/is scheduled for removal from Token Factory on 2026-11-09; .*suggests nvidia\/Nemotron-3\.5-Super-VL/) });
+    expect(await removal("2026-11-09T00:00:00Z")).toMatchObject({ status: "fail", detail: expect.stringMatching(/was removed from Token Factory on 2026-11-09/) });
+    expect(await preflight({ ...env, MODEL_FAST: "nvidia/Nemotron-3.5-Super-VL" }, {}, new Date("2026-12-01T00:00:00Z")).then((cs) => cs.find((c) => c.name === "config: model removals"))).toMatchObject({ status: "pass", detail: "no configured model is announced for removal" });
   });
 
   it("preflight names the problem when a model id, a key or a language id is wrong", async () => {

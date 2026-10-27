@@ -44,3 +44,28 @@ Every problem we hit with a sponsor tool (Nebius Token Factory, Nebius AI Cloud,
 - **Impact:** a "Serverless Jobs executor" that submits each batch of inputs as a job would need a second channel to read results back (a public port, object storage, or the logging API), and would pay VM provisioning time per batch. An interactive attack makes several sandbox calls (see "Load per attack" in the README).
 - **What we did:** we built the P1 as a **Serverless AI endpoint** running our own Judge0-compatible sandbox (`sandbox/`, `docs/NEBIUS-SANDBOX.md`). It is warm, takes token auth, and is reached through the existing `Judge0Executor`.
 - **Ask:** a `GET /ai/v1/jobs/{id}/logs` (or output) REST endpoint would make jobs usable as a batch code runner from serverless apps.
+
+## 2026-10-27: Our default fast model is scheduled for removal on 2026-11-09
+
+- **Tool:** Nebius Token Factory (model lifecycle).
+- **What happened:** Token Factory's deprecation notice (https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md) says: "These models will be removed from Token Factory Serverless on November 9, 2026." The list includes our default fast model `nvidia/nemotron-3-super-120b-a12b`, with `nvidia/Nemotron-3.5-Super-VL` as the recommended replacement. It also lists `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, with `nvidia/Nemotron-3_5-Lightning` as the replacement. The page says "Token Factory does not automatically reroute requests from deprecated models". The reasoning default, `nvidia/Nemotron-3-Ultra-550b-a55b`, is not on that page; it is also not named anywhere in the official docs, so only `GET /v1/models` can confirm it.
+- **Impact:** a deployment that keeps the default fast id stops working on 9 November, before judging (1 to 15 December). We kept the default, which works for the submission and the demo recording, and made the removal impossible to miss:
+  - `MODEL_REMOVALS` in `src/lib/models/config.ts` holds the announced dates and replacements;
+  - `pnpm preflight` adds a "config: model removals" check that names the date and the replacement before it, and fails from it;
+  - `BLOCKED.md` has the owner step: set `MODEL_FAST` (and add its price to `MODEL_PRICES`) before 2026-11-09.
+
+  We did not switch the default now. The replacement is listed among image-to-text models, and no call has confirmed it follows the generator prompt; switching blind could break the one path that works today.
+- **Ask:** deprecation dates and replacements on each model's card, and a `deprecated_at` field in `GET /v1/models`, so tools can warn by themselves.
+
+## 2026-10-27: Token Factory docs reachable again, with a model list we had missed
+
+- **Tool:** Token Factory docs.
+- **What happened:** `https://docs.tokenfactory.nebius.com/` now answers 200 from the build session, and `GET /v1/models` answers 401 without a key (it was 403 at the proxy on 2026-10-24). The docs now give Nemotron ids in the deprecation notices: `nvidia/nemotron-3-super-120b-a12b`, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, `nvidia/Nemotron-3_5-Lightning`, `nvidia/Nemotron-3.5-Super-VL` and `nvidia/Llama-3_1-Nemotron-Ultra-253B-v1`; the August 2026 notice removed the last one and pointed it to Super. No page lists `nvidia/Nemotron-3-Ultra-550b-a55b`, so the reasoning default is still from third-party catalogs, and `GET /v1/models` with a key settles it (`BLOCKED.md`). The structured-output page (https://docs.tokenfactory.nebius.com/ai-models-inference/json.md) documents `response_format` with `json_object` and `json_schema`, for models whose card carries the "JSON mode" tag.
+
+## 2026-10-27: Token Factory Sandboxes found late, not evaluated
+
+- **Tool:** Token Factory Sandboxes (https://docs.tokenfactory.nebius.com/sandboxes/overview.md).
+- **What happened:** the overview describes an environment that gives "applications and AI agents an isolated environment to execute code, evaluate results, and work with files". It is in beta, and access is by request. Each run is an asynchronous operation that starts fresh compute from an image. We found it on 2026-10-27, after our executor was built: the docs were unreachable from the build session until then (entry above), and we have no account to request access.
+- **Impact:** not tried. Our executor interface (`src/lib/exec/types.ts`) takes a batch of inputs and returns one outcome per input; a Sandboxes executor would fit behind it like the Judge0 one. Two things to measure first: the per-operation start-up cost, since an attack runs up to about 150 chunks, and the output and retention limits. Until then the attacked code runs in our own Judge0-compatible sandbox, designed for a Nebius Serverless AI endpoint (`docs/NEBIUS-SANDBOX.md`).
+- **Ask:** Sandboxes limits and pricing on the overview page, and a batch run (many inputs, one start-up) for evaluation workloads like ours.
+
