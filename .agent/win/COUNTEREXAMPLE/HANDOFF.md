@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-27 19:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Rounds 13 and 14 are fully fixed and pushed (`c90b859`): lint, typecheck, 523/523 tests, build, and e2e (10 steps).
+- **Owner alert sent:** Token Factory removes the default fast model `nvidia/nemotron-3-super-120b-a12b` on 2026-11-09. Preflight now flags it, and BLOCKED.md has the owner step.
+- Round 15 is running: 4 Sonnet auditors on `c90b859`, plus `pnpm bench --readme` to confirm that the oracle_unreliable rule leaves the results unchanged.
+- No round has been clean yet. Every round so far finds something real; fix it, then rerun.
+
 STATE 2026-10-27 18:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 13 is fixed and pushed. Not clean.
   - `d494fef`: security critical (forged stdout records, `parseLines` capped at the chunk's input count), a core medium and 2 core lows.
