@@ -1,5 +1,12 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+FINISH AND WIND DOWN (2026-10-27 ~03:40 UTC, owner request: usage at 94%). session_01MhqWcN2Xy12avz8LfXtVq9 has released the lease.
+- The state is the same as at the 2026-10-26 23:30 wind-down below, except:
+  - WIN-CHECKLIST now maps round 11 and has the test count (492);
+  - the gate was rerun on this HEAD with the same result: `GATE: FAIL (3): only 0 clean full audit(s) in a row; two consecutive audits must find nothing new`. Every code check passes (checks.sh including build and e2e, the package scripts, and the secret scan).
+- Left unfinished: the round-12 audits (4 Sonnet auditors on `93ce07b`) and the FC_NUM_RUNS=5000 confirmation run were stopped again before reporting. There are no round-12 findings. Nothing was reverted.
+- The next steps are unchanged; see the 23:30 entry: round 12 audits until 2 clean rounds in a row, the evidence on the final HEAD, break-it.md and the reaudit header, then the gate, the PR body and the final status.
+
 RESUMED 2026-10-27 03:27 UTC (owner: the usage window reset; session_01MhqWcN2Xy12avz8LfXtVq9 keeps this entry; lease active). Starting from the wind-down next steps below: round 12 audits (4 Sonnet auditors) on `80e26aa`.
 
 FINISH AND WIND DOWN (2026-10-26 ~23:30 UTC, owner request: this account's usage is at 94%). session_01MhqWcN2Xy12avz8LfXtVq9 has released the lease. A successor may be on another account and have only this repo.
