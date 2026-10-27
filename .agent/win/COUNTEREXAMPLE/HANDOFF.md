@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+RESUMED 2026-10-27 13:45 UTC (owner: window reset; session_01MhqWcN2Xy12avz8LfXtVq9 keeps the entry; lease active).
+- **OWNER MILESTONE: by 2026-10-29T12:00Z, these must be final and pushed:** docs/SUBMISSION.md (every Devpost field, paste-ready), the README fresh-clone run, the demo script (docs/VIDEO.md) and BLOCKED.md. The owner submits on Devpost on 2026-10-29; the Devpost deadline is Fri 2026-10-30 17:00Z. Code freeze stays 2026-10-29T15:00Z.
+- Now: round 12 audits (4 Sonnet auditors) on HEAD, and in parallel, SUBMISSION moves to docs/SUBMISSION.md with all Devpost fields.
+
 FINISH AND WIND DOWN (2026-10-27 ~03:40 UTC, owner request: usage at 94%). session_01MhqWcN2Xy12avz8LfXtVq9 has released the lease.
 - The state is the same as at the 2026-10-26 23:30 wind-down below, except:
   - WIN-CHECKLIST now maps round 11 and has the test count (492);
