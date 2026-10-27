@@ -1,5 +1,7 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+RESUMED 2026-10-27 03:27 UTC (owner: the usage window reset; session_01MhqWcN2Xy12avz8LfXtVq9 keeps this entry; lease active). Starting from the wind-down next steps below: round 12 audits (4 Sonnet auditors) on `80e26aa`.
+
 FINISH AND WIND DOWN (2026-10-26 ~23:30 UTC, owner request: this account's usage is at 94%). session_01MhqWcN2Xy12avz8LfXtVq9 has released the lease. A successor may be on another account and have only this repo.
 - Goal: WIN the Nebius x NVIDIA hackathon. Code freeze is 2026-10-29T15:00Z. PR #1 (`counterexample` -> `main`); never open a second PR.
 - Done and pushed, green:
