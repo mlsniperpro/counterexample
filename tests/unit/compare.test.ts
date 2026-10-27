@@ -36,6 +36,13 @@ describe("outputsEqual", () => {
     expect(outputsEqual(1e20, 1e20 * (1 + 1e-12), "float")).toBe(true);
   });
 
+  it("float's tolerance is one part in a million", () => {
+    expect(outputsEqual(1.5, 1.5 * (1 + 9e-7), "float")).toBe(true);
+    expect(outputsEqual(1.5, 1.5 * (1 + 2e-6), "float")).toBe(false);
+    expect(outputsEqual(0.25, 0.25 + 9e-7, "float")).toBe(true);
+    expect(outputsEqual(0.25, 0.25 + 2e-6, "float")).toBe(false);
+  });
+
   it("float uses a relative tolerance, recursively", () => {
     expect(outputsEqual(0.1 + 0.2, 0.3, "float")).toBe(true);
     expect(outputsEqual([1e9, 0.3], [1e9 + 1e-3, 0.1 + 0.2], "float")).toBe(true);

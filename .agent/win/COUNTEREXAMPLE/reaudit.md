@@ -28,6 +28,13 @@ Not clean.
   - low: a JavaScript `async function solve` was judged as returning `{}`. It is now a runtime error that says why;
   - low: `class Solution` methods are unsupported; the README now says so;
   - low: `codeOnly` was quadratic (the same fix as security's).
+- **UI and tests** (1 medium, 5 low; 45 mutants, 25 killed by the suite). The UI pass was clean: 20 keyboard runs, 0 axe violations on 108 states, contrast checked, and the races were consistent. Fixed:
+  - medium: nothing tested the form-to-request wiring (three `attack-ui` mutants survived). A new e2e step reads the real request bodies, one option at a time, plus "Your own" and the language. The swapped-options mutant now fails it;
+  - low: Enter held on Attack cancelled the run, because its repeats hit Cancel. Cancel now ignores repeated keys, and an e2e check fails without that;
+  - low: picking a chip with a shared report open dropped the link but kept the banner. Both go now;
+  - low: a top-level `oneOf` mutant survived; a unit test now pins its bounds;
+  - low: the float tolerance mutant (1e-6 to 1e-5) survived; boundary tests now pin it;
+  - low: the trace autoscroll, the trace.jsonl content and the share link in the address bar were untested; the new e2e step checks all three.
 - **Judge** (1 high, 2 medium, 1 low; verified by the main session against the Token Factory docs):
   - high: the default fast model `nvidia/nemotron-3-super-120b-a12b` is removed from Token Factory on 2026-11-09, before judging, and requests are not rerouted. Fixed:
     - a `MODEL_REMOVALS` table, and a preflight check "config: model removals" that names the date and the replacement and fails from the date (tests with an injected clock);

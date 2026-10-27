@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 521 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 523 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -201,4 +201,9 @@ Legend:
     - `class Solution` is documented as unsupported;
   - judge:
     - the default fast model's announced removal on 2026-11-09: a preflight check, the BLOCKED owner step, and the SUBMISSION checklist;
-    - FEEDBACK and FRICTION corrected (ids, JSON mode, Sandboxes).
+    - FEEDBACK and FRICTION corrected (ids, JSON mode, Sandboxes);
+  - UI and tests:
+    - an e2e step checks that the form's request carries each option, the language and "Your own";
+    - holding Enter on Attack no longer cancels the run;
+    - picking a chip closes the shared report;
+    - tests pin the top-level oneOf values and the float tolerance.

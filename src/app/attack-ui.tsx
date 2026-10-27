@@ -100,6 +100,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     refocusGo.current = false;
     dispatch({ type: "reset" });
     abortRun();
+    // The page now shows another problem: the shared report goes with its link, not just the link.
+    dispatchShare({ type: "clear" });
     clearShareHash();
     setPid(id);
     const p = problems.find((x) => x.id === id);
@@ -270,8 +272,9 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           <button className="go" ref={goButton} onClick={run} disabled={running}>
             {running ? "Attacking…" : "Attack this solution"}
           </button>
+          {/* Enter held on Attack repeats once focus has moved to Cancel: a repeated key must not cancel the run it started. */}
           {running && (
-            <button className="ghost cancel" ref={cancelButton} onClick={cancel}>
+            <button className="ghost cancel" ref={cancelButton} onClick={cancel} onKeyDown={(e) => e.repeat && e.preventDefault()}>
               Cancel
             </button>
           )}

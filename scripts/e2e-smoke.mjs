@@ -13,7 +13,7 @@
  * for Playwright (`pnpm exec playwright install chromium`).
  */
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import net from "node:net";
@@ -275,6 +275,13 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await attackButton(page).waitFor();
   eq(await focused(page), "BUTTON:Attack this solution", "focus after a keyboard run ended");
+  // Enter held down on Attack: its repeats land on Cancel once focus moves there, and must not cancel the run.
+  await page.keyboard.down("Enter");
+  await cancelButton.waitFor({ timeout: 5_000 });
+  for (let i = 0; i < 3; i++) await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after holding Enter on Attack");
   ok(step);
 
   step = "switching problems or starting a run lets go of what came before";
@@ -306,6 +313,51 @@ async function main() {
   await attackButton(shared).click();
   eq(await shared.evaluate(() => window.location.hash), "", "the share fragment after starting a run");
   await shared.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  ok(step);
+
+  step = "the form sends what it shows, and the report's tools work";
+  const bodies = [];
+  await page.route("**/api/attack", (route) => {
+    bodies.push(route.request().postDataJSON());
+    return route.continue();
+  });
+  const settled = () => page.waitForFunction(() => !document.querySelector("button.go")?.disabled, null, { timeout: 90_000 });
+  await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  const demoLanguage = await page.getByLabel("Language").inputValue();
+  await attackButton(page).click();
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(JSON.stringify([bodies[0]?.problemId, bodies[0]?.routing, bodies[0]?.research, bodies[0]?.language]), JSON.stringify(["isqrt", "routed", "auto", demoLanguage]), "request body by default");
+  // The trace follows the newest event, and its download is the same events, one JSON object per line.
+  const scroll = await page.locator(".trace-scroll").evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+  check(scroll <= 2, `the trace is scrolled to its newest event (${scroll} px short)`);
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "trace.jsonl" }).click()]);
+  const jsonl = readFileSync(await dl.path(), "utf8");
+  check(jsonl.endsWith("\n"), "the trace download ends with a newline");
+  const traced = jsonl.trim().split("\n").map((l) => JSON.parse(l));
+  eq(traced.length, await page.locator(".trace li.ev").count(), "events in the trace download");
+  // Share puts the report's link in the address bar too.
+  await page.getByRole("button", { name: "Share link" }).click();
+  const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 5_000 }).then(() => true, () => false);
+  check(linked, "the address bar holds the share link after Share");
+  // Every control the reader can change reaches the request.
+  const otherLanguage = demoLanguage === "python" ? "javascript" : "python";
+  // One option at a time, so that two options wired to each other's fields cannot pass.
+  await page.getByLabel("Ultra for everything (baseline)").check();
+  await page.getByLabel("Language").selectOption(otherLanguage);
+  await attackButton(page).click();
+  await settled();
+  eq(JSON.stringify([bodies[1]?.problemId, bodies[1]?.routing, bodies[1]?.research, bodies[1]?.language]), JSON.stringify(["isqrt", "ultra-only", "auto", otherLanguage]), "request body with Ultra ticked and the language changed");
+  await page.getByLabel("Ultra for everything (baseline)").uncheck();
+  await page.getByLabel("Research the web (Tavily)").check();
+  await page.getByRole("button", { name: "Your own", exact: true }).click();
+  await page.locator("textarea.statement-in").fill("Return x + 1.");
+  await page.locator("textarea.code").fill("def solve(x):\n    return x + 1\n");
+  await attackButton(page).click();
+  await settled();
+  const own = bodies[2] ?? {};
+  check(!("problemId" in own) && own.statement === "Return x + 1." && own.code.startsWith("def solve") && own.routing === "routed" && own.research === "force", `"Your own" sends the statement, no problem id, and research ticked alone (${JSON.stringify(own).slice(0, 160)})`);
+  await page.getByLabel("Research the web (Tavily)").uncheck();
+  await page.unroute("**/api/attack");
   ok(step);
 
   step = "cancel a run mid-stream";

@@ -222,6 +222,11 @@ describe("small-scope with graphs that have no small instances", () => {
     expect(new Set(r.inputs.map((a) => JSON.stringify(a[3]))).size).toBeGreaterThanOrEqual(30);
   });
 
+  it("enumerates a top-level oneOf with each option's own top-level values, bounds included", () => {
+    const xs = smallScopeInputs([{ kind: "oneOf", options: [I(-1000, 1000), { kind: "const", value: null }] }], 300).map((a) => a[0]);
+    expect(xs).toEqual(expect.arrayContaining([0, 1, -1, 24, -24, 1000, -1000, 999, -999, null]));
+  });
+
   it("stops a sequence list at its limit, shortest first", () => {
     expect(sequences(["a", "b"], 0, 3, 5)).toEqual([[], ["a"], ["b"], ["a", "a"], ["a", "b"]]);
     expect(sequences(["a", "b"], 2, 3, 100)).toHaveLength(4 + 8);
