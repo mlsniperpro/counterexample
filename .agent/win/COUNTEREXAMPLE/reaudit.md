@@ -22,7 +22,9 @@ Not clean. The round-12 fixes hold: small-scope is byte-identical to the previou
   - low: the Ultra-only median (11.3 s, not 11.2 s);
   - low: the checklist's non-minimal count and test count.
   - The rest was re-verified exactly: a fresh clone gives 511/511, and the replay runs of all 5 built-ins match every quoted figure.
-- **UI and tests:** pending.
+- **UI and tests** (2 low test gaps). The round-12 fixes hold, with races and mutants checked. A fresh pass was clean: 20 keyboard runs, 0 axe violations, 12 error states, 9 malformed links, cancel 4 times, and 505 tests three times under 8 busy loops with no flake. Fixed:
+  - Close during a run focusing Cancel had no test. An e2e check now fails on the old code (focus on BODY);
+  - `ErrorPage`'s retry plumbing was untested. A test now reads its tree with the effect stubbed, checks that `onRetry` is the boundary's `retry`, and checks that the effect logs the error. The no-op mutant fails it.
 - Checks: lint, typecheck, 511/511 tests, build, and e2e (9 steps).
 
 ## Round 12 (2026-10-27, `5805541` code, 4 parallel Sonnet audits; findings verified by the main session)

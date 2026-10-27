@@ -290,6 +290,16 @@ async function main() {
   const switched = attacks[beforeSwitch];
   check(switched !== undefined, "the attack request reached the server");
   check(switched.aborted && !switched.finished, "picking another problem aborted the running attack's request");
+  // A share link opened during a run, then closed: Attack is disabled then, so focus goes to Cancel, not to <body>.
+  pace.lineDelayMs = 300;
+  await attackButton(page).click();
+  await cancelButton.waitFor({ timeout: 5_000 });
+  await page.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
+  await page.getByRole("button", { name: "Close", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  eq(await focused(page), "BUTTON:Cancel", "focus after closing a shared report during a run");
+  await cancelButton.click();
+  pace.lineDelayMs = 0;
   // A run started on a page opened from a share link drops the link from the address bar.
   await shared.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
   await shared.locator(".shared .cx code.big").waitFor({ timeout: 15_000 });
