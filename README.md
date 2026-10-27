@@ -2,7 +2,7 @@
 
 **License: MIT** · Built for the Nebius x NVIDIA Global AI Hackathon (Coding and Agentic Engineering track)
 
-**A coding agent that doesn't stop at "tests pass".** Give it a problem and a solution (your interview answer, or code an AI wrote). It does what a strong interviewer does: builds a slow but obviously-correct oracle, designs adversarial inputs, runs thousands of them in a sandbox, shrinks any mismatch to a **minimal counterexample**, explains the bug in two sentences, proposes a fix, and **re-attacks the fix** before calling it fixed.
+**A coding agent that doesn't stop at "tests pass".** Give it a problem and a solution (your interview answer, or code an AI wrote). It does what a strong interviewer does: builds a slow but obviously-correct oracle, designs adversarial inputs, runs hundreds of them in a sandbox (thousands of sandbox runs, counting the oracle), shrinks any mismatch to a **minimal counterexample**, explains the bug in two sentences, proposes a fix, and **re-attacks the fix** before calling it fixed.
 
 ## Try it in 60 seconds (no keys needed)
 

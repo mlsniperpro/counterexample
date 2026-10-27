@@ -7,6 +7,15 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 12 (2026-10-27, `5805541` code, 4 parallel Sonnet audits; findings verified by the main session)
+
+- **Judge and docs** (3 low, fixed in the docs):
+  - `docs/screenshots/README.md` gave the old capture date and link length;
+  - "thousands of inputs" in README, SUBMISSION and architecture.svg: the inputs per attack are hundreds, and only the sandbox runs reach thousands;
+  - the brief lists a root `SUBMISSION.md`, so the root now points to `docs/SUBMISSION.md`.
+  - Everything else was re-verified exactly against fresh replay runs: every small-scope count, shrink count, cost and benchmark figure; a fresh clone gives 492/492.
+- **Core, security, UI and tests:** pending.
+
 ## Round 11 (2026-10-26, `f37abc0` = `60c13c4` code, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean. All 8 round-10 core fixes were re-checked and hold, with tests.

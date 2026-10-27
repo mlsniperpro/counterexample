@@ -1,6 +1,6 @@
 # 390 px screenshots (evidence)
 
-Captured with `pnpm screenshots` (`scripts/screenshots.mjs`: Playwright 1.63.0, Chromium, 390 x 844 viewport, full page) against `pnpm dev` in replay mode on 2026-10-25.
+Captured with `pnpm screenshots` (`scripts/screenshots.mjs`: Playwright 1.63.0, Chromium, 390 x 844 viewport, full page) against `pnpm dev` in replay mode on 2026-10-27.
 
 | File | Shows |
 | --- | --- |
@@ -8,4 +8,4 @@ Captured with `pnpm screenshots` (`scripts/screenshots.mjs`: Playwright 1.63.0, 
 | `390-2-report.png` | After the attack: live trace, minimal counterexample `solve([0], 0)`, cited research facts, the verified fix shown as a diff against the submitted code, the share link, and the "Why Ultra here, Super there" panel. |
 | `390-3-shared-link.png` | The same report opened from its share link in a fresh page, decoded in the browser ("Nothing was sent to the server"). |
 
-The script run reported: request body `research: "force"`, share link 2,581 characters, no horizontal overflow on either page, no page errors.
+The script run reported: request body `research: "force"`, share link about 2,600 characters (2,598 in the last run; it varies a little with timing in the report), no horizontal overflow on either page, no page errors.
