@@ -1,5 +1,14 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+PROGRESS 2026-10-27 ~14:20 UTC:
+- docs/SUBMISSION.md now holds every Devpost field, paste-ready (`6301eb8`). The root SUBMISSION.md moved there, and BLOCKED.md points at its fields.
+- Fresh-clone README run on `6301eb8`, from the GitHub remote:
+  - `pnpm install --frozen-lockfile`: OK;
+  - `pnpm test`: 492/492;
+  - `pnpm dev`, then POST /api/attack for binary-search: verdict counterexample, `solve([0], 0)` expected 0 got -1, fix verified, matching the README.
+- Screenshots regenerated with `pnpm screenshots` against `next dev` (no page errors, no overflow).
+- Round 12 audits are running.
+
 RESUMED 2026-10-27 13:45 UTC (owner: window reset; session_01MhqWcN2Xy12avz8LfXtVq9 keeps the entry; lease active).
 - **OWNER MILESTONE: by 2026-10-29T12:00Z, these must be final and pushed:** docs/SUBMISSION.md (every Devpost field, paste-ready), the README fresh-clone run, the demo script (docs/VIDEO.md) and BLOCKED.md. The owner submits on Devpost on 2026-10-29; the Devpost deadline is Fri 2026-10-30 17:00Z. Code freeze stays 2026-10-29T15:00Z.
 - Now: round 12 audits (4 Sonnet auditors) on HEAD, and in parallel, SUBMISSION moves to docs/SUBMISSION.md with all Devpost fields.
