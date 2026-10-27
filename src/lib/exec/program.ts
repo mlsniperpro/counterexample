@@ -150,23 +150,18 @@ export function parseLines(stdout: string): RunOutcome[] {
     const text = raw.slice(at + 3);
     // Parsing and comparing a result costs server CPU on the event loop (about 1 s per MB), so a huge result,
     // or results past one run's total budget, are refused unread: a complete line still yields an outcome,
-    // keeping later results aligned with their inputs.
-    if (i < lines.length - 1) {
-      if (text.length > MAX_RESULT_CHARS) {
-        out.push({ ok: false, error: "runtime", message: `result too large (${text.length} characters; the limit is ${MAX_RESULT_CHARS})` });
-        return;
-      }
-      if (accepted + text.length > MAX_RESULTS_TOTAL_CHARS) {
-        out.push({ ok: false, error: "runtime", message: `results too large in total (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)` });
-        return;
-      }
-      accepted += text.length;
-      // The record itself ({"ok":…,"out":…}) is one level; the limit is on the result inside it.
-      if (nestingDepth(text) - 1 > MAX_RESULT_DEPTH) {
-        out.push({ ok: false, error: "runtime", message: `result nested too deeply (more than ${MAX_RESULT_DEPTH} levels)` });
-        return;
-      }
-    }
+    // keeping later results aligned with their inputs. The final line (no newline after it, as when the
+    // process was killed mid-write, or wrote it without one on purpose) gets the same limits; over them it is
+    // dropped like any cut-off line, and the driver blames its input.
+    const complete = i < lines.length - 1;
+    const refuse = (message: string) => {
+      if (complete) out.push({ ok: false, error: "runtime", message });
+    };
+    if (text.length > MAX_RESULT_CHARS) return refuse(`result too large (${text.length} characters; the limit is ${MAX_RESULT_CHARS})`);
+    if (accepted + text.length > MAX_RESULTS_TOTAL_CHARS) return refuse(`results too large in total (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)`);
+    accepted += text.length;
+    // The record itself ({"ok":…,"out":…}) is one level; the limit is on the result inside it.
+    if (nestingDepth(text) - 1 > MAX_RESULT_DEPTH) return refuse(`result nested too deeply (more than ${MAX_RESULT_DEPTH} levels)`);
     try {
       // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.
       const rec = JSON.parse(text, mayHoldBigInteger(text) ? exactReviver : undefined);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { outputsEqual, showValue } from "../core/compare";
+import { clipText, outputsEqual, showValue } from "../core/compare";
 import { shrink } from "../core/shrink";
 import { smallScope, smallScopeInputs } from "../core/smallscope";
 import { argsConform, type TypeSpec } from "../core/spec";
@@ -26,7 +26,8 @@ const BASELINE_ONLY = 1000;
 export const CONFIRM_HITS = 4;
 
 const specsOf = (ctx: AttackContext) => ctx.input.problem.params.map((p) => p.type);
-const call = (args: unknown[]) => `solve(${args.map((a) => showValue(a)).join(", ")})`;
+/** A call as display text for trace messages, clipped (an unshrunk input can be megabytes; the event's data keeps the full value). */
+const call = (args: unknown[]) => `solve(${clipText(args.map((a) => showValue(a)).join(", "))})`;
 
 /**
  * For a pasted statement, the fast model types it first (one traced, budgeted
@@ -427,7 +428,7 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
     : cx.shrinkExhausted
       ? "Counterexample (shrink budget exhausted, may not be minimal)"
       : "Minimal counterexample";
-  ctx.tracer.emit("shrink", "counterexample", `${label}: ${call(cx.args)} expected ${showValue(cx.expected)}, got ${cx.got}`, {
+  ctx.tracer.emit("shrink", "counterexample", `${label}: ${call(cx.args)} expected ${clipText(showValue(cx.expected))}, got ${cx.got}`, {
     args: cx.args,
     expected: cx.expected,
     got: cx.got,
@@ -445,7 +446,7 @@ function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit
   ctx.report.counterexample = cx;
   ctx.report.verdict = "counterexample";
   ctx.report.message = "The solution fails on this input only after earlier calls in the same process: it keeps state between calls. Run alone, it is correct.";
-  ctx.tracer.emit("shrink", "counterexample", `Counterexample (order-dependent, not shrunk): ${call(cx.args)} expected ${showValue(cx.expected)}, got ${cx.got}. It fails only after ${order.precedingInputs} earlier input(s) in the same process: the solution keeps state between calls. Run alone, it is correct.`, {
+  ctx.tracer.emit("shrink", "counterexample", `Counterexample (order-dependent, not shrunk): ${call(cx.args)} expected ${clipText(showValue(cx.expected))}, got ${cx.got}. It fails only after ${order.precedingInputs} earlier input(s) in the same process: the solution keeps state between calls. Run alone, it is correct.`, {
     args: cx.args,
     expected: cx.expected,
     got: cx.got,
@@ -521,7 +522,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     });
     if (verified) return;
     const worst = bad.sort((x, y) => JSON.stringify(x.args).length - JSON.stringify(y.args).length)[0];
-    if (worst) feedback = `${call(worst.args)} should return ${showValue(worst.j.expected)} but your fix returned ${worst.j.got}.`;
+    if (worst) feedback = `${call(worst.args)} should return ${clipText(showValue(worst.j.expected))} but your fix returned ${worst.j.got}.`;
   }
 }
 

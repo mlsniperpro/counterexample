@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstFunctionName, parseUnderstanding } from "@/lib/agent/understand";
+import { firstFunctionName, hasFraction, parseUnderstanding } from "@/lib/agent/understand";
 import { ModelOutputError } from "@/lib/errors";
 import { outputsEqual } from "@/lib/core/compare";
 import { parseLines } from "@/lib/exec/program";
@@ -26,6 +26,25 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect(outputsEqual(oracleOut, problem.examples[0]!.output)).toBe(true);
     expect(outputsEqual(15999999992000000000, problem.examples[0]!.output)).toBe(false);
     expect(problem.examples[0]!.args).toEqual([1, 2]);
+  });
+
+  it("compares as floats when the examples return fractions, whatever the model chose, and says so", async () => {
+    const avg = { ...spec, examples: [{ args: [1, 2], output: 1.5 }] };
+    for (const answer of [avg, { ...avg, compare: undefined }]) {
+      const { problem, note } = await run(answer);
+      expect(problem.compare).toBe("float");
+      expect(note).toMatch(/compared as floats/);
+      // A correct solution that sums in another order is not a counterexample.
+      expect(outputsEqual(1.6666666666666665, 1.6666666666666667, problem.compare)).toBe(true);
+    }
+    // Integer outputs keep exact, and an explicit "unordered" is kept.
+    expect((await run(spec)).problem.compare).toBe("exact");
+    expect((await run({ ...avg, compare: "unordered" })).problem.compare).toBe("unordered");
+  });
+
+  it("finds a fraction anywhere in an output", () => {
+    expect([1.5, [1, [2.25]], { a: { b: 0.1 } }].map(hasFraction)).toEqual([true, true, true]);
+    expect([3, [1, 2], { a: 1 }, "1.5", null, Infinity, NaN].map(hasFraction)).toEqual([false, false, false, false, false, false, false]);
   });
 
   it("turns a valid model answer into a Problem", async () => {

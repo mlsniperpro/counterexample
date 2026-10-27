@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { extractCode, extractExplanation, extractJson, parseJsonAnswer, stripThinking } from "@/lib/agent/parse";
 import { ModelOutputError } from "@/lib/errors";
+import { cpuClock } from "../helpers";
 
 describe("model output parsing", () => {
   it("finds a JSON object inside a fence or surrounding prose", () => {
@@ -44,6 +45,19 @@ describe("model output parsing", () => {
     expect(extractCode("```\nuntagged\n```", "python")).toBe("untagged\n");
     expect(() => extractCode("no code", "python")).toThrow(ModelOutputError);
     expect(() => extractCode("```python\n   \n```", "python")).toThrow(ModelOutputError);
+  });
+
+  it("stays linear on a text of braces that never close", () => {
+    const cpu = cpuClock();
+    // 60,000 unclosed braces took 16 s when every one was tried to the end of the text.
+    expect(() => extractJson("{".repeat(60_000))).toThrow(ModelOutputError);
+    expect(() => extractJson('{"'.repeat(30_000))).toThrow(ModelOutputError);
+    expect(cpu()).toBeLessThan(1000);
+  });
+
+  it("still finds an object after a few stray braces that never close", () => {
+    expect(extractJson('Use {x or {y, then: {"families": []}')).toEqual({ families: [] });
+    expect(extractJson("{ ".repeat(30) + '{"a": 1}')).toEqual({ a: 1 });
   });
 
   it("separates the explanation from code and strips reasoning", () => {

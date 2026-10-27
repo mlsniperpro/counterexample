@@ -1,5 +1,14 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-27 ~15:10 UTC:
+- Round 12 is fully fixed in this push; see reaudit.md. Judge 3 low; security 1 high, 1 medium, 1 low; core 3 medium, 1 low; UI/tests 1 medium, 5 low.
+- Checks: lint, typecheck, 505/505 tests, build, and e2e (9 steps).
+- Next steps:
+  1. Run round 13 with 4 Sonnet auditors, and keep going until 2 rounds in a row are clean.
+  2. Gather the evidence on the final HEAD: `pnpm bench --readme` (small-scope changed again; check the results are unchanged), the soak, FC 5000, the sandbox bench, axe, and a fresh clone.
+  3. Write break-it.md and the reaudit header, then run the gate.
+- Submission milestone (2026-10-29T12:00Z) status: docs/SUBMISSION.md is done, the fresh-clone run is done, VIDEO.md and BLOCKED.md are final, and the screenshots are regenerated.
+
 PROGRESS 2026-10-27 ~14:20 UTC:
 - docs/SUBMISSION.md now holds every Devpost field, paste-ready (`6301eb8`). The root SUBMISSION.md moved there, and BLOCKED.md points at its fields.
 - Fresh-clone README run on `6301eb8`, from the GitHub remote:

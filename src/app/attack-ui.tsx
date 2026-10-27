@@ -44,9 +44,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     const open = () => {
       const hash = window.location.hash;
       if (!isShareFragment(hash)) return;
+      dispatchShare({ type: "decoding", key: hash });
       decodeReport(hash)
         .then((report) => dispatchShare({ type: "opened", report, key: hash }))
-        .catch((e: Error) => dispatchShare({ type: "failed", message: e.message }));
+        .catch((e: Error) => dispatchShare({ type: "failed", message: e.message, key: hash }));
     };
     open();
     window.addEventListener("hashchange", open);
@@ -170,8 +171,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const closeShared = () => {
     dispatchShare({ type: "clear" });
     clearShareHash();
-    // The Close button goes away with the banner; keep keyboard focus on the page's main action.
-    goButton.current?.focus();
+    // The Close button goes away with the banner; keep keyboard focus on the page's main action (Cancel while a run is on, as Attack is disabled then).
+    (running ? cancelButton : goButton).current?.focus();
   };
 
   return (

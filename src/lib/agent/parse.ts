@@ -19,6 +19,9 @@ function objectEnd(s: string, start: number): number {
   return -1;
 }
 
+/** Braces that never close tried per text before giving up on it. */
+const MAX_UNCLOSED_STARTS = 32;
+
 /**
  * The first JSON object in the text: inside a ```json fence if there is one,
  * else the first top-level balanced `{...}` that parses (later prose that
@@ -28,10 +31,13 @@ export function extractJson(text: string, reviver?: (key: string, value: unknown
   const fence = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text)?.[1];
   for (const c of [fence, text]) {
     if (!c) continue;
+    let unclosed = 0;
     for (let at = c.indexOf("{"); at >= 0; ) {
       const end = objectEnd(c, at);
       if (end < 0) {
-        // Never closes (truncated, or a stray brace in prose): look for an object after it.
+        // Never closes (truncated, or a stray brace in prose): look for an object after it. Each such try reads to
+        // the end of the text, so only the first few are tried; a text of unclosed braces would otherwise be quadratic.
+        if (++unclosed > MAX_UNCLOSED_STARTS) break;
         at = c.indexOf("{", at + 1);
         continue;
       }

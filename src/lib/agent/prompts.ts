@@ -1,4 +1,4 @@
-import { showValue } from "../core/compare";
+import { clipText, showValue } from "../core/compare";
 import { SPEC_LIMITS } from "../core/spec";
 import type { Problem, Solution } from "../problems/types";
 import type { ChatMessage } from "../models/types";
@@ -67,6 +67,13 @@ Answer with one JSON object: {"families":[{"name":"short-kebab-name","rationale"
   ];
 }
 
+/**
+ * Characters of a counterexample's arguments and expected value kept in the
+ * explain prompt. An input that could not be shrunk can hold 200,000 values
+ * (over a million tokens, which the model would reject); the cut is marked.
+ */
+const EXPLAIN_VALUE_CAP = 8000;
+
 export function explainPrompt(
   p: Problem,
   s: Solution,
@@ -80,7 +87,7 @@ export function explainPrompt(
     { role: "system", content: SYSTEM },
     {
       role: "user",
-      content: `This solution is wrong. Minimal counterexample: solve(${args.map((a) => showValue(a)).join(", ")}) should return ${showValue(expected)} but returned ${got}.${orderDependent ? " Run alone on a fresh process this input passes: the solution fails on it only after earlier calls in the same process, so look for state it keeps between calls (a global, a cache or memo, a mutable default argument)." : ""}
+      content: `This solution is wrong. Minimal counterexample: solve(${clipText(args.map((a) => showValue(a)).join(", "), EXPLAIN_VALUE_CAP)}) should return ${clipText(showValue(expected), EXPLAIN_VALUE_CAP)} but returned ${got}.${orderDependent ? " Run alone on a fresh process this input passes: the solution fails on it only after earlier calls in the same process, so look for state it keeps between calls (a global, a cache or memo, a mutable default argument)." : ""}
 
 Problem: ${p.title}
 ${p.statement}
@@ -129,7 +136,7 @@ ${code}
 
 ${DSL_DOC}
 
-Answer with JSON {"title":"...","entry":"function name in the solution","params":[{"name":"...","type":T}],"returns":"...","examples":[{"args":[...],"output":...}],"compare":"exact"|"unordered"|"float","references":["external facts the statement depends on, if any"]}. Keep types within the stated constraints but small enough that a brute-force oracle stays fast.`,
+Answer with JSON {"title":"...","entry":"function name in the solution","params":[{"name":"...","type":T}],"returns":"...","examples":[{"args":[...],"output":...}],"compare":"exact"|"unordered"|"float","references":["external facts the statement depends on, if any"]}. Use "float" when the answer holds non-integer numbers (it is then compared with a small tolerance), "unordered" when the order of a returned list does not matter, else "exact". Keep types within the stated constraints but small enough that a brute-force oracle stays fast.`,
     },
   ];
 }

@@ -277,6 +277,27 @@ async function main() {
   eq(await focused(page), "BUTTON:Attack this solution", "focus after a keyboard run ended");
   ok(step);
 
+  step = "switching problems or starting a run lets go of what came before";
+  // Picking another problem mid-run must abort the request, or the server keeps the attack (a slot and its spend) for up to 50 s.
+  pace.lineDelayMs = 300;
+  const beforeSwitch = attacks.length;
+  await attackButton(page).click();
+  await cancelButton.waitFor({ timeout: 5_000 });
+  await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  await sleep(500);
+  pace.lineDelayMs = 0;
+  const switched = attacks[beforeSwitch];
+  check(switched !== undefined, "the attack request reached the server");
+  check(switched.aborted && !switched.finished, "picking another problem aborted the running attack's request");
+  // A run started on a page opened from a share link drops the link from the address bar.
+  await shared.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
+  await shared.locator(".shared .cx code.big").waitFor({ timeout: 15_000 });
+  await attackButton(shared).click();
+  eq(await shared.evaluate(() => window.location.hash), "", "the share fragment after starting a run");
+  await shared.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  ok(step);
+
   step = "cancel a run mid-stream";
   await page.getByRole("button", { name: "Binary search", exact: true }).click();
   pace.lineDelayMs = 300;

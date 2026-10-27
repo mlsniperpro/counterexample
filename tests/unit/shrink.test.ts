@@ -78,16 +78,24 @@ describe("shrinker", () => {
     it("keeps the event loop responsive while it skips the invalid candidates", async () => {
       let last = performance.now();
       let worstGap = 0;
+      let ticks = 0;
       const timer = setInterval(() => {
         const now = performance.now();
         worstGap = Math.max(worstGap, now - last);
         last = now;
+        ticks++;
       }, 5);
+      const started = performance.now();
       const r = await shrink(start, { isValid: fixedLength, stillFails: pred(() => false), maxEvals: 50 });
+      const took = performance.now() - started;
       clearInterval(timer);
+      // The gap up to the end counts too: a shrink that never yields lets no tick run at all.
+      worstGap = Math.max(worstGap, performance.now() - last);
       expect(r.minimal).toEqual(start);
       // About 4N candidates of N values each: tens of millions of values, in slices of 100,000.
-      expect(worstGap).toBeLessThan(1000);
+      expect(took).toBeGreaterThan(50);
+      expect(ticks).toBeGreaterThan(2);
+      expect(worstGap).toBeLessThan(Math.min(1000, took / 2));
     });
 
     it("stops at the scan budget, keeping the input so far and saying it may not be minimal", async () => {

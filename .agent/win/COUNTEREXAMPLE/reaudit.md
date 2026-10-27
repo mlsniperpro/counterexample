@@ -9,12 +9,29 @@ Each audit is a full pass over the whole entry, as a strict judge and a hostile 
 
 ## Round 12 (2026-10-27, `5805541` code, 4 parallel Sonnet audits; findings verified by the main session)
 
+Not clean.
 - **Judge and docs** (3 low, fixed in the docs):
   - `docs/screenshots/README.md` gave the old capture date and link length;
   - "thousands of inputs" in README, SUBMISSION and architecture.svg: the inputs per attack are hundreds, and only the sandbox runs reach thousands;
   - the brief lists a root `SUBMISSION.md`, so the root now points to `docs/SUBMISSION.md`.
   - Everything else was re-verified exactly against fresh replay runs: every small-scope count, shrink count, cost and benchmark figure; a fresh clone gives 492/492.
-- **Core, security, UI and tests:** pending.
+- **Security** (1 high, 1 medium, 1 low). The round-11 fixes hold: 1.5 million fuzzed IPv6 forms found no bypass. All three are reproduced and fixed with tests that fail on the old code:
+  - high: a final result line written without a newline skipped the size, total and depth caps (a 7.8 MB result was accepted, with event-loop stalls of 2 to 4 s per input on the local executor and the real sandbox). The final line now gets the same limits, and over them it is dropped like a cut-off line;
+  - medium: small-scope built every nested leaf array in full before slicing it. A tuple of 16 one-ofs of 16 arrays took 7.8 s and 556 MB; a oneOf of them ran out of heap at 512 MB. A `limit` now flows into nested values, so the three worst cases take 23, 73 and 421 ms of CPU;
+  - low: `extractJson` was quadratic on unclosed braces (60,000 braces: 16 s). After 32 braces that never close it gives up on that text.
+- **Core** (3 medium, 1 low). The round-11 fixes hold: 388 random cases give the same minimal result from the old and new shrinker, and the scan budget does not change the hard tier.
+  - medium: the shrinker kept every candidate's full JSON in `seen` (1,002 MB peak on a 100,000-value input). It is now keyed by a SHA-1 digest (68 MB on the auditor's script);
+  - medium: the same `extractJson` issue as above;
+  - medium: a pasted statement with fractional outputs compared "exact" by default, so a correct average computed in another order was flagged. The understand prompt now says when to use "float", and an "exact" spec whose example outputs hold fractions compares as floats, with a trace note;
+  - low: an unshrunk counterexample went whole into the explain prompt and the trace messages (170 KB, up to 3.4 MB). Both are clipped now, with the cut marked.
+- **UI and tests** (1 medium, 5 low). The browser pass was clean: 20 keyboard runs and 0 axe violations on 44 states. Fixed:
+  - medium: my round-11 responsiveness test could not fail, because without the yield no tick ran. It now also needs ticks during the shrink, and the no-yield mutant fails it;
+  - low: the CPU-time speed bounds are tightened to about 5× the worst measured under load, so a 10× slowdown fails. Three runs passed, and one run with 8 busy loops passed;
+  - low: Close on a shared report during a run focused the disabled Attack button. It now focuses Cancel while running;
+  - low: a share-link decode that finished after a run started covered the run. The share reducer now tracks the pending link, and a stale result is dropped (unit-tested);
+  - low: two e2e mutation survivors (`pick()` without abort; `run()` without clearing the share hash). A new e2e step covers both, and it fails on the `pick()` mutant;
+  - low: the error boundary had no test. Its markup is now a hook-free `ErrorView`, with tests for the alert and for the retry wiring.
+- Checks after the fixes: lint, typecheck, 505/505 tests, build, and e2e (9 steps).
 
 ## Round 11 (2026-10-26, `f37abc0` = `60c13c4` code, 4 parallel Sonnet audits; findings verified by the main session)
 

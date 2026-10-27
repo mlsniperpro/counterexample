@@ -83,7 +83,7 @@ describe("generateInputs / mutationInputs", () => {
     const cpu = cpuClock();
     const g = generateInputs({ ...family, args: [huge], count: 300 }, [huge], 1, "s");
     expect(g.inputs.length).toBe(Math.floor(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput));
-    expect(cpu()).toBeLessThan(5000);
+    expect(cpu()).toBeLessThan(600);
     expect(mutationInputs(g.inputs, [huge], 300, 1, "m").inputs.length).toBeLessThanOrEqual(SPEC_LIMITS.maxValuesPerFamily / SPEC_LIMITS.maxValuesPerInput);
     expect(inputsWithinBudget([{ kind: "int", min: 0, max: 1 }], 300)).toBe(300);
   });

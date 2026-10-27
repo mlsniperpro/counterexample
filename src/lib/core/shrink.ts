@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { SPEC_LIMITS } from "./spec";
 
 /**
@@ -208,7 +209,8 @@ export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<Shr
         }
       }
       if (nodes > curNodes || (nodes === curNodes && mag >= curMag)) continue;
-      const key = JSON.stringify(c);
+      // A digest, not the JSON itself: a round can see thousands of candidates of a 100,000-value input (about 1 GB of keys).
+      const key = createHash("sha1").update(JSON.stringify(c)).digest("base64");
       if (seen.has(key) || !opts.isValid(c)) continue;
       seen.add(key);
       batch.push(c);

@@ -101,7 +101,7 @@ describe("generation (input DSL)", () => {
     const spec: TypeSpec = { kind: "array", of: { kind: "const", value: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }, len: { min: 10_000, max: 10_000 }, distinct: true };
     const cpu = cpuClock();
     for (let i = 0; i < 50; i++) expect((genValue(spec, mulberry32(i)) as unknown[]).length).toBe(1);
-    expect(cpu()).toBeLessThan(500);
+    expect(cpu()).toBeLessThan(250);
   });
 
   it("returns a too-short array (caught by conforms) when distinct values run out", () => {
@@ -257,7 +257,7 @@ describe("array pools", () => {
         }
         const cpu = cpuClock();
         genArgs([spec], mulberry32(seed));
-        expect(cpu()).toBeLessThan(1500);
+        expect(cpu()).toBeLessThan(150);
       }),
       { numRuns: 60 },
     );
@@ -299,6 +299,6 @@ describe("value accounting for empty and tiny strings", () => {
     const cpu = cpuClock();
     const r = generateInputs({ name: "n", rationale: "", citations: [], args: [spec], count: 300, source: "model" }, [spec], 1, "x");
     expect(r.inputs.length + r.dropped).toBeGreaterThan(0);
-    expect(cpu()).toBeLessThan(1000);
+    expect(cpu()).toBeLessThan(100);
   });
 });

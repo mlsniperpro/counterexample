@@ -22,25 +22,33 @@ function ints(min: number, max: number, many: boolean): number[] {
   return [...new Set([...near, min, min + 1, max - 1, max])].filter((v) => v >= min && v <= max).sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
 }
 
-/** Small values of one (non-graph) spec; `top` marks a whole argument rather than an element of one. */
-function values(spec: TypeSpec, top: boolean): unknown[] {
+/** Values a tuple takes from each of its items: it spreads over at most TUPLE_COMBOS combinations of them. */
+const TUPLE_COMBOS = 200;
+
+/**
+ * Small values of one (non-graph) spec; `top` marks a whole argument rather
+ * than an element of one. `limit` is how many the caller uses: nested values
+ * (array elements, tuple items) are cut while they are built, never built in
+ * full and then sliced, so a tuple of arrays of long arrays stays cheap.
+ */
+function values(spec: TypeSpec, top: boolean, limit = Infinity): unknown[] {
   switch (spec.kind) {
     case "int":
-      return top ? ints(spec.min, spec.max, true) : ints(spec.min, spec.max, false).slice(0, ELEM_VALUES);
+      return (top ? ints(spec.min, spec.max, true) : ints(spec.min, spec.max, false).slice(0, ELEM_VALUES)).slice(0, limit);
     case "const":
       return [spec.value];
     case "oneOf":
-      return spec.options.flatMap((o) => (o.kind === "graph" ? [] : values(o, top)));
+      return spec.options.flatMap((o) => (o.kind === "graph" ? [] : values(o, top, limit))).slice(0, limit);
     case "string": {
       const alphabet = [...spec.alphabet].slice(0, ELEM_VALUES);
-      return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN)).map((cs) => cs.join(""));
+      return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit).map((cs) => cs.join(""));
     }
     case "tuple":
-      return spread(spec.items.map((it) => (it.kind === "graph" ? [] : values(it, false))), 200).combos;
+      return spread(spec.items.map((it) => (it.kind === "graph" ? [] : values(it, false, TUPLE_COMBOS))), TUPLE_COMBOS).combos.slice(0, limit);
     case "array": {
       if (spec.of.kind === "graph") return [];
-      const elems = values(spec.of, false).slice(0, ELEM_VALUES);
-      return sequences(elems, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN));
+      const elems = values(spec.of, false, ELEM_VALUES);
+      return sequences(elems, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit);
     }
     case "graph":
       return [];
@@ -58,19 +66,20 @@ const MAX_ELEMS_PER_LEN = 200_000;
  * whose layer would grow from more than MAX_LAYER shorter sequences keeps the
  * first MAX_LAYER × |items| of them, as growing a cut layer would. Each length
  * is built directly as base-|items| counters, never from the layers below it,
- * and keeps at most MAX_ELEMS_PER_LEN / length sequences.
+ * and keeps at most MAX_ELEMS_PER_LEN / length sequences. At most `limit` in all,
+ * shortest first.
  */
-export function sequences<T>(items: T[], minLen: number, maxLen: number): T[][] {
+export function sequences<T>(items: T[], minLen: number, maxLen: number, limit = Infinity): T[][] {
   const out: T[][] = [];
   const k = items.length;
-  for (let len = minLen; len <= maxLen; len++) {
+  for (let len = minLen; len <= maxLen && out.length < limit; len++) {
     if (len === 0) {
       out.push([]);
       continue;
     }
     if (k === 0) break;
     const layer = k * Math.min(k ** (len - 1), MAX_LAYER);
-    const count = Math.min(layer, Math.max(1, Math.floor(MAX_ELEMS_PER_LEN / len)));
+    const count = Math.min(layer, Math.max(1, Math.floor(MAX_ELEMS_PER_LEN / len)), limit - out.length);
     for (let i = 0; i < count; i++) {
       const seq = new Array<T>(len);
       let rest = i;

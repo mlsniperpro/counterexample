@@ -322,7 +322,7 @@ describe("result size limit", () => {
     const cpu = cpuClock();
     const [o] = parseLines(`\x1eCX{"ok":true,"out":${big},"ms":1}\n`);
     expect(o?.ok && Array.isArray(o.out) && o.out.length).toBe(n);
-    expect(cpu()).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(250);
     const [b] = parseLines('\x1eCX{"ok":true,"out":[1,12345678901234567890],"ms":1}\n');
     expect(b?.ok && showValue(b.out)).toBe("[1,12345678901234567890]");
   });
@@ -341,7 +341,7 @@ describe("total result budget per run", () => {
     expect(out.slice(accepted, n).every((o) => !o.ok && /results too large in total/.test(o.message))).toBe(true);
     // A small result still fits in what is left of the budget, and lands on its own input.
     expect(out[n]).toEqual({ ok: true, out: 7, ms: 1 });
-    expect(cpu()).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(250);
   });
 });
 
@@ -355,5 +355,31 @@ describe("result nesting limit", () => {
     expect(out[1]?.ok).toBe(true);
     if (out[1]?.ok) expect(() => showValue(out[1]?.ok ? out[1].out : null)).not.toThrow();
     expect(out[2]).toEqual({ ok: true, out: ["[".repeat(5000)], ms: 1 });
+  });
+});
+
+describe("the final line, written without a newline", () => {
+  const record = (out: string) => `\x1eCX{"ok":true,"out":${out},"ms":1}`;
+
+  it("is parsed when it is within the limits (a short record the kill did not cut)", () => {
+    expect(parseLines(`${record("1")}\n${record("2")}`)).toEqual([
+      { ok: true, out: 1, ms: 1 },
+      { ok: true, out: 2, ms: 1 },
+    ]);
+  });
+
+  it("is dropped unread when it is over the size, total or depth limit, so a solution cannot dodge the caps by leaving the newline off", () => {
+    const huge = "[" + "1,".repeat(Math.floor(MAX_RESULT_CHARS / 2)) + "1]";
+    const cpu = cpuClock();
+    expect(parseLines(record(huge))).toEqual([]);
+    expect(cpu()).toBeLessThan(200);
+    // Earlier complete lines still count, and the run's total budget covers the final line too.
+    const near = "[" + "1,".repeat(Math.floor((MAX_RESULT_CHARS - 100) / 2) - 1) + "1]";
+    const full = `${record(near)}\n`.repeat(Math.floor(MAX_RESULTS_TOTAL_CHARS / (near.length + 30)));
+    const out = parseLines(full + record(near));
+    expect(out.every((o) => o.ok)).toBe(true);
+    expect(out.length).toBe(Math.floor(MAX_RESULTS_TOTAL_CHARS / (near.length + 30)));
+    const deep = "[".repeat(MAX_RESULT_DEPTH + 1) + "]".repeat(MAX_RESULT_DEPTH + 1);
+    expect(parseLines(`${record("7")}\n${record(deep)}`)).toEqual([{ ok: true, out: 7, ms: 1 }]);
   });
 });

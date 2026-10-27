@@ -40,3 +40,19 @@ describe("the input DSL a model is shown", () => {
     }
   });
 });
+
+describe("the explain prompt with an input that could not be shrunk", () => {
+  it("clips the arguments and the expected value, marking the cut, so a 200,000-value input cannot blow the model's context", () => {
+    const huge = Array.from({ length: 200_000 }, (_, i) => 1_000_000_000_000 + i);
+    const t = text(explainPrompt(problem, { language: "python", code: "x", entry: "solve" }, [huge], huge, "0"));
+    expect(t.length).toBeLessThan(20_000);
+    expect(t.match(/\[truncated, \d+ more chars\]/g)).toHaveLength(2);
+    expect(t).toContain("solve([1000000000000,1000000000001,");
+  });
+});
+
+describe("understand prompt", () => {
+  it("says when to compare as floats", () => {
+    expect(text(understandPrompt("Return the average.", "x", "python"))).toMatch(/Use "float" when the answer holds non-integer numbers/);
+  });
+});

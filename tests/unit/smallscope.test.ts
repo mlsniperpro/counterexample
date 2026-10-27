@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { sequences, smallScope, smallScopeInputs } from "@/lib/core/smallscope";
-import { argsConform, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
+import { argsConform, maxValues, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 import { PROBLEMS, getProblem } from "@/lib/problems/catalog";
 import { graphSpecArb, typeSpecArb } from "../arbitraries";
 import { cpuClock, runs } from "../helpers";
@@ -46,7 +46,7 @@ describe("small-scope (bounded exhaustive) inputs", () => {
   it("contributes nothing (and allocates nothing big) for graphs that are not small", () => {
     const cpu = cpuClock();
     expect(smallScopeInputs([{ kind: "graph", n: { min: 1000, max: 1000 }, m: { min: 0, max: 10 }, weight: { min: 0, max: 1 } }], 100)).toEqual([]);
-    expect(cpu()).toBeLessThan(500);
+    expect(cpu()).toBeLessThan(150);
   });
 
   it("always conforms, never repeats, and respects the cap, for every catalog problem", () => {
@@ -109,7 +109,7 @@ describe("small-scope sampling over a space too big to enumerate", () => {
     const specs = Array.from({ length: 8 }, () => arr);
     const cpu = cpuClock();
     const a = smallScope(specs, 300);
-    expect(cpu()).toBeLessThan(2000);
+    expect(cpu()).toBeLessThan(800);
     expect(a.capped).toBe(true);
     expect(a.space).toBe(40 ** 8);
     expect(a.inputs).toHaveLength(300);
@@ -163,10 +163,31 @@ describe("small-scope with graphs that have no small instances", () => {
       const specs: TypeSpec[] = [{ kind: "array", of: I(0, 9), len: { min: L, max: L } }, { kind: "string", alphabet: "abc", len: { min: L, max: L } }];
       const cpu = cpuClock();
       const r = smallScope(specs, 300);
-      expect(cpu()).toBeLessThan(1000);
+      expect(cpu()).toBeLessThan(400);
       expect(r.inputs.length).toBeGreaterThan(0);
       expect(r.inputs.every((a) => argsConform(a, specs))).toBe(true);
     }
+  });
+
+  it("builds nested values only as far as they are used (a tuple of 16 one-ofs of 16 arrays of 10 ints)", () => {
+    const arr10 = (min: number): TypeSpec => ({ kind: "array", of: I(0, 100), len: { min, max: 10 } });
+    const nested: TypeSpec = { kind: "tuple", items: Array.from({ length: 16 }, () => ({ kind: "oneOf", options: Array.from({ length: 16 }, (_, j) => arr10(j % 2 ? 10 : 0)) })) };
+    const deep: TypeSpec = { kind: "tuple", items: Array.from({ length: 16 }, () => ({ kind: "tuple", items: Array.from({ length: 16 }, () => arr10(10)) })) };
+    // Accepted specs (within the value limit) that took 4 to 8 s and up to 1.1 GB each when every leaf was built in full.
+    const cpu = cpuClock();
+    for (const spec of [nested, deep, { kind: "oneOf", options: Array.from({ length: 16 }, () => deep) } as TypeSpec]) {
+      expect(maxValues(spec)).toBeLessThanOrEqual(SPEC_LIMITS.maxValuesPerInput);
+      const r = smallScope([spec], 300);
+      expect(r.inputs.length).toBeGreaterThan(0);
+      expect(r.inputs.every((a) => argsConform(a, [spec]))).toBe(true);
+    }
+    expect(cpu()).toBeLessThan(1500);
+  });
+
+  it("stops a sequence list at its limit, shortest first", () => {
+    expect(sequences(["a", "b"], 0, 3, 5)).toEqual([[], ["a"], ["b"], ["a", "a"], ["a", "b"]]);
+    expect(sequences(["a", "b"], 2, 3, 100)).toHaveLength(4 + 8);
+    expect(sequences(["a"], 5, 5, 1)).toEqual([["a", "a", "a", "a", "a"]]);
   });
 
   it("enumerates short sequences exactly as growing them layer by layer does", () => {

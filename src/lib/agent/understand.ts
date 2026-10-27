@@ -63,6 +63,14 @@ function resolveEntry(code: string, language: Solution["language"], named: strin
   return named ? { entry, note: `The model named entry "${named}", which the code does not define; using "${entry}" instead` } : { entry };
 }
 
+/** True when a JSON value holds a number that is not an integer (an average, a probability). */
+export function hasFraction(v: unknown): boolean {
+  if (typeof v === "number") return Number.isFinite(v) && !Number.isInteger(v);
+  if (Array.isArray(v)) return v.some(hasFraction);
+  if (v !== null && typeof v === "object") return Object.values(v).some(hasFraction);
+  return false;
+}
+
 /**
  * Live mode only: turn the fast model's answer about a pasted statement into
  * a typed Problem. The answer is schema-validated: cosmetic fields are
@@ -78,9 +86,14 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   // (arguments stay plain numbers: inputs are bounded to safe integers anyway).
   const exact = extractJson(stripThinking(text), exactReviver) as { examples?: { output?: unknown }[] };
   const examples = a.examples.map((e, i) => ({ ...e, output: exact.examples?.[i]?.output ?? e.output }));
+  // Exact comparison of floating-point answers flags a correct solution that sums in another order (1.6666666666666665
+  // against 1.6666666666666667), so an exact spec whose example outputs hold fractions compares as floats.
+  const floats = a.compare === "exact" && examples.some((e) => hasFraction(e.output));
+  const compare = floats ? "float" : a.compare;
+  const notes = [note, floats ? 'The examples return non-integer numbers, so outputs are compared as floats (the model asked for "exact")' : undefined].filter(Boolean).join("; ");
   return {
     entry,
-    ...(note ? { note } : {}),
+    ...(notes ? { note: notes } : {}),
     problem: {
       id: "custom",
       title: a.title,
@@ -88,7 +101,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
       params,
       returns: a.returns,
       examples,
-      compare: a.compare,
+      compare,
       timeLimitMs: 1000,
       memoryLimitMb: 256,
       references: a.references,
