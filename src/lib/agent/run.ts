@@ -27,12 +27,20 @@ export async function attack(input: AttackInput | StatementInput, deps: AgentDep
       return finish(ctx);
     }
     if (hits.length === 0) {
-      report.verdict = "no_counterexample";
       // Only inputs the oracle could judge count as evidence.
       const skipped = ctx.families.reduce((n, f) => n + f.oracleSkipped, 0);
+      const judged = ctx.inputsTested - skipped;
+      if (skipped > judged) {
+        // An oracle that fails or times out on most inputs (an exponential brute force, say) leaves too little evidence
+        // to say the solution survived.
+        report.verdict = "oracle_unreliable";
+        report.message = `The oracle could not judge ${skipped} of ${ctx.inputsTested} inputs (it failed or timed out on them), so there is no verdict: no mismatch on the ${judged} it judged.`;
+        return finish(ctx);
+      }
+      report.verdict = "no_counterexample";
       const unjudged = skipped ? ` The oracle could not judge ${skipped} more (it failed or timed out on them), so those prove nothing.` : "";
       const dropped = ctx.droppedMismatches ? ` ${ctx.droppedMismatches} mismatch(es) did not reproduce on a re-run and were dropped.` : "";
-      report.message = `No mismatch on ${ctx.inputsTested - skipped} judged inputs across ${ctx.families.filter((f) => f.tested).length} families.${unjudged}${dropped} That is evidence, not proof.`;
+      report.message = `No mismatch on ${judged} judged inputs across ${ctx.families.filter((f) => f.tested).length} families.${unjudged}${dropped} That is evidence, not proof.`;
       return finish(ctx);
     }
     const cx = await shrinkStage(ctx, hits);

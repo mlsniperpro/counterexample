@@ -26,7 +26,7 @@ function ints(min: number, max: number, many: boolean): number[] {
 const TUPLE_COMBOS = 200;
 /** Values built for one tuple item before TUPLE_COMBOS of them are picked evenly (not a prefix, which would fix its first elements). */
 const TUPLE_ITEM_VALUES = 5000;
-/** Scalars all the sequences of one smallScope call may hold together, however many options and items a spec nests. */
+/** Scalars all the sequences of one smallScope call may hold together (split evenly between its parameters), however many options and items a spec nests. */
 const MAX_SCALARS = 2_000_000;
 
 /** What is left of one smallScope call's MAX_SCALARS. */
@@ -181,8 +181,19 @@ const MAX_ENUMERATED = 20_000;
 /** Most scalar values in the enumerated combinations, so long fixed-length inputs are enumerated fewer at a time. */
 const MAX_ENUMERATED_VALUES = 1_000_000;
 
+/** Sizes of arrays already measured: small values share sub-arrays (every sequence of a fixed-length grid reuses the same rows), so each is walked once. */
+const sizes = new WeakMap<object, number>();
+
 /** Scalar values in a small value (a string counts its characters). */
-const size = (v: unknown): number => (Array.isArray(v) ? v.reduce((a: number, x) => a + size(x), 1) : typeof v === "string" ? 1 + v.length : 1);
+function size(v: unknown): number {
+  if (typeof v === "string") return 1 + v.length;
+  if (!Array.isArray(v)) return 1;
+  const known = sizes.get(v);
+  if (known !== undefined) return known;
+  const n = v.reduce((a: number, x) => a + size(x), 1);
+  sizes.set(v, n);
+  return n;
+}
 
 export type SmallScope = {
   /** At most `cap` argument lists, all within the problem's constraints. */
@@ -223,9 +234,9 @@ export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
   // Each graph spec contributes two arguments (n, edges) as one unit. A graph with no small instances is
   // replaced by its smallest valid graph when there is something else to vary; alone it contributes nothing.
   let standIn = false;
-  const budget: Budget = { left: MAX_SCALARS };
   const units = specs.map((s) => {
-    if (s.kind !== "graph") return values(s, true, budget).map((v) => [v]);
+    // Each parameter gets its own share, so long earlier parameters cannot starve a small later one.
+    if (s.kind !== "graph") return values(s, true, { left: Math.floor(MAX_SCALARS / specs.length) }).map((v) => [v]);
     const small = graphs(s);
     if (small.length || specs.length === 1) return small;
     const stand = defaultGraph(s);

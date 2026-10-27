@@ -158,6 +158,7 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
 /** The most useful line of an error dump: the last "SomethingError: ..." line, else the last three lines. */
 export function errorSummary(stderr: string): string {
   const lines = stderr.trim().split("\n");
-  const named = lines.filter((l) => /^\s*[\w.]*(Error|Exception)\b.*:/.test(l)).at(-1);
+  // Only a line's head is tested, and without `.*`: on `a.Error.Error…` with no colon that rescanned the line from each match.
+  const named = lines.filter((l) => /^\s*[\w.]*(Error|Exception)\b[^:]*:/.test(l.slice(0, 300))).at(-1);
   return (named ?? lines.slice(-3).join("\n")).trim();
 }

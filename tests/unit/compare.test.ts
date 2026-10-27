@@ -30,7 +30,9 @@ describe("outputsEqual", () => {
     expect(outputsEqual([4, 1.5], [3, 1.5], "float")).toBe(false);
     // An integer against a float near it keeps the tolerance (2.0000000001 is a float answer).
     expect(outputsEqual(2, 2.0000000001, "float")).toBe(true);
-    // Above 2^53 every double is an integer, and a float result prints as one: those keep the tolerance.
+    // From 2^50 doubles are 0.25 or more apart, so two summation orders can land on neighbouring integers: tolerance.
+    expect(outputsEqual(7_700_000_000_000_004, 7_700_000_000_000_003, "float")).toBe(true);
+    expect(outputsEqual(2 ** 50 - 1, 2 ** 50 - 2, "float")).toBe(false);
     expect(outputsEqual(1e20, 1e20 * (1 + 1e-12), "float")).toBe(true);
   });
 

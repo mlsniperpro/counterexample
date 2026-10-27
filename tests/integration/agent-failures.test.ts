@@ -115,6 +115,16 @@ describe("agent failure paths (replay mode)", () => {
     });
   });
 
+  it("claims no survival when the oracle could judge only a few inputs, whatever the solution did on the rest", async () => {
+    // An oracle that knows the examples and fails on everything else (an exponential brute force timing out behaves the same).
+    const lookup = "```python\ndef solve(nums, target):\n    known = {((-1, 0, 3, 5, 9, 12), 9): 4, ((-1, 0, 3, 5, 9, 12), 2): -1}\n    return known[(tuple(nums), target)]\n```";
+    const fx: ReplayFixtures = { ...FIXTURES, "binary-search": { ...FIXTURES["binary-search"], oracle: lookup } };
+    const b = builtIn("binary-search");
+    const r = await attack({ problem: b.problem, solution: b.demo, research: "off" }, deps(fx));
+    expect(r.verdict).toBe("oracle_unreliable");
+    expect(r.message).toMatch(/^The oracle could not judge \d+ of \d+ inputs .* so there is no verdict: no mismatch on the 2 it judged\.$/);
+  });
+
   describe("an unreadable generator answer", () => {
     const isqrt = () => ({ problem: getProblem("isqrt")!, solution: builtIn("isqrt").demo });
     const goodAnswer = [FIXTURES.isqrt?.generators].flat()[0] ?? "";

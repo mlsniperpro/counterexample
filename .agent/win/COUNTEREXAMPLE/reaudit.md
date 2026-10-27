@@ -14,7 +14,21 @@ Not clean.
   - low, fixed: if `attack()` ever threw, the route settled the spend at 0 and refunded the whole live reservation ($0.65), though model calls may have cost money. A crash now keeps the reservation charged. `tests/integration/route-crash.test.ts` fails on the old code;
   - low, docs: the 1,000,000-character result budget applies per process (or Judge0 submission), not per attack. The README now says so.
   - Measured: forged records are capped (6 ms for 8 MB), and an 8 MB stdout with no markers takes 150 ms to scan. A full Judge0 attack with 250 K-character results peaked at a 377 ms stall.
-- **Core, UI and tests, judge:** pending.
+- **Security, rerun** (2 medium, 2 low), fixed with tests that fail on the old code:
+  - medium: `extractExplanation`'s label patterns let `\s*` cross newlines, so blank lines were quadratic (32,000 took 4.7 s). The patterns now stay within a line, and `stripThinking` is a forward scan;
+  - medium: `parseLines` walked every line, so 8 MB of bare newlines per process took 0.14 to 0.6 s (85 s of stalls over one 2,000-input attack). It now jumps between markers (about 1 ms). Fuzzing 200,000 cases against the old version found no difference;
+  - low: `codeOnly` was quadratic on unterminated strings (a linear scanner now; 3 × 20 KB worst cases take 5 ms);
+  - low: `errorSummary` was quadratic on `a.Error.Error…` (the head of the line only, and `[^:]*`).
+  - Clean: sandbox auth, body and output caps, cleanup, the guard, output escaping, diff and toMarkdown.
+- **Core** (2 medium, 5 low), fixed with tests:
+  - medium: small-scope re-measured shared sub-arrays for each value (a 50×50×50 grid took 4.2 s, three times per attack). Sizes are now memoized in a WeakMap;
+  - medium: a run in which the oracle judged 2 of 1,531 inputs was a green "Survived the attack". When most inputs are unjudged, the verdict is now `oracle_unreliable`;
+  - low: the shared small-scope budget starved later parameters (4 distinct values instead of 40). Each parameter now gets its own share;
+  - low: float mode compared integers from 2^50 exactly, where doubles are 0.25 apart. The exact rule now applies below 2^50 only;
+  - low: a JavaScript `async function solve` was judged as returning `{}`. It is now a runtime error that says why;
+  - low: `class Solution` methods are unsupported; the README now says so;
+  - low: `codeOnly` was quadratic (the same fix as security's).
+- **Judge:** see the docs commit after this one.
 
 ## Round 13 (2026-10-27, `a3f70e3`, 4 parallel Sonnet audits; findings verified by the main session)
 

@@ -376,6 +376,16 @@ describe("forged result records", () => {
   });
 });
 
+describe("stdout of bare newlines", () => {
+  it("is skipped from marker to marker, not walked line by line", () => {
+    const flood = "\x1eCR\n" + "\n".repeat(8_000_000) + '\x1eCX{"ok":true,"out":5,"ms":1}\n';
+    const cpu = cpuClock();
+    expect(parseLines(flood, 200)).toEqual([{ ok: true, out: 5, ms: 1 }]);
+    // Walking 8 million empty lines took 140 to 600 ms per process; jumping between markers takes about 1 ms.
+    expect(cpu()).toBeLessThan(40);
+  });
+});
+
 describe("the final line, written without a newline", () => {
   const record = (out: string) => `\x1eCX{"ok":true,"out":${out},"ms":1}`;
 

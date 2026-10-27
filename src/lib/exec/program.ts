@@ -78,6 +78,7 @@ __cx_main()
     let __line;
     try {
       const __r = __f(...__args);
+      if (__r && typeof __r.then === "function") throw new Error("the function returned a Promise: make it synchronous (async solutions are not supported)");
       __line = __digits(JSON.stringify({ ok: true, out: __r === undefined ? null : __r, ms: Math.round((__perf.now() - __t0) * 1000) / 1000 }, __finite));
     } catch (__e) {
       __line = JSON.stringify({ ok: false, error: "runtime", message: String(__e && __e.stack ? String(__e).slice(0, 200) : __e).slice(0, 200) });
@@ -146,14 +147,14 @@ export function reachedReady(stdout: string): boolean {
 export function parseLines(stdout: string, maxRecords = Infinity): RunOutcome[] {
   const out: RunOutcome[] = [];
   let accepted = 0;
-  for (let start = 0; start < stdout.length && out.length < maxRecords; ) {
-    const nl = stdout.indexOf("\n", start);
+  // Jump from marker to marker: walking every line cost about 0.5 s per 8 MB of bare newlines, once per process.
+  for (let start = 0; out.length < maxRecords; ) {
+    const at = stdout.indexOf("\x1eCX", start);
+    if (at < 0) break;
+    const nl = stdout.indexOf("\n", at);
     const complete = nl >= 0;
-    const raw = stdout.slice(start, complete ? nl : stdout.length);
+    const text = stdout.slice(at + 3, complete ? nl : stdout.length);
     start = complete ? nl + 1 : stdout.length;
-    const at = raw.indexOf("\x1eCX");
-    if (at < 0) continue;
-    const text = raw.slice(at + 3);
     // Parsing and comparing a result costs server CPU on the event loop (about 1 s per MB), so a huge result,
     // or results past one run's total budget, are refused unread: a complete line still yields an outcome,
     // keeping later results aligned with their inputs. The final line (no newline after it, as when the

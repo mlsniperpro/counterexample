@@ -55,6 +55,17 @@ describe("model output parsing", () => {
     expect(cpu()).toBeLessThan(1000);
   });
 
+  it("stays linear on degenerate answers: many blank lines, many unclosed <think> tags", () => {
+    const cpu = cpuClock();
+    // 32,000 blank lines took 4.7 s when the label pattern's \s* crossed newlines.
+    expect(extractExplanation("EXPLANATION: Because x" + "\n".repeat(64_000) + "done")).toBe("Because x" + "\n".repeat(64_000) + "done");
+    expect(stripThinking("<think>".repeat(10_000) + "answer")).toBe("<think>".repeat(10_000) + "answer");
+    expect(cpu()).toBeLessThan(300);
+    // Same results as before on ordinary text.
+    expect(stripThinking("a<THINK>x</think>b<think>y</THINK>c<think>open")).toBe("abc<think>open");
+    expect(extractExplanation("  Explanation: two.\n\nFIX:\n```py\nx\n```")).toBe("two.");
+  });
+
   it("still finds an object after a few stray braces that never close", () => {
     expect(extractJson('Use {x or {y, then: {"families": []}')).toEqual({ families: [] });
     expect(extractJson("{ ".repeat(30) + '{"a": 1}')).toEqual({ a: 1 });

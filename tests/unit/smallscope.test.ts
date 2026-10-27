@@ -206,6 +206,22 @@ describe("small-scope with graphs that have no small instances", () => {
     expect(firsts).toEqual(new Set(["a", "b", "c"]));
   });
 
+  it("measures fixed-size nested arrays once each, not once per value that shares them", () => {
+    const fixed = (len: number, of: TypeSpec): TypeSpec => ({ kind: "array", of, len: { min: len, max: len } });
+    // A 50x50x50 grid took 4.2 s and a 400x400 matrix 1.5 s, three times per attack.
+    const cpu = cpuClock();
+    for (const spec of [fixed(50, fixed(50, fixed(50, I(0, 9)))), fixed(400, fixed(400, I(0, 9)))]) expect(smallScope([spec], 300).inputs.length).toBeGreaterThan(0);
+    expect(cpu()).toBeLessThan(1000);
+  });
+
+  it("gives every parameter its own share of the value budget, so long ones cannot starve a small one", () => {
+    const long: TypeSpec = { kind: "string", alphabet: "ab", len: { min: 1000, max: 1003 } };
+    const small: TypeSpec = { kind: "array", of: I(0, 3), len: { min: 0, max: 3 } };
+    const r = smallScope([long, long, long, small], 300);
+    // Before the budget was shared it got 40 distinct small arrays; a shared budget left it 4.
+    expect(new Set(r.inputs.map((a) => JSON.stringify(a[3]))).size).toBeGreaterThanOrEqual(30);
+  });
+
   it("stops a sequence list at its limit, shortest first", () => {
     expect(sequences(["a", "b"], 0, 3, 5)).toEqual([[], ["a"], ["b"], ["a", "a"], ["a", "b"]]);
     expect(sequences(["a", "b"], 2, 3, 100)).toHaveLength(4 + 8);

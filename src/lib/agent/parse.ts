@@ -68,9 +68,27 @@ export function extractCode(text: string, language: "python" | "javascript"): st
   return block.body.trimEnd() + "\n";
 }
 
-/** Strip reasoning traces some models emit before the answer. */
+/**
+ * Strip reasoning traces some models emit before the answer. One forward scan: a regex retried from every unclosed
+ * `<think>` rereads the rest of the text each time (quadratic on a degenerate answer). A `<think>` that never closes
+ * is left in place, for answerText to cut.
+ */
 export function stripThinking(text: string): string {
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const open = /<think>/gi;
+  const close = /<\/think>/gi;
+  let out = "";
+  let at = 0;
+  for (;;) {
+    open.lastIndex = at;
+    const o = open.exec(text);
+    if (!o) break;
+    close.lastIndex = o.index + o[0].length;
+    const c = close.exec(text);
+    if (!c) break;
+    out += text.slice(at, o.index);
+    at = c.index + c[0].length;
+  }
+  return (out + text.slice(at)).trim();
 }
 
 /** The answer a reader would see: no reasoning trace, and nothing after a `<think>` that never closes (an answer cut inside its thinking has no answer in it). */
@@ -83,7 +101,8 @@ export function extractExplanation(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, "")
     .replace(/```[\s\S]*$/, "")
-    .replace(/^\s*(EXPLANATION|Explanation)\s*:\s*/m, "")
-    .replace(/^\s*(FIX|Fix)\s*:\s*$/m, "")
+    // Within a line only: a \s* before the label crossed newlines, so each blank line rescanned the rest of the text.
+    .replace(/^[ \t]*(EXPLANATION|Explanation)[ \t]*:\s*/m, "")
+    .replace(/^[ \t]*(FIX|Fix)[ \t]*:[ \t]*$/m, "")
     .trim();
 }

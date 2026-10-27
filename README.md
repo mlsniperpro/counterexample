@@ -155,6 +155,8 @@ Sandbox: set `JUDGE0_URL` (and `JUDGE0_TOKEN`, or `JUDGE0_RAPIDAPI_HOST` for Rap
 
 Credentials check: once keys are set, `pnpm preflight` makes one real call to each service. It lists the Token Factory models and checks that both Nemotron ids are offered, sends a one-line prompt to each model, runs one Tavily search, and runs the harness once per language on the sandbox. A missing credential (`NEBIUS_API_KEY`, `TAVILY_API_KEY`) or an absent sandbox (`JUDGE0_URL`, which production requires unless `ALLOW_LOCAL_EXECUTOR=1`) is reported as `skip`, never as a pass; a configured service that fails is `FAIL`, and only `FAIL` makes the command exit non-zero.
 
+Your own code: paste Python 3 or JavaScript that defines the solution as a top-level, synchronous function (`def solve(...)`, `function solve(...)` or `const solve = (...) =>`; another name works when the statement or the code makes it clear). A LeetCode-style method inside `class Solution` is not supported yet, so move it to the top level; an `async` JavaScript function is reported as a runtime error.
+
 Deployment: a Vercel preview works for the UI; set the env vars above.
 
 Browser smoke test: `pnpm build`, then `pnpm e2e`. It starts `next start` itself in replay mode and drives the page in the Chromium that Playwright has installed (`pnpm exec playwright install chromium` if it is missing). It refuses to run when there is no build, or when a file under `src/` is newer than the build, so it never tests a stale UI.

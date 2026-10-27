@@ -94,6 +94,9 @@ const isMarker = (x: unknown): x is string => typeof x === "string" && x.startsW
 
 const asFloat = (x: unknown): unknown => (isMarker(x) ? Number(x.slice(BIG.length)) : x);
 
+/** Float mode compares integers below this exactly. */
+const EXACT_INT_BELOW = 2 ** 50;
+
 function floatEq(a: unknown, b: unknown): boolean {
   // Markers carry exact digits; integers of 309+ digits are Infinity as numbers, so two different ones (or any two, by abs(Inf - Inf) = NaN) must be judged on their digits.
   if (isMarker(a) && isMarker(b) && (a === b || !Number.isFinite(asFloat(a)) || !Number.isFinite(asFloat(b)))) return a === b;
@@ -101,9 +104,10 @@ function floatEq(a: unknown, b: unknown): boolean {
   const fb = asFloat(b);
   if (typeof fa === "number" && typeof fb === "number") {
     if (!Number.isFinite(fa) || !Number.isFinite(fb)) return fa === fb;
-    // Two safe integers are an integer answer (a count, an index), where off by one is a bug at any magnitude. Larger
-    // doubles are all integers too, and a float result can print as one, so those keep the tolerance.
-    if (Number.isSafeInteger(fa) && Number.isSafeInteger(fb)) return fa === fb;
+    // Two integers below 2^50 are an integer answer (a count, an index), where off by one is a bug. From 2^50 on, doubles
+    // are spaced 0.25 or more apart, so two summation orders of a float answer can land on neighbouring integers: those
+    // keep the tolerance.
+    if (Number.isInteger(fa) && Number.isInteger(fb) && Math.max(Math.abs(fa), Math.abs(fb)) < EXACT_INT_BELOW) return fa === fb;
     return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
   if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));

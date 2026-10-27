@@ -124,6 +124,11 @@ describe("LocalExecutor (dev only)", () => {
     expect(r2.outcomes[0]).toMatchObject({ ok: false, error: "compile" });
   });
 
+  it("reports a JavaScript async function as a runtime error, not as returning {}", async () => {
+    const r = await local.run({ ...base, language: "javascript", code: "async function solve(a) { return a + 1; }", inputs: [[1]] });
+    expect(r.outcomes[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/returned a Promise: make it synchronous/) });
+  });
+
   it("stays fast when the code forges millions of empty result records by writing to stdout directly", async () => {
     // process.stdout.write bypasses the harness's console capture; 2,000,000 empty records (8 MB) took 33 s to parse.
     const code = "function solve(x) { if (x === 2) process.stdout.write('\\x1eCX\\n'.repeat(2000000)); return x; }";
@@ -182,6 +187,15 @@ describe("errorSummary", () => {
     expect(errorSummary("/tmp/main.js:1\nfunction f( {\n           ^\n\nSyntaxError: Unexpected token '{'\n    at wrapSafe (node:internal)\n    at main")).toBe("SyntaxError: Unexpected token '{'");
     expect(errorSummary('  File "main.py", line 1\n    def f(\n         ^\nSyntaxError: \'(\' was never closed')).toBe("SyntaxError: '(' was never closed");
     expect(errorSummary("a\nb\nc\nd")).toBe("b\nc\nd");
+  });
+
+  it("stays fast on a long line of error names with no colon", () => {
+    // 84 KB of this took 1.9 s when `.*:` rescanned the line from each "Error".
+    const line = "a." + "Error.".repeat(14_000);
+    const t0 = Date.now();
+    expect(errorSummary(line + "\nValueError: bad")).toBe("ValueError: bad");
+    expect(errorSummary(line)).toBe(line);
+    expect(Date.now() - t0).toBeLessThan(200);
   });
 });
 

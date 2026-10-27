@@ -55,10 +55,38 @@ const RULES: Record<Language, { id: string; api: string; re: RegExp; query: stri
   ],
 };
 
-/** Code with comments and string literals blanked out, so mentions in them don't count as calls. */
+/**
+ * Code with comments and string literals blanked out, so mentions in them
+ * don't count as calls. One linear scan: a regex for strings retried from
+ * every quote of an unterminated one was quadratic on a pasted `"\` run.
+ * Strings in double and single quotes end at a newline; JavaScript template
+ * literals may span lines. An unterminated string runs to the end of its line.
+ */
 export function codeOnly(code: string, language: Language): string {
-  const comment = language === "python" ? /#.*$/gm : /\/\/.*$|\/\*[\s\S]*?\*\//gm;
-  return code.replace(/"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`/g, '""').replace(comment, "");
+  const out: string[] = [];
+  const lineComment = language === "python" ? "#" : "//";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i] as string;
+    if (code.startsWith(lineComment, i)) {
+      const nl = code.indexOf("\n", i);
+      i = nl < 0 ? code.length : nl;
+    } else if (language === "javascript" && code.startsWith("/*", i)) {
+      const end = code.indexOf("*/", i + 2);
+      i = end < 0 ? code.length : end + 2;
+    } else if (ch === '"' || ch === "'" || (ch === "`" && language === "javascript")) {
+      let j = i + 1;
+      while (j < code.length && code[j] !== ch && (ch === "`" || code[j] !== "\n")) j += code[j] === "\\" ? 2 : 1;
+      // A string is blanked. An unterminated one (the code is broken from there) is blanked to the end of its line, so
+      // no later quote is scanned again.
+      out.push('""');
+      i = j < code.length && code[j] === ch ? j + 1 : j;
+    } else {
+      out.push(ch);
+      i++;
+    }
+  }
+  return out.join("");
 }
 
 export function detectApiRisks(code: string, language: Language): ApiRisk[] {
