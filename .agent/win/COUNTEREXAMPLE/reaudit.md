@@ -17,7 +17,12 @@ Not clean. The round-12 fixes hold: small-scope is byte-identical to the previou
   - low: in float mode two integers compared with a tolerance (1,000,000,000 equalled 1,000,000,001). Two safe integers now compare exactly; larger doubles keep the tolerance, since a float prints as one;
   - low: tuple items over 200 values were cut to a prefix. They are now built to 5,000 and 200 are picked evenly.
 - **Bench** regenerated on `a3f70e3`: unchanged, 38/38 found, 0 false alarms. Only the timing-dependent hard-tier timeouts moved, so the README now says 3 of 8 hit the shrink budget.
-- **UI and tests:** pending. **Judge:** pending.
+- **Judge and docs** (1 medium, 3 low; fixed in the docs):
+  - medium: SUBMISSION stated the Nebius AI Cloud deploy as done; it is now conditional;
+  - low: the Ultra-only median (11.3 s, not 11.2 s);
+  - low: the checklist's non-minimal count and test count.
+  - The rest was re-verified exactly: a fresh clone gives 511/511, and the replay runs of all 5 built-ins match every quoted figure.
+- **UI and tests:** pending.
 - Checks: lint, typecheck, 511/511 tests, build, and e2e (9 steps).
 
 ## Round 12 (2026-10-27, `5805541` code, 4 parallel Sonnet audits; findings verified by the main session)

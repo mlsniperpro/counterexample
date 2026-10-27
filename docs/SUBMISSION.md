@@ -83,7 +83,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
   - **Nemotron 3 Ultra** handles the oracle and the root cause, where a mistake means a false alarm or a wrong fix.
   - **Nemotron 3 Super** handles generator design and research summaries, which are cheap to try and checked by a validator.
   - The benchmark compares this routing against Ultra everywhere.
-- **Nebius AI Cloud.** The attacked code runs in our own Judge0-compatible sandbox (`sandbox/`). It is built to deploy as a Nebius Serverless AI endpoint, so the models run on Token Factory and the code they attack runs on Nebius AI Cloud. Each run is isolated:
+- **Nebius AI Cloud.** The attacked code runs in our own Judge0-compatible sandbox (`sandbox/`). It is designed to deploy as a Nebius Serverless AI endpoint, so that the models run on Token Factory and the code they attack runs on Nebius AI Cloud (the deploy is the owner's step; until then the sandbox runs from the same Docker image locally or behind any Judge0-compatible endpoint). Each run is isolated:
   - its own unprivileged uid;
   - a seccomp filter that denies network sockets and IPC;
   - resource limits;
@@ -95,7 +95,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
   - Network calls have timeouts, bounded retries with backoff and idempotency keys.
   - Each attack has budgets for model calls, sandbox runs and wall clock.
   - Per-IP rate limits and a daily spend cap protect the public demo.
-- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and 490+ tests:
+- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and 500+ tests:
   - unit tests;
   - fast-check property tests;
   - integration tests;
@@ -114,7 +114,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 
 - **38 of 38 known bugs found, 0 false alarms on 16 correct solutions**, across 13 problems in Python and JavaScript, with every fix verified by re-attack (replay mode: hand-written stand-ins for the model answers, real execution).
 - **Where the models matter, measured honestly.** On 8 "hard tier" bugs that only show at worst-case sizes or on specific structure (exponential backtracking, overflow on a long chain), the model-designed families find 8 of 8. Both ablations find 0 of 8: one without model families, and one with examples plus 1,000 random inputs. We wrote those stand-in families knowing the bug classes, and say so; the live run measures whether Super writes them itself.
-- **Routing pays.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts) and reaches the first counterexample faster (median 5.4 s against 11.2 s), with the same results.
+- **Routing pays.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts) and reaches the first counterexample faster (median 5.4 s against 11.3 s), with the same results.
 - Counterexamples a person can read: `solve([0], 0)`, `solve(2147483647)`, `solve("baab")`.
 
 ## What we learned

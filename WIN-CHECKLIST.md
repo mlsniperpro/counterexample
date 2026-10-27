@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 492 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 511 tests when counted on 2026-10-27 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -33,7 +33,7 @@ Legend:
 
   Evidence: `docs/screenshots/` (390 px; no horizontal overflow, no page errors).
 - [x] **Potential impact:**
-  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through the author-written families (hand-written fixtures, stand-ins for what Super is prompted to write), and both ablations find 0 of 8. That is by construction, since we wrote those families knowing the bug classes; the live run will show whether Super writes such families itself. Not every hard-tier counterexample is minimal: in the latest fixture run 4 of the 8 hit the shrink budget and are reported "not minimal" (the two DAG ones are graphs of 215 and 460 nodes); 3 to 4 of 8 is typical. "Fixes verified 38 of 38" is a pipeline check: in fixture mode each fix is the problem's reference solution (`bench/results/fixture.md`).
+  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through the author-written families (hand-written fixtures, stand-ins for what Super is prompted to write), and both ablations find 0 of 8. That is by construction, since we wrote those families knowing the bug classes; the live run will show whether Super writes such families itself. Not every hard-tier counterexample is minimal: in the latest fixture run 3 of the 8 hit the shrink budget and are reported "not minimal" (the two DAG ones are graphs of 215 and 460 nodes); 3 to 4 of 8 is typical. "Fixes verified 38 of 38" is a pipeline check: in fixture mode each fix is the problem's reference solution (`bench/results/fixture.md`).
   - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 503 attacks on 503 mutants of all 54 solutions, 1 seed (`bench/results/soak-all.md`; the README table is the earlier 3-seed run on the 40 base-tier solutions: 1,071 attacks, 0 unsound, 0 missed).
 - [x] **Best use of Tavily (bonus):** research covers the problem's sources and the documentation of risky APIs. One search and one cited summary per question; families may cite only this run's facts; the report shows which families research shaped. Evidence: `tests/unit/plan.test.ts`, e2e test "on request, researches the documentation of risky APIs…", replay fixtures checked against MDN and the Python docs.
 - [P] **Live Tavily run:** `TavilyClient` is proven over real HTTP (fake server) and by `pnpm preflight`. Needs `TAVILY_API_KEY` (BLOCKED.md).
@@ -161,3 +161,30 @@ Legend:
   - low: wall-clock speed bounds flaked under CPU load; they now measure the worker process's CPU time (`cpuClock` in `tests/helpers.ts`), with the same bounds;
   - low: `ms()` printed "1000 ms" for 999.5 ms; it now rounds first (`tests/unit/format.test.ts`).
 - [x] Round 11 judge and docs: the stale FEEDBACK client length, the README hard-tier wording, and the bench, which was regenerated at `bda6cc8` (38/38 found, 0 false alarms, unchanged).
+- [x] Round 12 (audit of `5805541`; details in `reaudit.md`):
+  - security, fixed in `a3f70e3` with tests that fail on the old code:
+    - high: a result line with no trailing newline skipped the size, total and depth caps;
+    - medium: nested small-scope specs built every leaf in full (7.8 s, 556 MB);
+    - low: JSON extraction was quadratic on unclosed braces;
+  - core (`a3f70e3`):
+    - shrink `seen` keys are digests (1,002 MB to 68 MB);
+    - fractional examples compare as floats;
+    - an unshrunk counterexample is clipped in the explain prompt and trace;
+  - UI and tests (`a3f70e3`):
+    - the responsiveness test can now fail;
+    - the CPU bounds are tightened;
+    - Close during a run focuses Cancel;
+    - a stale share decode is dropped (`share-state.ts` pending link);
+    - an e2e step aborts on a problem switch and clears the hash;
+    - the error boundary is tested;
+  - judge and docs: the screenshot notes, "hundreds of inputs" (not thousands), and the root `SUBMISSION.md` pointer.
+- [x] Round 13 (audit of `a3f70e3`; fixed in `d494fef` and the docs commit after it):
+  - critical (security): code writing to stdout directly forged 2,000,000 empty records (32 s of parsing). `parseLines` stops at the chunk's input count (8 ms), with tests in `tests/unit/program.test.ts` and `tests/integration/executors.test.ts`;
+  - medium (core): a top-level oneOf of nested arrays still took 2 to 8 s. One 2,000,000-scalar budget per small-scope call fixes it, and the catalog inputs are byte-identical;
+  - low (core):
+    - float mode compares safe integers exactly;
+    - tuple items are sampled evenly;
+  - judge and docs:
+    - the SUBMISSION Nebius AI Cloud wording is conditional (the deploy is pending);
+    - the Ultra-only median is 11.3 s;
+    - this checklist's non-minimal count and test count are updated.
