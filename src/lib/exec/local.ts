@@ -143,7 +143,7 @@ function runChunk(file: string, req: RunRequest, chunk: unknown[][]): Promise<Ch
         resolve({ lines: [], end: "compile", message: lastLines || `exit ${code}` });
         return;
       }
-      const lines = parseLines(stdout);
+      const lines = parseLines(stdout, chunk.length);
       if (killedFor === "timeout") resolve({ lines, end: "timeout", message: `time limit ${req.timeLimitMs}ms exceeded` });
       else if (killedFor === "output") resolve({ lines, end: "crash", message: `output limit ${MAX_STDOUT_BYTES} bytes exceeded` });
       else if (code === 0) resolve({ lines, end: "ok", message: "" });

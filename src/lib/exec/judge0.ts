@@ -145,7 +145,7 @@ export class Judge0Executor implements Executor {
     const j = parsed.data;
     const stdout = unb64(j.stdout);
     const stderr = unb64(j.stderr) || unb64(j.compile_output) || unb64(j.message);
-    const lines = parseLines(stdout);
+    const lines = parseLines(stdout, chunk.length);
     const status = j.status.id;
     // 3 Accepted, 5 Time Limit Exceeded, 6 Compilation Error, 7-12 Runtime Error, 13 Internal, 14 Exec Format
     if (status === 6 || (!reachedReady(stdout) && status !== 5)) {

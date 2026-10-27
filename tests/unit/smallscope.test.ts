@@ -184,6 +184,28 @@ describe("small-scope with graphs that have no small instances", () => {
     expect(cpu()).toBeLessThan(1500);
   });
 
+  it("shares one value budget across every option and item of a spec, top-level one-ofs included", () => {
+    const big = (): TypeSpec => ({ kind: "array", of: I(0, 9), len: { min: 10_000, max: 10_000 } });
+    const specs: TypeSpec[] = [
+      { kind: "oneOf", options: Array.from({ length: 16 }, () => ({ kind: "oneOf", options: Array.from({ length: 16 }, big) })) },
+      { kind: "oneOf", options: Array.from({ length: 16 }, () => ({ kind: "tuple", items: Array.from({ length: 16 }, big) })) },
+    ];
+    // These took 2.2 s (559 MB) and 7.6 s of CPU when only nested values were limited.
+    const cpu = cpuClock();
+    for (const spec of specs) {
+      const r = smallScope([spec], 300);
+      expect(r.inputs.length).toBeGreaterThan(0);
+      expect(r.inputs.every((a) => argsConform(a, [spec]))).toBe(true);
+    }
+    expect(cpu()).toBeLessThan(1500);
+  });
+
+  it("spreads a tuple item's values over all of them, not a prefix that fixes its first elements", () => {
+    const spec: TypeSpec = { kind: "tuple", items: [{ kind: "string", alphabet: "abc", len: { min: 4, max: 6 } }] };
+    const firsts = new Set(smallScope([spec], 200).inputs.map((a) => ((a[0] as unknown[])[0] as string)[0]));
+    expect(firsts).toEqual(new Set(["a", "b", "c"]));
+  });
+
   it("stops a sequence list at its limit, shortest first", () => {
     expect(sequences(["a", "b"], 0, 3, 5)).toEqual([[], ["a"], ["b"], ["a", "a"], ["a", "b"]]);
     expect(sequences(["a", "b"], 2, 3, 100)).toHaveLength(4 + 8);

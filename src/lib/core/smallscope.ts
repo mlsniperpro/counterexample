@@ -24,31 +24,42 @@ function ints(min: number, max: number, many: boolean): number[] {
 
 /** Values a tuple takes from each of its items: it spreads over at most TUPLE_COMBOS combinations of them. */
 const TUPLE_COMBOS = 200;
+/** Values built for one tuple item before TUPLE_COMBOS of them are picked evenly (not a prefix, which would fix its first elements). */
+const TUPLE_ITEM_VALUES = 5000;
+/** Scalars all the sequences of one smallScope call may hold together, however many options and items a spec nests. */
+const MAX_SCALARS = 2_000_000;
+
+/** What is left of one smallScope call's MAX_SCALARS. */
+type Budget = { left: number };
+
+/** `n` of `xs`, evenly spread over it and in order (all of it when it has at most `n`). */
+const evenly = <T>(xs: T[], n: number): T[] => (xs.length <= n ? xs : Array.from({ length: n }, (_, i) => xs[Math.floor((i * xs.length) / n)] as T));
 
 /**
  * Small values of one (non-graph) spec; `top` marks a whole argument rather
  * than an element of one. `limit` is how many the caller uses: nested values
  * (array elements, tuple items) are cut while they are built, never built in
- * full and then sliced, so a tuple of arrays of long arrays stays cheap.
+ * full and then sliced, so a tuple of arrays of long arrays stays cheap. All
+ * sequences built share one `budget` of scalars.
  */
-function values(spec: TypeSpec, top: boolean, limit = Infinity): unknown[] {
+function values(spec: TypeSpec, top: boolean, budget: Budget, limit = Infinity): unknown[] {
   switch (spec.kind) {
     case "int":
       return (top ? ints(spec.min, spec.max, true) : ints(spec.min, spec.max, false).slice(0, ELEM_VALUES)).slice(0, limit);
     case "const":
       return [spec.value];
     case "oneOf":
-      return spec.options.flatMap((o) => (o.kind === "graph" ? [] : values(o, top, limit))).slice(0, limit);
+      return spec.options.flatMap((o) => (o.kind === "graph" ? [] : values(o, top, budget, limit))).slice(0, limit);
     case "string": {
       const alphabet = [...spec.alphabet].slice(0, ELEM_VALUES);
-      return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit).map((cs) => cs.join(""));
+      return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit, budget).map((cs) => cs.join(""));
     }
     case "tuple":
-      return spread(spec.items.map((it) => (it.kind === "graph" ? [] : values(it, false, TUPLE_COMBOS))), TUPLE_COMBOS).combos.slice(0, limit);
+      return spread(spec.items.map((it) => (it.kind === "graph" ? [] : evenly(values(it, false, budget, TUPLE_ITEM_VALUES), TUPLE_COMBOS))), TUPLE_COMBOS).combos.slice(0, limit);
     case "array": {
       if (spec.of.kind === "graph") return [];
-      const elems = values(spec.of, false, ELEM_VALUES);
-      return sequences(elems, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit);
+      const elems = values(spec.of, false, budget, ELEM_VALUES);
+      return sequences(elems, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit, budget);
     }
     case "graph":
       return [];
@@ -67,9 +78,10 @@ const MAX_ELEMS_PER_LEN = 200_000;
  * first MAX_LAYER × |items| of them, as growing a cut layer would. Each length
  * is built directly as base-|items| counters, never from the layers below it,
  * and keeps at most MAX_ELEMS_PER_LEN / length sequences. At most `limit` in all,
- * shortest first.
+ * shortest first. With a `budget`, each length also keeps only what is left of
+ * it (at least one sequence), and spends it.
  */
-export function sequences<T>(items: T[], minLen: number, maxLen: number, limit = Infinity): T[][] {
+export function sequences<T>(items: T[], minLen: number, maxLen: number, limit = Infinity, budget?: Budget): T[][] {
   const out: T[][] = [];
   const k = items.length;
   for (let len = minLen; len <= maxLen && out.length < limit; len++) {
@@ -79,7 +91,8 @@ export function sequences<T>(items: T[], minLen: number, maxLen: number, limit =
     }
     if (k === 0) break;
     const layer = k * Math.min(k ** (len - 1), MAX_LAYER);
-    const count = Math.min(layer, Math.max(1, Math.floor(MAX_ELEMS_PER_LEN / len)), limit - out.length);
+    const count = Math.min(layer, Math.max(1, Math.floor(MAX_ELEMS_PER_LEN / len)), limit - out.length, budget ? Math.max(1, Math.floor(budget.left / len)) : Infinity);
+    if (budget) budget.left -= count * len;
     for (let i = 0; i < count; i++) {
       const seq = new Array<T>(len);
       let rest = i;
@@ -210,8 +223,9 @@ export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
   // Each graph spec contributes two arguments (n, edges) as one unit. A graph with no small instances is
   // replaced by its smallest valid graph when there is something else to vary; alone it contributes nothing.
   let standIn = false;
+  const budget: Budget = { left: MAX_SCALARS };
   const units = specs.map((s) => {
-    if (s.kind !== "graph") return values(s, true).map((v) => [v]);
+    if (s.kind !== "graph") return values(s, true, budget).map((v) => [v]);
     const small = graphs(s);
     if (small.length || specs.length === 1) return small;
     const stand = defaultGraph(s);

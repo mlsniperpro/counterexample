@@ -124,6 +124,16 @@ describe("LocalExecutor (dev only)", () => {
     expect(r2.outcomes[0]).toMatchObject({ ok: false, error: "compile" });
   });
 
+  it("stays fast when the code forges millions of empty result records by writing to stdout directly", async () => {
+    // process.stdout.write bypasses the harness's console capture; 2,000,000 empty records (8 MB) took 33 s to parse.
+    const code = "function solve(x) { if (x === 2) process.stdout.write('\\x1eCX\\n'.repeat(2000000)); return x; }";
+    const t0 = Date.now();
+    const r = await local.run({ ...base, timeLimitMs: 5000, language: "javascript", code, inputs: [[1], [2], [3]] });
+    expect(Date.now() - t0).toBeLessThan(5000);
+    expect(r.outcomes).toHaveLength(3);
+    expect(r.outcomes[0]).toMatchObject({ ok: true, out: 1 });
+  });
+
   it("caps runaway output", async () => {
     const code = "def solve(n):\n    return 'x' * n\n";
     const r = await local.run({ ...base, timeLimitMs: 5000, language: "python", code, inputs: [[3], [40 * 1024 * 1024], [2]] });

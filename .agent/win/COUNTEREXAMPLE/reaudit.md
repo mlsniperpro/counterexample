@@ -7,6 +7,19 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 13 (2026-10-27, `a3f70e3`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean. The round-12 fixes hold: small-scope is byte-identical to the previous commit on all 39 catalog cases, and no legitimate final record is lost.
+- **Security** (1 critical), reproduced and fixed with tests that fail on the old code:
+  - code writing straight to stdout (`process.stdout.write` or `os.write`) bypasses the harness's capture and can forge record markers. 2,000,000 empty records (8 MB, under every byte cap) took 32 s to parse, freezing the server for every user (63.7 s end to end against the real sandbox). `parseLines` now stops after the chunk's input count (8 ms), and both executors pass that count.
+- **Core** (1 medium, 2 low):
+  - medium: a top-level oneOf still built every nested option in full (oneOf 16 of oneOf 16 of arrays of 10,000: 2.2 s and 559 MB; of tuples: 7.6 s). All sequences of one smallScope call now share a 2,000,000-scalar budget (110 and 420 ms of CPU). The catalog's small-scope inputs are byte-identical (52 of 52 cases);
+  - low: in float mode two integers compared with a tolerance (1,000,000,000 equalled 1,000,000,001). Two safe integers now compare exactly; larger doubles keep the tolerance, since a float prints as one;
+  - low: tuple items over 200 values were cut to a prefix. They are now built to 5,000 and 200 are picked evenly.
+- **Bench** regenerated on `a3f70e3`: unchanged, 38/38 found, 0 false alarms. Only the timing-dependent hard-tier timeouts moved, so the README now says 3 of 8 hit the shrink budget.
+- **UI and tests:** pending. **Judge:** pending.
+- Checks: lint, typecheck, 511/511 tests, build, and e2e (9 steps).
+
 ## Round 12 (2026-10-27, `5805541` code, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.

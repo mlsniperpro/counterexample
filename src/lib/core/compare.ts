@@ -101,6 +101,9 @@ function floatEq(a: unknown, b: unknown): boolean {
   const fb = asFloat(b);
   if (typeof fa === "number" && typeof fb === "number") {
     if (!Number.isFinite(fa) || !Number.isFinite(fb)) return fa === fb;
+    // Two safe integers are an integer answer (a count, an index), where off by one is a bug at any magnitude. Larger
+    // doubles are all integers too, and a float result can print as one, so those keep the tolerance.
+    if (Number.isSafeInteger(fa) && Number.isSafeInteger(fb)) return fa === fb;
     return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
   if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));

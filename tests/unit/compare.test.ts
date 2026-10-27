@@ -24,6 +24,16 @@ describe("outputsEqual", () => {
     expect(outputsEqual([1], [1, 1], "unordered")).toBe(false);
   });
 
+  it("float compares two safe integers exactly, so an off-by-one count is caught at any magnitude", () => {
+    expect(outputsEqual(1_000_000_000, 1_000_000_001, "float")).toBe(false);
+    expect(outputsEqual([3, 1.5], [3, 1.5000000001], "float")).toBe(true);
+    expect(outputsEqual([4, 1.5], [3, 1.5], "float")).toBe(false);
+    // An integer against a float near it keeps the tolerance (2.0000000001 is a float answer).
+    expect(outputsEqual(2, 2.0000000001, "float")).toBe(true);
+    // Above 2^53 every double is an integer, and a float result prints as one: those keep the tolerance.
+    expect(outputsEqual(1e20, 1e20 * (1 + 1e-12), "float")).toBe(true);
+  });
+
   it("float uses a relative tolerance, recursively", () => {
     expect(outputsEqual(0.1 + 0.2, 0.3, "float")).toBe(true);
     expect(outputsEqual([1e9, 0.3], [1e9 + 1e-3, 0.1 + 0.2], "float")).toBe(true);

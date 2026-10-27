@@ -358,6 +358,24 @@ describe("result nesting limit", () => {
   });
 });
 
+describe("forged result records", () => {
+  it("stops reading after the chunk's input count, so millions of empty records cost nothing", () => {
+    const forged = "\x1eCX\n".repeat(2_000_000);
+    const cpu = cpuClock();
+    const out = parseLines(`\x1eCX{"ok":true,"out":1,"ms":1}\n` + forged, 3);
+    expect(cpu()).toBeLessThan(200);
+    expect(out).toHaveLength(3);
+    expect(out[0]).toEqual({ ok: true, out: 1, ms: 1 });
+    expect(out.slice(1).every((o) => !o.ok && o.error === "internal")).toBe(true);
+  });
+
+  it("reads the same records as before when there are no more than the cap", () => {
+    const text = `noise\n\x1eCX{"ok":true,"out":1,"ms":1}\nmore\n\x1eCX{"ok":false,"message":"boom"}\n\x1eCX{"ok":true,"out":3`;
+    expect(parseLines(text, 3)).toEqual(parseLines(text));
+    expect(parseLines(text, 1)).toEqual([{ ok: true, out: 1, ms: 1 }]);
+  });
+});
+
 describe("the final line, written without a newline", () => {
   const record = (out: string) => `\x1eCX{"ok":true,"out":${out},"ms":1}`;
 

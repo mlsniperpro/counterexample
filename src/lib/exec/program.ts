@@ -139,38 +139,52 @@ export function reachedReady(stdout: string): boolean {
  * complete record line that cannot be read still yields an outcome (an
  * internal error), so every later result stays aligned with its input; only a
  * final line cut off by a kill is dropped, and the driver blames its input.
+ * Reading stops after `maxRecords` records (the chunk's input count): code
+ * that writes to stdout directly can forge millions of empty records, which
+ * no byte cap counts but each costs a parse.
  */
-export function parseLines(stdout: string): RunOutcome[] {
+export function parseLines(stdout: string, maxRecords = Infinity): RunOutcome[] {
   const out: RunOutcome[] = [];
-  const lines = stdout.split("\n");
   let accepted = 0;
-  lines.forEach((raw, i) => {
+  for (let start = 0; start < stdout.length && out.length < maxRecords; ) {
+    const nl = stdout.indexOf("\n", start);
+    const complete = nl >= 0;
+    const raw = stdout.slice(start, complete ? nl : stdout.length);
+    start = complete ? nl + 1 : stdout.length;
     const at = raw.indexOf("\x1eCX");
-    if (at < 0) return;
+    if (at < 0) continue;
     const text = raw.slice(at + 3);
     // Parsing and comparing a result costs server CPU on the event loop (about 1 s per MB), so a huge result,
     // or results past one run's total budget, are refused unread: a complete line still yields an outcome,
     // keeping later results aligned with their inputs. The final line (no newline after it, as when the
     // process was killed mid-write, or wrote it without one on purpose) gets the same limits; over them it is
     // dropped like any cut-off line, and the driver blames its input.
-    const complete = i < lines.length - 1;
     const refuse = (message: string) => {
       if (complete) out.push({ ok: false, error: "runtime", message });
     };
-    if (text.length > MAX_RESULT_CHARS) return refuse(`result too large (${text.length} characters; the limit is ${MAX_RESULT_CHARS})`);
-    if (accepted + text.length > MAX_RESULTS_TOTAL_CHARS) return refuse(`results too large in total (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)`);
+    if (text.length > MAX_RESULT_CHARS) {
+      refuse(`result too large (${text.length} characters; the limit is ${MAX_RESULT_CHARS})`);
+      continue;
+    }
+    if (accepted + text.length > MAX_RESULTS_TOTAL_CHARS) {
+      refuse(`results too large in total (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)`);
+      continue;
+    }
     accepted += text.length;
     // The record itself ({"ok":…,"out":…}) is one level; the limit is on the result inside it.
-    if (nestingDepth(text) - 1 > MAX_RESULT_DEPTH) return refuse(`result nested too deeply (more than ${MAX_RESULT_DEPTH} levels)`);
+    if (nestingDepth(text) - 1 > MAX_RESULT_DEPTH) {
+      refuse(`result nested too deeply (more than ${MAX_RESULT_DEPTH} levels)`);
+      continue;
+    }
     try {
       // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.
       const rec = JSON.parse(text, mayHoldBigInteger(text) ? exactReviver : undefined);
       if (rec.ok) out.push({ ok: true, out: rec.out, ms: Number(rec.ms) || 0 });
       else out.push({ ok: false, error: "runtime", message: String(rec.message ?? "error") });
     } catch {
-      if (i < lines.length - 1) out.push({ ok: false, error: "internal", message: "unreadable result line" });
+      if (complete) out.push({ ok: false, error: "internal", message: "unreadable result line" });
     }
-  });
+  }
   return out;
 }
 
