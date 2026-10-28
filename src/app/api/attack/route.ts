@@ -18,6 +18,8 @@ export async function POST(req: Request) {
   // Bounded read first: an oversized body is refused before it is buffered, parsed or rate-limited.
   const read = await readJsonBody(req);
   if (!read.ok) return json(413, `Request body is over ${MAX_BODY_BYTES} bytes.`);
+  // JSON only: a cross-site form can post text/plain without a preflight, and would spend its visitors' rate limits.
+  if (!/^application\/json\b/i.test(req.headers.get("content-type") ?? "")) return json(415, "Send the attack as JSON (content-type: application/json).");
   const parsed = attackBodySchema.safeParse(read.value);
   if (!parsed.success) return json(400, parsed.error.issues.map((i) => i.message).join(" "));
   const body = parsed.data;

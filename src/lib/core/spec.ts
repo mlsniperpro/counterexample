@@ -233,16 +233,34 @@ function genGraph(spec: GraphSpec, rng: Rng): [number, number[][]] {
 export function genArgs(specs: TypeSpec[], rng: Rng): unknown[] {
   const args: unknown[] = [];
   const outer = drawsLeft;
-  drawsLeft = Math.min(outer, DRAW_BUDGET);
+  const allowed = Math.min(outer, DRAW_BUDGET);
+  drawsLeft = allowed;
   try {
     for (const s of specs) {
       if (s.kind === "graph") args.push(...genGraph(s, rng));
       else args.push(genValue(s, rng));
     }
   } finally {
-    drawsLeft = outer;
+    // What this input drew comes off an enclosing budget (a family's), if any.
+    drawsLeft = outer - (allowed - drawsLeft);
   }
   return args;
+}
+
+/**
+ * Run `fn` with a budget of `draws` values for everything it generates, and say how many it drew. Discarded draws
+ * (distinct retries) and every list count, so a family of nested or distinct shapes cannot cost many times the values
+ * its budget names. Once spent, distinct arrays stop growing; other values still complete.
+ */
+export function withDrawBudget<T>(draws: number, fn: () => T): { value: T; used: number } {
+  const outer = drawsLeft;
+  drawsLeft = draws;
+  try {
+    const value = fn();
+    return { value, used: draws - drawsLeft };
+  } finally {
+    drawsLeft = outer;
+  }
 }
 
 /**
@@ -477,8 +495,8 @@ export function maxValues(spec: TypeSpec): number {
       // At least one: an empty string still costs a value's worth of generation, serialisation and comparison.
       return Math.max(1, spec.len.max);
     case "array":
-      // The elements, plus the pool they are drawn from (it is generated first).
-      return (spec.len.max + poolSize(spec)) * maxValues(spec.of);
+      // The list itself, its elements, and the pool they are drawn from (it is generated first).
+      return 1 + (spec.len.max + poolSize(spec)) * maxValues(spec.of);
     case "tuple":
       return spec.items.reduce((a, x) => a + maxValues(x), 0);
     case "oneOf":

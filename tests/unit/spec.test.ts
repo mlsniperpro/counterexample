@@ -289,7 +289,7 @@ describe("parseTypeSpec (untrusted model output)", () => {
   it("bounds what a model may ask for", () => {
     fails({ kind: "array", of: { kind: "int", min: 0, max: 1 }, len: { min: 0, max: SPEC_LIMITS.maxLen + 1 } }, /len/);
     const big = { kind: "array", of: { kind: "array", of: { kind: "int", min: 0, max: 1 }, len: { min: 0, max: 1000 } }, len: { min: 0, max: 1000 } };
-    fails(big, /could hold 1000000 values/);
+    fails(big, /could hold 1001001 values/); // the outer list, 1,000 rows, 1,000,000 values
     let deep: unknown = { kind: "int", min: 0, max: 1 };
     for (let i = 0; i < SPEC_LIMITS.maxDepth; i++) deep = { kind: "array", of: deep, len: { min: 0, max: 2 } };
     fails(deep, /nested deeper/);
@@ -322,10 +322,11 @@ describe("array pools", () => {
   it("counts the pool in maxValues and refuses a spec that would take seconds to generate", () => {
     const text = { kind: "string", alphabet: "ab", len: { min: 10_000, max: 10_000 } };
     const spec = { kind: "array", of: text, len: { min: 20, max: 20 }, pool: 10_000 };
-    expect(maxValues(spec as TypeSpec)).toBe((20 + 20) * 10_000);
-    expect(() => parseTypeSpec(spec)).toThrow(/could hold 400000 values/);
-    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 }, pool: 4 } as TypeSpec)).toBe(14);
-    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 } } as TypeSpec)).toBe(10);
+    // Every list counts as one too.
+    expect(maxValues(spec as TypeSpec)).toBe(1 + (20 + 20) * 10_000);
+    expect(() => parseTypeSpec(spec)).toThrow(/could hold 400001 values/);
+    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 }, pool: 4 } as TypeSpec)).toBe(15);
+    expect(maxValues({ kind: "array", of: ofInt, len: { min: 0, max: 10 } } as TypeSpec)).toBe(11);
   });
 
   it("counts a const by what it holds, so an array of a big const is refused, not generated for a minute", () => {
@@ -335,7 +336,7 @@ describe("array pools", () => {
     // Every list counts: a deep const costs one list per level, so it cannot pass for one value.
     expect(maxValues({ kind: "const", value: [[[[[0]]]]] } as TypeSpec)).toBe(6);
     expect(maxValues({ kind: "const", value: "" } as TypeSpec)).toBe(1);
-    expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2010000 values/);
+    expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2010001 values/);
     // A long const array is counted without spreading it into one call's arguments.
     expect(maxValues({ kind: "const", value: new Array(300_000).fill(0) } as TypeSpec)).toBe(300_001);
   });
@@ -375,9 +376,9 @@ describe("value accounting for empty and tiny strings", () => {
 
   it("counts every string as at least one value, so an array of empty strings is bounded like an array of ints", () => {
     expect(maxValues({ kind: "string", alphabet: "ab", len: { min: 0, max: 0 } })).toBe(1);
-    expect(maxValues(empties(10_000))).toBe(10_000);
-    expect(inputsWithinBudget([empties(10_000)], 300)).toBe(50);
-    expect(maxValues({ kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, len: { min: 0, max: 5 } })).toBe(15);
+    expect(maxValues(empties(10_000))).toBe(10_001);
+    expect(inputsWithinBudget([empties(10_000)], 300)).toBe(49);
+    expect(maxValues({ kind: "array", of: { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, len: { min: 0, max: 5 } })).toBe(16);
   });
 
   it("generates 10,000 empty strings over a 256-character alphabet quickly (the alphabet is not copied per string)", () => {

@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { cpuClock } from "../helpers";
 import { describe, expect, it } from "vitest";
-import { generateInputs, mutationInputs, parseFamilies } from "@/lib/agent/families";
-import { argsConform, inputsWithinBudget, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
+import { generateInputs, generateInputsAsync, mutationInputs, parseFamilies } from "@/lib/agent/families";
+import { argsConform, inputsWithinBudget, parseTypeSpec, SPEC_LIMITS, type TypeSpec } from "@/lib/core/spec";
 import { ModelOutputError } from "@/lib/errors";
 import { FIXTURES } from "@/fixtures/replay";
 import { PROBLEMS } from "@/lib/problems/catalog";
@@ -35,14 +35,14 @@ describe("parseFamilies", () => {
   });
 
   it("refuses a family whose inputs hold more than the per-input value limit across all their arguments", () => {
-    // n rows of 10 digits: n * 10 values.
+    // n rows of 10 digits: the list, n rows and n * 10 values.
     const big = (values: number): TypeSpec => ({ kind: "array", of: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 10, max: 10 } }, len: { min: values / 10, max: values / 10 } });
-    const six = Array.from({ length: 6 }, () => big(100_000));
-    // Each argument alone is within the limit; six of them make 600,000 values per input.
+    const six = Array.from({ length: 6 }, () => big(90_000));
+    // Each argument alone is within the limit (99,001 values); six of them make 594,006 per input.
     const r = parseFamilies(text([fam(six)]), six, 300);
     expect(r.families).toEqual([]);
-    expect(r.rejected[0]?.reason).toMatch(/one input could hold 600000 values across its arguments \(limit 200000\)/);
-    const two = [big(100_000), big(100_000)];
+    expect(r.rejected[0]?.reason).toMatch(/one input could hold 594006 values across its arguments \(limit 200000\)/);
+    const two = [big(90_000), big(90_000)];
     expect(parseFamilies(text([fam(two)]), two, 300).families).toHaveLength(1);
   });
 
@@ -105,6 +105,18 @@ describe("generateInputs / mutationInputs", () => {
     expect(new Set(a.inputs.map((x) => JSON.stringify(x))).size).toBe(a.inputs.length);
     expect(a.inputs.every((x) => argsConform(x, specs))).toBe(true);
     expect(a.dropped).toBeGreaterThan(0); // the family's int range is wider than the problem's
+  });
+
+  it("caps a family's draws, nested lists and distinct retries included, and generates the same inputs with or without yields", async () => {
+    // 1,666 distinct singletons of distinct singletons: about 3 lists and up to 20 retries per counted value.
+    const nested = parseTypeSpec({ kind: "array", len: { min: 1666, max: 1666 }, distinct: true, of: { kind: "array", len: { min: 1, max: 1 }, distinct: true, of: { kind: "array", len: { min: 1, max: 1 }, distinct: true, of: { kind: "int", min: -(2 ** 53) + 1, max: 2 ** 53 - 1, bias: "edges" } } } });
+    const f = { name: "nested", rationale: "", citations: [], args: [nested], count: 300, source: "model" as const };
+    const cpu = cpuClock();
+    const sync = generateInputs(f, [nested], 1, "attack");
+    expect(cpu()).toBeLessThan(1500);
+    const async = await generateInputsAsync(f, [nested], 1, "attack");
+    expect(async.inputs.map((x) => JSON.stringify(x))).toEqual(sync.inputs.map((x) => JSON.stringify(x)));
+    expect(sync.inputs.length).toBeLessThan(300);
   });
 
   it("cuts a family of maximal inputs to its value budget, so it stays fast and small", () => {

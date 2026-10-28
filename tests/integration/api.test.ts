@@ -31,6 +31,13 @@ const post = (body: unknown, init: { ip?: string; signal?: AbortSignal } = {}) =
 const lines = async (res: Response) => (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
 
 describe("POST /api/attack (replay mode)", () => {
+  it("takes only JSON, so a cross-site form cannot post an attack without a preflight", async () => {
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", ""]) {
+      const res = await POST(new Request("http://x/api/attack", { method: "POST", headers: { "x-real-ip": "9.9.9.9", ...(type ? { "content-type": type } : {}) }, body: JSON.stringify({ problemId: "isqrt", code: "x", language: "python" }) }));
+      expect(res.status, type).toBe(415);
+    }
+  });
+
   it("streams the mode, trace events and then the report (without the trace)", async () => {
     const res = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
     expect(res.status).toBe(200);

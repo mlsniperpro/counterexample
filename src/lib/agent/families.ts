@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { mutateArgs } from "../core/mutate";
 import { hashString, mulberry32, pick } from "../core/rng";
-import { argsConform, arity, checkInputValues, genArgs, inputsWithinBudget, parseTypeSpec, type TypeSpec } from "../core/spec";
+import { argsConform, arity, checkInputValues, genArgs, inputsWithinBudget, parseTypeSpec, SPEC_LIMITS, type TypeSpec, withDrawBudget } from "../core/spec";
 import { errorMessage } from "../errors";
 import { parseJsonAnswer } from "./parse";
 import type { Family } from "./types";
@@ -61,25 +61,57 @@ export type Generated = { inputs: unknown[][]; dropped: number };
 const seeded = (seed: number, salt: string, name: string) => mulberry32(hashString(`${seed}:${salt}:${name}`));
 
 /** Deterministically generate a family's inputs; inputs that violate the problem's parameter specs are dropped and counted. */
-export function generateInputs(f: Family, specs: TypeSpec[], seed: number, salt: string): Generated {
+/** Values one family may draw in all, discarded draws and lists included: twice its value budget. */
+const FAMILY_DRAWS = 2 * SPEC_LIMITS.maxValuesPerFamily;
+
+/**
+ * A family's inputs, one per step: the caller decides when to let the event loop run (generateInputsAsync) or runs it
+ * through (generateInputs). Generation stops early once the family has drawn FAMILY_DRAWS values.
+ */
+function* generating(f: Family, specs: TypeSpec[], seed: number, salt: string, out: Generated): Generator<void> {
   const rng = seeded(seed, salt, f.name);
-  const inputs: unknown[][] = [];
   const seen = new Set<string>();
-  let dropped = 0;
   const count = inputsWithinBudget(f.args, f.count);
-  for (let i = 0; i < count; i++) {
-    const args = genArgs(f.args, rng);
+  let left = FAMILY_DRAWS;
+  for (let i = 0; i < count && left > 0; i++) {
+    const { value: args, used } = withDrawBudget(left, () => genArgs(f.args, rng));
+    left -= used;
+    yield;
     if (!argsConform(args, specs)) {
-      dropped++;
+      out.dropped++;
       continue;
     }
     const key = JSON.stringify(args);
     if (seen.has(key)) continue;
     seen.add(key);
-    inputs.push(args);
+    out.inputs.push(args);
   }
-  return { inputs, dropped };
 }
+
+/** Deterministically generate a family's inputs; inputs that violate the problem's parameter specs are dropped and counted. */
+export function generateInputs(f: Family, specs: TypeSpec[], seed: number, salt: string): Generated {
+  const out: Generated = { inputs: [], dropped: 0 };
+  const steps = generating(f, specs, seed, salt, out);
+  while (!steps.next().done);
+  return out;
+}
+
+/** The same inputs as generateInputs, letting the event loop run every TICK_MS of generation. */
+export async function generateInputsAsync(f: Family, specs: TypeSpec[], seed: number, salt: string): Promise<Generated> {
+  const out: Generated = { inputs: [], dropped: 0 };
+  let since = performance.now();
+  const steps = generating(f, specs, seed, salt, out);
+  while (!steps.next().done) {
+    if (performance.now() - since >= TICK_MS) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      since = performance.now();
+    }
+  }
+  return out;
+}
+
+/** Longest stretch of generation between two turns of the event loop. */
+const TICK_MS = 20;
 
 /**
  * EvalPlus-style type-aware mutants of seed inputs, filtered by the problem's validator. `seedKeys` are the seeds'

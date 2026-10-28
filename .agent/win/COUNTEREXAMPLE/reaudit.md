@@ -16,6 +16,15 @@ Not clean.
   - low: `clampIntBounds` rewrote const values (dropped `sorted: false`, clamped `min`/`max` inside data) and did not lower `pool`. Consts are now kept exactly, and a pool past the length cap is lowered (test);
   - low (accepted): lenient flags apply to the understand answer only, not to model families (a rejected family leaves the others); strict JSON in model answers (no trailing commas or comments) with one understand call; parallel arrays (now listed).
 
+- **Security** (1 high, 2 medium, 3 low):
+  - high: `maxValues` and `checkCost` counted leaves only, and distinct retries were unbudgeted per family, so nested distinct singletons took 3 to 4.5 s per family tick and 1.9 GB for 8 families. Now: `maxValues` counts each list; a family may draw at most twice its value budget (discarded draws and lists included, `withDrawBudget`); and the stages generate with `generateInputsAsync`, which yields every 20 ms. The auditor's shape: 0.75 to 1.0 s of CPU per family in all, spread over 20 ms ticks (test: a family-wide cap, and the same inputs with or without yields);
+  - medium: `ranBefore` recomputed the chunk's batches per hit (1.2 to 1.7 s). The batches are computed once per chunk;
+  - medium: the fix stage serialised every input in one go when a sequence existed (1.2 s at 9M values). It uses `jsonKeys`, which yields;
+  - low: the attack route took any content type, so a cross-site form could post without a preflight. It now takes `application/json` only (415 otherwise; test);
+  - low (accepted): ticks of 0.6 to 1.0 s at the legal maximum in sync helpers outside the stages; the spend reservation's token estimate for token-dense Unicode (not measurable without the tokenizer).
+- **Judge** (7 low, none medium: clean under the criterion; fresh clone, full bench, e2e, the sandbox via `pnpm sandbox`, and the official docs all match): fixed the round count, the checklist's rounds 21 to 23, Token Factory named in the video's voice-over, the bench's running time and `--only` in the README, the EvalPlus wording, the graph and text limits, and that edited built-ins in replay must keep `solve`.
+- **UI and tests:** not audited separately this round (the round-22 UI fixes were verified by mutants; round 24 audits UI again).
+
 ## Round 22 (2026-10-28, `876e650`, 4 parallel Sonnet audits, paused 17:00 to 19:30 by the usage limit; findings verified by the main session)
 
 Not clean (core, security and judge each found a medium-or-above item).

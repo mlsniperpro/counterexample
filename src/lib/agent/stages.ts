@@ -9,7 +9,7 @@ import type { Solution } from "../problems/types";
 import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
 import { startStage, type AttackContext } from "./context";
-import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
+import { generateInputsAsync, mutationInputs, parseFamilies, type Generated } from "./families";
 import { byValues, Judge, JUDGE_BATCH_VALUES, type Judgement, showOutcome } from "./judge";
 import { CUT_NOTE, readCut } from "./model-call";
 import { extractCode, extractExplanation, parseJsonAnswer } from "./parse";
@@ -307,17 +307,19 @@ export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unkn
  * The inputs that ran before `x` in its own process when `chunk` was judged. The judge splits a chunk of large inputs
  * into batches of JUDGE_BATCH_VALUES values, each in a fresh process, so that is the part of x's batch before it.
  */
-export function ranBefore(chunk: unknown[][], x: unknown[]): unknown[][] {
-  const batch = byValues(chunk, JUDGE_BATCH_VALUES).find((b) => b.includes(x)) ?? [];
+export function ranBefore(chunk: unknown[][], x: unknown[], batches = byValues(chunk, JUDGE_BATCH_VALUES)): unknown[][] {
+  const batch = batches.find((b) => b.includes(x)) ?? [];
   return batch.slice(0, Math.max(0, batch.indexOf(x)));
 }
 
 /** Re-runs `chunk` in order as the run did; the smallest hit that fails again, after at least one earlier input (with the inputs it took to fail), or undefined. */
 async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
+  // The chunk's batches, once: per hit, they cost a pass over every value in the chunk.
+  const batches = byValues(chunk, JUDGE_BATCH_VALUES);
   const again = await ctx.judge.compare("run", ctx.input.solution, chunk);
   for (const h of sorted) {
     const j = again[chunk.indexOf(h.args)];
-    const before = ranBefore(chunk, h.args);
+    const before = ranBefore(chunk, h.args, batches);
     if (before.length > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } };
   }
   return undefined;
@@ -336,7 +338,8 @@ async function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], sal
       // Deterministic: the same small inputs on attack and re-attack.
       return { inputs: smallScopeInputs(specs, f.count), dropped: 0 };
     default:
-      return generateInputs(f, specs, ctx.seed, salt);
+      // Generation lets the event loop run every few milliseconds: a family of large nested inputs takes seconds.
+      return generateInputsAsync(f, specs, ctx.seed, salt);
   }
 }
 
@@ -495,7 +498,12 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
   const inSequence = new Set(sequence.map((x) => JSON.stringify(x)));
   const unique = await dedupe(others);
   // Usually there is no sequence: then nothing is re-serialised (that pass alone took about half a second at the caps).
-  const reattack = inSequence.size === 0 ? unique : [...sequence, ...unique.filter((x) => !inSequence.has(JSON.stringify(x)))];
+  let reattack = unique;
+  if (inSequence.size > 0) {
+    // Keys built with yields (jsonKeys): serialising every input in one go took over a second at the caps.
+    const keys = await jsonKeys(unique);
+    reattack = [...sequence, ...unique.filter((_, i) => !inSequence.has(keys[i] as string))];
+  }
   const cxAt = Math.max(0, sequence.length - 1);
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {
