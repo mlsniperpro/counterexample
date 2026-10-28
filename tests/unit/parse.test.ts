@@ -64,6 +64,8 @@ describe("model output parsing", () => {
     // A long run of spaces after the fence: two adjacent space runs in the pattern split it every way (2.7 s at 40,000).
     expect(() => extractCode("```" + " ".repeat(40_000) + "x", "python")).toThrow(ModelOutputError);
     expect(() => extractCode("```" + "\t ".repeat(40_000) + "x", "python")).toThrow(ModelOutputError);
+    // "function" followed by a long run of spaces, looking for the entry: two space runs in a row split it every way.
+    expect(() => extractCode("```js\nfunction" + " ".repeat(60_000) + "\n```", "javascript", "solve")).not.toThrow();
     expect(cpu()).toBeLessThan(300);
     // A blank line after the opening fence still belongs to the block.
     expect(extractJson('```json\n\n{"a": 1}\n```')).toEqual({ a: 1 });

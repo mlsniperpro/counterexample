@@ -67,6 +67,13 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect(r.note).toMatch(/Integer bounds beyond 2\^53 - 1 were lowered/);
   });
 
+  it("reads an entry padded with a long run of spaces in linear time", async () => {
+    const t0 = process.cpuUsage();
+    await expect(run({ ...spec, entry: "a" + " ".repeat(60_000) + "!" })).rejects.toThrow(/entry must be an identifier/);
+    const used = process.cpuUsage(t0);
+    expect((used.user + used.system) / 1000).toBeLessThan(300);
+  });
+
   it("finds a fraction anywhere in an output", () => {
     expect([1.5, [1, [2.25]], { a: { b: 0.1 } }].map(hasFraction)).toEqual([true, true, true]);
     expect([3, [1, 2], { a: 1 }, "1.5", null, Infinity, NaN].map(hasFraction)).toEqual([false, false, false, false, false, false, false]);

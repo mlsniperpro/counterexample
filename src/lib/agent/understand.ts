@@ -17,7 +17,7 @@ const specAnswerSchema = z.object({
   // "solve(nums, target)" means solve.
   entry: z
     .string()
-    .transform((e) => /^\s*([A-Za-z_$][\w$]*)\s*(?:\([^()]*\))?\s*$/.exec(e)?.[1] ?? e)
+    .transform((e) => /^\s*([A-Za-z_$][\w$]*)\s*(?:\([^()]*\)\s*)?$/.exec(e)?.[1] ?? e)
     .pipe(z.string().regex(IDENT, "entry must be an identifier"))
     .nullish(),
   params: z.array(z.object({ name: z.string().min(1).transform((n) => n.slice(0, 40)), type: z.unknown() })).min(1).max(MAX_PARAMS),

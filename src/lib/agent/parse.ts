@@ -80,7 +80,7 @@ export function extractCode(text: string, language: "python" | "javascript", ent
   // adjacent runs that could share characters would backtrack quadratically on a long line with no newline.
   const blocks = [...text.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g)].map((m) => ({ tag: (/^[ \t]*([\w+-]+)/.exec(m[1] ?? "")?.[1] ?? "").toLowerCase(), body: dedent(m[2] ?? "") }));
   const n = entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const definesEntry = language === "python" ? new RegExp(String.raw`^(?:async[ \t]+)?def[ \t]+${n}[ \t]*\(`, "m") : new RegExp(String.raw`\bfunction[ \t]*\*?[ \t]*${n}[ \t]*\(|\b${n}[ \t]*=`);
+  const definesEntry = language === "python" ? new RegExp(String.raw`^(?:async[ \t]+)?def[ \t]+${n}[ \t]*\(`, "m") : new RegExp(String.raw`\bfunction(?:[ \t]*\*)?[ \t]*${n}[ \t]*\(|\b${n}[ \t]*=`);
   const definesAny = language === "python" ? /^[ \t]*(?:async[ \t]+)?def[ \t]/m : /\bfunction\b|=>/;
   const tagged = blocks.filter((b) => tags.includes(b.tag));
   const pool = tagged.length ? tagged : blocks;

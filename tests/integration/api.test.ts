@@ -130,6 +130,9 @@ describe("POST /api/attack (replay mode)", () => {
     expect(["1.2.3.4", "::ffff:1.2.3.4", "::ffff:102:304"].map(vercel)).toEqual(["1.2.3.4", "1.2.3.4", "1.2.3.4"]);
     expect(clientIp(new Headers({ "x-forwarded-for": "10.0.0.1, 2001:db8::5" }), { TRUST_PROXY_HEADERS: "1" })).toBe("2001:db8:0:0::/64");
     expect(ipBucket("not-an-ip")).toBe("not-an-ip");
+    // A proxy that appends the client's port gives one bucket per client, not one per connection.
+    expect(["203.0.113.5:40001", "203.0.113.5:40002", "203.0.113.5"].map(ipBucket)).toEqual(["203.0.113.5", "203.0.113.5", "203.0.113.5"]);
+    expect(ipBucket("[2001:db8:1:2::9]:443")).toBe("2001:db8:1:2::/64");
     // Through the guard: the 11th attack from the same /64 within the hour is refused, whatever the interface id.
     const guard = new Guard(guardConfig({ RATE_LIMIT_PER_HOUR: "10", MAX_CONCURRENT_ATTACKS: "50" }));
     const verdicts = rotated.slice(0, 11).map((ip, i) => guard.admit(ip, Date.UTC(2026, 9, 26, 12) + i, true).ok);

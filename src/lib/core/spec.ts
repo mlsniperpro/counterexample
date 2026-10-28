@@ -254,33 +254,58 @@ export function compareJson(a: unknown, b: unknown): number {
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v);
 const inRange = (v: number, r: Range) => v >= r.min && v <= r.max;
 
+/** Each string spec's alphabet as a set: `includes` on a string of astral characters took about 3 µs per character. */
+const alphabetSets = new WeakMap<StringSpec, Set<string>>();
+function alphabetSet(spec: StringSpec): Set<string> {
+  let set = alphabetSets.get(spec);
+  if (!set) alphabetSets.set(spec, (set = new Set(spec.alphabet)));
+  return set;
+}
+
+/** Two JSON values equal (object keys in any order), compared in place: serialising both sides cost about 0.4 µs per float. */
+export function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((x, i) => jsonEqual(x, b[i]));
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object" || Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const o = b as Record<string, unknown>;
+  return ka.length === Object.keys(o).length && ka.every((k) => Object.hasOwn(o, k) && jsonEqual((a as Record<string, unknown>)[k], o[k]));
+}
+
+/** Distinct values in a list: numbers and strings as they are, anything else by its JSON text. */
+function distinctCount(xs: unknown[]): number {
+  if (xs.every((x) => typeof x === "number" || typeof x === "string")) return new Set<unknown>(xs).size;
+  return new Set(xs.map((x) => JSON.stringify(x))).size;
+}
+
 /** Does a value conform to a spec? Used to drop illegal generated inputs and illegal shrink steps. */
 export function conforms(v: unknown, spec: Exclude<TypeSpec, GraphSpec>): boolean {
   switch (spec.kind) {
     case "int":
       return isInt(v) && v >= spec.min && v <= spec.max;
     case "const":
-      return JSON.stringify(v) === JSON.stringify(spec.value);
+      return jsonEqual(v, spec.value);
     case "oneOf":
       return spec.options.some((o) => o.kind !== "graph" && conforms(v, o));
-    case "string":
-      return (
-        typeof v === "string" &&
-        // Length in code points, as generation and Python count it (an emoji is one character, two UTF-16 units).
-        inRange([...v].length, spec.len) &&
-        [...v].every((c) => spec.alphabet.includes(c))
-      );
+    case "string": {
+      if (typeof v !== "string") return false;
+      // Length in code points, as generation and Python count it (an emoji is one character, two UTF-16 units).
+      const chars = [...v];
+      const alphabet = alphabetSet(spec);
+      return inRange(chars.length, spec.len) && chars.every((c) => alphabet.has(c));
+    }
     case "tuple": {
       if (!Array.isArray(v) || v.length !== spec.items.length) return false;
       if (!spec.items.every((it, i) => it.kind !== "graph" && conforms(v[i], it))) return false;
-      if (spec.nondecreasing) for (let i = 1; i < v.length; i++) if (v[i - 1] > v[i]) return false;
+      if (spec.nondecreasing) for (let i = 1; i < v.length; i++) if (compareJson(v[i - 1], v[i]) > 0) return false;
       return true;
     }
     case "array": {
       if (!Array.isArray(v) || !inRange(v.length, spec.len)) return false;
       const of = spec.of;
       if (of.kind === "graph" || !v.every((x) => conforms(x, of))) return false;
-      if (spec.distinct && new Set(v.map((x) => JSON.stringify(x))).size !== v.length) return false;
+      // Elements of a const are all equal: distinct means at most one, with no need to serialise them.
+      if (spec.distinct && (of.kind === "const" ? v.length > 1 : distinctCount(v) !== v.length)) return false;
       if (spec.sorted) {
         for (let i = 1; i < v.length; i++) {
           const c = compareJson(v[i - 1], v[i]);
@@ -372,7 +397,7 @@ function depth(spec: TypeSpec): number {
   }
 }
 
-/** Scalar values in a JSON value, counted like generated ones: a string as its length (at least one), a container as its contents (at least one). */
+/** Scalar values in a JSON value, counted like generated ones: a string as its length (at least one), a container as its contents (at least one), an object's keys by their length. */
 export function jsonValues(value: unknown): number {
   let total = 0;
   const stack: unknown[] = [value];
@@ -383,9 +408,13 @@ export function jsonValues(value: unknown): number {
       total += v.length === 0 ? 1 : 0;
       for (const x of v) stack.push(x);
     } else if (v !== null && typeof v === "object") {
-      const xs = Object.values(v);
-      total += xs.length === 0 ? 1 : 0;
-      for (const x of xs) stack.push(x);
+      // Keys count like strings: a 20,000-character key repeated per element is 20,000 values each time, not one.
+      const entries = Object.entries(v);
+      total += entries.length === 0 ? 1 : 0;
+      for (const [k, x] of entries) {
+        total += k.length;
+        stack.push(x);
+      }
     } else total += 1;
   }
   return total;

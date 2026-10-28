@@ -17,6 +17,12 @@ Not clean.
   - medium (coverage): small-scope `oneOf` elements came from the first option only (no nulls in a nullable array). Options now take turns;
   - low: small-scope strings use the first 3 characters of the alphabet. That is the documented ELEM_VALUES bound, and model families cover full alphabets (valid-parentheses bug-a in the bench): accepted;
   - low: `extractCode` took a test block after the fix, the first of untagged blocks, kept a list item's indentation, and missed info strings with attributes. It now prefers the last block that defines the entry (the solution's own name for a fix), applies the same rule to untagged blocks, dedents, and reads the tag from the info line (one linear run).
+- **Security** (4 high, 1 low; on `d15cb74`, re-checked on `77f81d9`), each re-measured after the fix with the auditor's own scripts:
+  - high: `conforms` checked string characters with `alphabet.includes`, about 3 µs per astral character (22 s in one tick for a 256-emoji alphabet). The alphabet is now a cached `Set` (0.46 s for the same shape);
+  - high: a `const` compared by serialising both sides, and a `distinct` array keyed every element by its JSON (4.4 s for a const of floats). Consts now compare in place (`jsonEqual`, key order free), distinct numbers and strings go straight into a `Set`, a distinct array of a const can hold one element, and `nondecreasing` tuples compare with `compareJson` instead of JavaScript's `>` (0.57 to 0.66 s for the audit's worst shape, within the accepted bound);
+  - high: object keys inside a `const` were not counted, so a 20 KB answer made 100 MB inputs (a 96 s stall, 4.8 GB RSS). `jsonValues` now counts keys by length, so that spec is refused at the value cap;
+  - high (regression in `77f81d9`): two new regexes had adjacent space runs (`extractCode`'s JS entry pattern, the understand entry normaliser): 7.5 to 7.8 s at 60,000 spaces. Both now have one run (tests under 300 ms CPU);
+  - low: behind a proxy that appends `ip:port`, each connection got its own rate-limit bucket. `ipBucket` drops the port (and IPv6 brackets) first.
 - **Judge** (7 low; fresh clone, full bench, replay runs and the official docs all match):
   - low: the README soak table was an earlier, base-tier run. It is regenerated on the final commit with `pnpm soak --all --seeds 3 --readme` (this push carries the rerun if it finished; otherwise the note stays);
   - low: WIN-CHECKLIST's test count and missing rounds 19 and 20 are updated;

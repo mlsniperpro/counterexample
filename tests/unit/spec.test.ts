@@ -149,6 +149,28 @@ describe("conforms / argsConform", () => {
     expect(argsConform([0, []], [g])).toBe(false); // n below min
   });
 
+  it("checks values at a cost in proportion to their size, whatever the characters, numbers or keys", () => {
+    const cpu = cpuClock();
+    // 256 emoji, all with the same high surrogate: \`includes\` took about 3 µs per character.
+    const emoji = Array.from({ length: 256 }, (_, i) => String.fromCodePoint(0x1f300 + i)).join("");
+    const text: TypeSpec = { kind: "string", alphabet: emoji, len: { min: 0, max: 10_000 } };
+    const long = [...emoji].join("").repeat(39);
+    for (let i = 0; i < 20; i++) expect(conforms(long, text as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+    // A const of floats, and distinct 16-digit numbers: serialising them on every check cost about 0.4 µs each.
+    const floats = Array.from({ length: 100 }, (_, i) => i + 0.123456789);
+    const konst: TypeSpec = { kind: "const", value: floats };
+    for (let i = 0; i < 2000; i++) expect(conforms([...floats], konst as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+    const distinct: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: Number.MAX_SAFE_INTEGER }, len: { min: 0, max: 10_000 }, distinct: true };
+    const big = Array.from({ length: 10_000 }, (_, i) => 1_234_567_890_123_456 + i);
+    for (let i = 0; i < 20; i++) expect(conforms(big, distinct as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+    expect(cpu()).toBeLessThan(800);
+    // Equal as JSON values, in any key order; still exact on values.
+    expect(conforms({ b: 1, a: [2] }, { kind: "const", value: { a: [2], b: 1 } } as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+    expect(conforms({ a: [2.5] }, { kind: "const", value: { a: [2] } } as Exclude<TypeSpec, { kind: "graph" }>)).toBe(false);
+    // An object's keys count as values: a 20,000-character key is not one value.
+    expect(maxValues({ kind: "const", value: { ["k".repeat(20_000)]: 0 } })).toBe(20_001);
+  });
+
   it("draws distinct integers that fill their range without replacement, so permutations come out whole", () => {
     const rng = mulberry32(3);
     for (const n of [10, 300, 1000]) {
@@ -259,7 +281,7 @@ describe("array pools", () => {
   it("counts a const by what it holds, so an array of a big const is refused, not generated for a minute", () => {
     const big = { kind: "const", value: Array.from({ length: 200 }, (_, i) => i) };
     expect(maxValues(big as TypeSpec)).toBe(200);
-    expect(maxValues({ kind: "const", value: { a: "xyz", b: [[], null] } } as TypeSpec)).toBe(3 + 1 + 1);
+    expect(maxValues({ kind: "const", value: { a: "xyz", b: [[], null] } } as TypeSpec)).toBe(3 + 1 + 1 + 2); // the values, plus the keys "a" and "b"
     expect(maxValues({ kind: "const", value: "" } as TypeSpec)).toBe(1);
     expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2000000 values/);
     // A long const array is counted without spreading it into one call's arguments.

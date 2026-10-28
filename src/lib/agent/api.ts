@@ -96,9 +96,11 @@ export function clientIp(headers: Headers, env: Record<string, string | undefine
 
 /** The rate-limit key for an address: IPv4 as is (also when IPv4-mapped), IPv6 as its /64 prefix, anything unparseable as is. */
 export function ipBucket(ip: string): string {
-  const addr = ip.replace(/%.*$/, "");
+  // Some proxies append the client's port ("203.0.113.5:40001", "[2001:db8::9]:443"): one client, one bucket.
+  const bare = /^\[([^\]]+)\](?::\d+)?$/.exec(ip)?.[1] ?? /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/.exec(ip)?.[1] ?? ip;
+  const addr = bare.replace(/%.*$/, "");
   if (isIPv4(addr)) return addr;
-  if (!isIPv6(addr)) return ip;
+  if (!isIPv6(addr)) return bare;
   const [head = "", tail] = addr.toLowerCase().split("::");
   // Hex groups of one side of "::"; a trailing dotted IPv4 part is two groups.
   const groups = (part: string): string[] =>
