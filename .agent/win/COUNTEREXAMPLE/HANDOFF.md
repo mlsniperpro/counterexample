@@ -1,5 +1,12 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 01:05 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Rounds 15 and 16 (core, security, judge) are fixed and pushed (`9fd209c`): lint, typecheck, 539/539 tests, build, and e2e (10 steps). The suite also passes with the clock set to 2026-12-05.
+- The round-16 UI/tests audit is running on `b4f5c68`.
+- The bench was re-run at 23:30 on loaded hardware: the verdicts are unchanged, but the timings are inflated, so the committed fixture results were kept. Re-run `pnpm bench --readme` on an idle machine on the final HEAD.
+- Token Factory's API is now reachable from this environment (a fake key gets a 401). Only a real key is missing (BLOCKED.md).
+- Next: round 17 (4 auditors) once the round-16 UI audit is fixed; continue until 2 rounds in a row are clean; then the evidence and break-it.md, the gate, and the PR.
+
 STATE 2026-10-27 19:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Rounds 13 and 14 are fully fixed and pushed (`c90b859`): lint, typecheck, 523/523 tests, build, and e2e (10 steps).
 - **Owner alert sent:** Token Factory removes the default fast model `nvidia/nemotron-3-super-120b-a12b` on 2026-11-09. Preflight now flags it, and BLOCKED.md has the owner step.
