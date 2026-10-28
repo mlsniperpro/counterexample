@@ -1,4 +1,4 @@
-# Demo video shot list (target 2:45, hard limit 2:50)
+# Demo video shot list (2:45 of shots, hard limit 2:50)
 
 Public on YouTube. Screen recording of the deployed preview (or `pnpm dev` in live mode) plus a terminal. Voice-over lines in quotes.
 
@@ -13,7 +13,7 @@ Public on YouTube. Screen recording of the deployed preview (or `pnpm dev` in li
 | 1:55–2:15 | Explanation + fix; "re-attacked on 1136 judged inputs: 0 failures". | "Ultra explains the bug in two sentences and proposes a fix, and the fix is re-attacked before we call it fixed." |
 | 2:15–2:30 | **Why Ultra here, Super there** panel: model, tokens, cost, latency per step. Toggle "Ultra for everything (baseline)" and rerun briefly to show the cost go up (replay run: $0.0020 routed, $0.0036 Ultra-only, both token counts estimated). | "Ultra where a mistake is expensive, Super where speed wins. In our replay-estimated benchmark, routing costs about half of Ultra everywhere and reaches the first counterexample in about half the time; the live run will confirm or correct that." |
 | 2:30–2:42 | Terminal: `pnpm bench` summary table (bugs found, false alarms, cost routed vs Ultra-only). | "On our benchmark of 38 buggy and 16 correct solutions, it finds all 38 bugs with zero false alarms, in replay mode with hand-written stand-ins for the models." (If `bench/results/live.md` exists, read its bugs-found and false-alarm numbers instead and drop "in replay mode".) |
-| 2:42–2:50 | Closing card: repo URL, MIT, "Nebius Token Factory + NVIDIA Nemotron". | "Built by the AlgoCracked team, for interview prep and for checking AI-written code before you merge it." |
+| 2:42–2:45 | Closing card: repo URL, MIT, "Nebius Token Factory + NVIDIA Nemotron". | "Built by the AlgoCracked team, for interview prep and for checking AI-written code before you merge it." |
 
 The numbers above are from the replay run of this demo (Shortest paths, `research: force`, hand-written stand-ins for the model answers; the report panel then reads "Research (hand-written stand-in for Tavily)"). Read the live run's own numbers off the screen, and change the voice-over to match them.
 

@@ -17,6 +17,14 @@ Not clean.
   - medium (coverage): small-scope `oneOf` elements came from the first option only (no nulls in a nullable array). Options now take turns;
   - low: small-scope strings use the first 3 characters of the alphabet. That is the documented ELEM_VALUES bound, and model families cover full alphabets (valid-parentheses bug-a in the bench): accepted;
   - low: `extractCode` took a test block after the fix, the first of untagged blocks, kept a list item's indentation, and missed info strings with attributes. It now prefers the last block that defines the entry (the solution's own name for a fix), applies the same rule to untagged blocks, dedents, and reads the tag from the info line (one linear run).
+- **Judge** (7 low; fresh clone, full bench, replay runs and the official docs all match):
+  - low: the README soak table was an earlier, base-tier run. It is regenerated on the final commit with `pnpm soak --all --seeds 3 --readme` (this push carries the rerun if it finished; otherwise the note stays);
+  - low: WIN-CHECKLIST's test count and missing rounds 19 and 20 are updated;
+  - low: WIN-CHECKLIST's "needs network access" now says only the keys are missing;
+  - low: VIDEO's shot list ran to 2:50 against a 2:45 target. The closing card now ends at 2:45;
+  - low: the cost figures rest on third-party list prices. README and SUBMISSION now say so, with the prices;
+  - low: "dozens to hundreds of inputs" understated attacks on correct solutions (1,000+). README and SUBMISSION now say "up to a few hundred before the first counterexample, over a thousand when nothing breaks";
+  - low: the README's longest-path figures had no script. `bench/longest-path.ts` reproduces both.
 
 ## Round 19 (2026-10-28, `58dbebe`, 4 parallel Sonnet audits, paused 05:50 to 09:38 by the usage limit; findings verified by the main session)
 
