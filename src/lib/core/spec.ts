@@ -442,7 +442,7 @@ function depth(spec: TypeSpec): number {
   }
 }
 
-/** Scalar values in a JSON value, counted like generated ones: a string as its length (at least one), a container as its contents (at least one), an object's keys by their length. */
+/** Values in a JSON value, counted like generated ones: a string as its length (at least one), a list or object as one plus its contents, an object's keys by their length. */
 export function jsonValues(value: unknown): number {
   let total = 0;
   const stack: unknown[] = [value];
@@ -450,12 +450,13 @@ export function jsonValues(value: unknown): number {
     const v = stack.pop();
     if (typeof v === "string") total += Math.max(1, v.length);
     else if (Array.isArray(v)) {
-      total += v.length === 0 ? 1 : 0;
+      // Every list counts too: it is copied and walked like a value, so [[[[[0]]]]] is six, not one.
+      total += 1;
       for (const x of v) stack.push(x);
     } else if (v !== null && typeof v === "object") {
       // Keys count like strings: a 20,000-character key repeated per element is 20,000 values each time, not one.
       const entries = Object.entries(v);
-      total += entries.length === 0 ? 1 : 0;
+      total += 1;
       for (const [k, x] of entries) {
         total += k.length;
         stack.push(x);

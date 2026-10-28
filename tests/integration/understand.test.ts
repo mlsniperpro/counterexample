@@ -78,6 +78,12 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     for (const entry of ["def add(a, b)", "add(a: int, b: int) -> int", "Solution.add", "`add`", '"add"', "", null]) expect((await run({ ...spec, entry })).entry, String(entry)).toBe("add");
   });
 
+  it("reads flags written as off and a hyphenated comparison mode", async () => {
+    const r = await run({ ...spec, compare: "unordered-nested", params: [{ name: "a", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 5 }, sorted: false, pool: 0, distinct: false } }, spec.params[1]] });
+    expect(r.problem.compare).toBe("unordered_nested");
+    expect(r.problem.params[0]?.type).toEqual({ kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 5 } });
+  });
+
   it("lowers sizes past the generator's caps instead of failing, and says so", async () => {
     const r = await run({
       ...spec,
@@ -155,6 +161,26 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       const one = { ...spec, entry: "squareRoot", params: [{ name: "x", type: { kind: "int", min: 0, max: 100 } }], examples: [{ args: [4], output: 2 }] };
       expect(parseUnderstanding("```json\n" + JSON.stringify(one) + "\n```", "isqrt", { code, language: "python" }).entry).toBe("floor_root");
       expect((await entryFor("function solveIt(a, b) { return a + b; }\nfunction helper(x) { return x; }\n", "javascript", "missing")).entry).toBe("solveIt");
+    });
+
+    it("takes the name the code defines from any way a model writes the entry, never a later helper", async () => {
+      const py = "def max_profit(prices, fee):\n    return 0\n\ndef clamp(x, lo):\n    return max(x, lo)\n";
+      for (const entry of ["Solution().max_profit", "max_profit(prices, fee)", "def max_profit(prices: List[int], fee: int) -> int"]) expect((await entryFor(py, "python", entry)).entry, entry).toBe("max_profit");
+      const js = "var twoSum = function (nums, target) { return [0, 1]; };\nfunction helper(a, b) { return a; }\n";
+      for (const entry of ["var twoSum = function(nums, target)", "const twoSum = (nums, target) =>", "twoSum"]) expect((await entryFor(js, "javascript", entry)).entry, entry).toBe("twoSum");
+    });
+
+    it("counts parameters with commas inside type annotations as one, so the arity fallback picks the right function", async () => {
+      const code = "def helper(a, b):\n    return a\n\ndef count_pairs(nums: Dict[int, int], target: Tuple[int, int]):\n    return 0\n\ndef main():\n    pass\n";
+      expect((await entryFor(code, "python", "missing")).entry).toBe("count_pairs");
+    });
+
+    it("stays linear on JavaScript with long space runs around a generator star", async () => {
+      const code = "function" + " ".repeat(40_000) + "*" + " ".repeat(40_000) + "helper(a){}\nfunction real(a, b) { return a + b; }\n";
+      const t0 = process.cpuUsage();
+      await entryFor(code, "javascript", "missing");
+      const used = process.cpuUsage(t0);
+      expect((used.user + used.system) / 1000).toBeLessThan(500);
     });
 
     it("finds the named function spelled another way before any fallback", async () => {

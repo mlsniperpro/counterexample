@@ -19,12 +19,12 @@ const specAnswerSchema = z.object({
   entry: z
     .string()
     .nullish()
-    .transform((e) => (e ? entryName(e) : null)),
+    .transform((e) => (e ? entryNames(e) : [])),
   params: z.array(z.object({ name: z.string().min(1).transform((n) => n.slice(0, 40)), type: z.unknown() })).min(1).max(MAX_PARAMS),
   returns: z.string().nullish().transform((r) => (r ?? "").slice(0, 200)),
   // The first MAX_EXAMPLES are enough to check the oracle.
   examples: z.array(z.object({ args: z.array(z.json()), output: z.json() })).default([]).transform((xs) => xs.slice(0, MAX_EXAMPLES)),
-  compare: z.preprocess((c) => (typeof c === "string" ? c.toLowerCase() : (c ?? undefined)), z.enum(["exact", "unordered", "unordered_nested", "float"]).default("exact")),
+  compare: z.preprocess((c) => (typeof c === "string" ? c.toLowerCase().replace(/-/g, "_") : (c ?? undefined)), z.enum(["exact", "unordered", "unordered_nested", "float"]).default("exact")),
   references: z.array(z.string()).nullish().transform((r) => r?.slice(0, 2).map((x) => x.slice(0, 200))),
 });
 
@@ -41,7 +41,12 @@ function clampIntBounds(type: unknown): { type: unknown; clamped: boolean; cappe
   const walk = (v: unknown, depth: number, key: string): unknown => {
     if (depth > 16 || v === null || typeof v !== "object") return v;
     if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1, ""));
-    const o = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, depth + 1, k)]));
+    // A flag written as off ("sorted": false, "pool": 0) means it is not set.
+    const o = Object.fromEntries(
+      Object.entries(v)
+        .filter(([k, x]) => !(["sorted", "distinct", "nondecreasing"].includes(k) && x === false) && !(k === "pool" && x === 0))
+        .map(([k, x]) => [k, walk(x, depth + 1, k)]),
+    );
     for (const k of ["min", "max"]) {
       const x = o[k];
       if (typeof x === "number" && Number.isFinite(x) && Math.abs(x) > Number.MAX_SAFE_INTEGER && "min" in o && "max" in o) {
@@ -61,13 +66,17 @@ function clampIntBounds(type: unknown): { type: unknown; clamped: boolean; cappe
 
 const KEYWORDS = new Set(["def", "function", "async", "export", "default", "const", "let", "var", "return", "self", "class", "lambda"]);
 
-/** The function name in an entry as a model may write it: the identifier before the first "(", else the last identifier. */
-function entryName(text: string): string | null {
+/**
+ * The identifiers in an entry as a model may write it ("solve(nums, target)", "def solve(x) -> int",
+ * "Solution().maxProfit", "var twoSum = function(nums, target)"): the one before the first "(" first, then the
+ * others in order. resolveEntry takes the first the code defines.
+ */
+function entryNames(text: string): string[] {
   const t = text.slice(0, 200);
-  const words = [...t.matchAll(/[A-Za-z_$][\w$]*/g)].filter((m) => !KEYWORDS.has(m[0]));
+  const words = [...t.matchAll(/[A-Za-z_$][\w$]*/g)].filter((m) => !KEYWORDS.has(m[0]) && IDENT.test(m[0]));
   const called = words.find((m) => /^\s*\(/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 20)));
-  const name = (called ?? words.at(-1))?.[0];
-  return name && IDENT.test(name) ? name : null;
+  const names = words.map((m) => m[0]);
+  return called ? [called[0], ...names.filter((n) => n !== called[0])] : names.reverse();
 }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -125,18 +134,33 @@ function paramCount(code: string, language: Solution["language"], name: string):
   const re =
     language === "python"
       ? new RegExp(String.raw`^(?:async[ \t]+)?def[ \t]+${n}[ \t]*\(([^)]*)\)`, "m")
-      : new RegExp(String.raw`function[ \t]*\*?[ \t]*${n}[ \t]*\(([^)]*)\)|(?:const|let|var)[ \t]+${n}[ \t]*=[ \t]*(?:async[ \t]*)?(?:function[ \t]*\(([^)]*)\)|\(([^)]*)\)|([A-Za-z_$][\w$]*)[ \t]*=>)`, "m");
+      : new RegExp(String.raw`function(?:[ \t]*\*)?[ \t]*${n}[ \t]*\(([^)]*)\)|(?:const|let|var)[ \t]+${n}[ \t]*=[ \t]*(?:async[ \t]*)?(?:function[ \t]*\(([^)]*)\)|\(([^)]*)\)|([A-Za-z_$][\w$]*)[ \t]*=>)`, "m");
   const m = re.exec(code);
   if (!m) return undefined;
   const list = m[1] ?? m[2] ?? m[3] ?? m[4] ?? "";
-  return list
-    .split(",")
-    .map((p) => p.trim())
-    .filter((p) => p && p !== "self" && p !== "*" && p !== "/").length;
+  // Commas inside brackets belong to a type annotation (Dict[int, int]) or a default value, not between parameters.
+  let depth = 0;
+  let count = 0;
+  let current = "";
+  const flush = () => {
+    const p = current.trim();
+    if (p && p !== "self" && p !== "*" && p !== "/") count++;
+    current = "";
+  };
+  for (const c of list) {
+    if ("[({<".includes(c)) depth++;
+    else if ("])}>".includes(c)) depth = Math.max(0, depth - 1);
+    if (c === "," && depth === 0) flush();
+    else current += c;
+  }
+  flush();
+  return count;
 }
 
-function resolveEntry(code: string, language: Solution["language"], named: string | null | undefined, arity: number): { entry: string; note?: string } {
-  if (named && definesFunction(code, language, named)) return { entry: named };
+function resolveEntry(code: string, language: Solution["language"], names: string[], arity: number): { entry: string; note?: string } {
+  const defined = names.find((n) => definesFunction(code, language, n));
+  if (defined) return { entry: defined };
+  const named = names.find((n) => definesMethod(code, language, n)) ?? names[0];
   // A method (LeetCode's class Solution) is not callable as a function: falling back to another top-level function,
   // often a helper defined above the class, would attack the wrong code and blame it for a bug.
   // A top-level solve (often a wrapper that calls the method) is still attacked: the refusal is only for code with no
@@ -152,7 +176,7 @@ function resolveEntry(code: string, language: Solution["language"], named: strin
   // function that takes as many parameters as the problem passes (helpers usually come first, and a trailing main()
   // takes none), else the last one that is not main.
   const fns = topLevelFunctions(code, language);
-  const spelled = named ? fns.find((f) => looseName(f) === looseName(named)) : undefined;
+  const spelled = fns.find((f) => names.some((n) => looseName(f) === looseName(n)));
   const candidates = fns.filter((f) => f !== "main");
   const fitting = candidates.filter((f) => paramCount(code, language, f) === arity);
   const entry = spelled ?? (hasSolve ? "solve" : (fitting.at(-1) ?? candidates.at(-1) ?? fns.at(-1)));

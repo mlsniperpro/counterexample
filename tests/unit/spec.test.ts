@@ -168,7 +168,7 @@ describe("conforms / argsConform", () => {
     expect(conforms({ b: 1, a: [2] }, { kind: "const", value: { a: [2], b: 1 } } as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
     expect(conforms({ a: [2.5] }, { kind: "const", value: { a: [2] } } as Exclude<TypeSpec, { kind: "graph" }>)).toBe(false);
     // An object's keys count as values: a 20,000-character key is not one value.
-    expect(maxValues({ kind: "const", value: { ["k".repeat(20_000)]: 0 } })).toBe(20_001);
+    expect(maxValues({ kind: "const", value: { ["k".repeat(20_000)]: 0 } })).toBe(20_002); // the object, its key, its value
   });
 
   it("bounds the draws of one input: distinct arrays of a const, and nested infeasible distinct arrays, stop early", () => {
@@ -201,6 +201,16 @@ describe("conforms / argsConform", () => {
     const rng = mulberry32(4);
     const pair: TypeSpec = { kind: "tuple", items: [{ kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }], nondecreasing: true };
     for (let i = 0; i < 300; i++) expect(conforms(genValue(pair, rng), pair as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+  });
+
+  it("draws odd and even values on the symmetric full safe range (what a +-10^18 bound becomes)", () => {
+    const rng = mulberry32(5);
+    const xs = Array.from({ length: 2000 }, () => genValue({ kind: "int", min: -Number.MAX_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER }, rng) as number);
+    const odd = xs.filter((x) => Math.abs(x) % 2 === 1).length;
+    expect(odd).toBeGreaterThan(800);
+    expect(odd).toBeLessThan(1200);
+    expect(xs.some((x) => x < 0) && xs.some((x) => x > 0)).toBe(true);
+    expect(xs.every((x) => Number.isSafeInteger(x))).toBe(true);
   });
 
   it("draws every bit of integers in ranges wider than 2^32", () => {
@@ -320,12 +330,14 @@ describe("array pools", () => {
 
   it("counts a const by what it holds, so an array of a big const is refused, not generated for a minute", () => {
     const big = { kind: "const", value: Array.from({ length: 200 }, (_, i) => i) };
-    expect(maxValues(big as TypeSpec)).toBe(200);
-    expect(maxValues({ kind: "const", value: { a: "xyz", b: [[], null] } } as TypeSpec)).toBe(3 + 1 + 1 + 2); // the values, plus the keys "a" and "b"
+    expect(maxValues(big as TypeSpec)).toBe(201); // the list and its 200 numbers
+    expect(maxValues({ kind: "const", value: { a: "xyz", b: [[], null] } } as TypeSpec)).toBe(1 + 1 + 3 + 1 + 1 + 1 + 1); // the object, "a", "xyz", "b", the outer list, the empty list, null
+    // Every list counts: a deep const costs one list per level, so it cannot pass for one value.
+    expect(maxValues({ kind: "const", value: [[[[[0]]]]] } as TypeSpec)).toBe(6);
     expect(maxValues({ kind: "const", value: "" } as TypeSpec)).toBe(1);
-    expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2000000 values/);
+    expect(() => parseTypeSpec({ kind: "array", of: big, len: { min: 10_000, max: 10_000 } })).toThrow(/could hold 2010000 values/);
     // A long const array is counted without spreading it into one call's arguments.
-    expect(maxValues({ kind: "const", value: new Array(300_000).fill(0) } as TypeSpec)).toBe(300_000);
+    expect(maxValues({ kind: "const", value: new Array(300_000).fill(0) } as TypeSpec)).toBe(300_001);
   });
 
   it("generates any accepted spec quickly", () => {

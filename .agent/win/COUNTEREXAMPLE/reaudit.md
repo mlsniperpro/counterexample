@@ -7,6 +7,25 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 22 (2026-10-28, `876e650`, 4 parallel Sonnet audits, paused 17:00 to 19:30 by the usage limit; findings verified by the main session)
+
+Not clean (core, security and judge each found a medium-or-above item).
+- **Core** (4 medium, 6 low):
+  - medium (false alarm): `entryName` took "Solution" from "Solution().maxProfit" and "target" from "var twoSum = function(nums, target)", so the fallback attacked a later helper. The entry now keeps every identifier in the text and takes the first one the code defines; `paramCount` splits parameters at bracket depth 0 (`Dict[int, int]` is one). Tests for both forms and for typed generics;
+  - medium (stall): `paramCount`'s JavaScript pattern had two space runs around the generator star (2 s CPU at 80 KB). One run now (test under 500 ms);
+  - medium (design gap): statements whose constraints the DSL cannot state (several valid answers, rectangular rows, a length parameter, in-place changes with no return value) can make a correct solution look wrong. The README no longer says an over-eager generator "cannot cause a false alarm"; it lists these cases under "Your own code" with how to phrase such a problem, and the understand prompt tells the model to make the examples show the answer this code returns. Accepted as documented limits;
+  - low: `randInt` on the symmetric full safe range returned only odd values; ranges wider than 2^53 now split into halves (test);
+  - low: `sorted: false`, `pool: 0` and "unordered-nested" failed an understand answer; they are now read as unset and as `unordered_nested` (test);
+  - low (accepted): a 1000 x 1000 grid is refused at the 200,000-value cap (the prompt states it); a model family over the length cap is rejected whole; a distinct string array that fills its domain is more often short; the test count in WIN-CHECKLIST (updated).
+- **Security** (1 high, 2 low):
+  - high: `jsonValues` counted a nested list as its leaves only, so `[[[[[0]]]]]` was one value and a family of them took 5.6 s of CPU and 411 MB (1.6 GB end to end). Every list and object now counts as one plus its contents, which every budget uses (the auditor's shape: 614 ms, 66 MB);
+  - low (accepted): singleton nested arrays of ints cost 0.7 to 1.4 s per family, within about twice the accepted bound;
+  - low: the local executor lets pasted code read the server environment (documented: it is not a sandbox and production refuses it). `.env.example` now warns next to `ALLOW_LOCAL_EXECUTOR`.
+- **Judge** (1 medium, 2 low):
+  - medium: WIN-CHECKLIST cites `break-it.md`, which is written on the final commit with the evidence runs (fresh clone, FC_NUM_RUNS=5000, the soak, the Docker sandbox). Until then the citation points ahead; HANDOFF lists it as the last step before the gate;
+  - low: test count (updated); "over a thousand when nothing breaks" holds for 13 of 16 correct solutions (588 to 1,547): the README now says "hundreds to over a thousand".
+- **UI and tests:** below once in.
+
 ## Round 21 (2026-10-28, `2ab4d46`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (core found medium items).

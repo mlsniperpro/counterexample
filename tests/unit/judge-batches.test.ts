@@ -10,13 +10,14 @@ import { getProblem } from "@/lib/problems/catalog";
 describe("byValues", () => {
   it("keeps order, never exceeds the limit with more than one input, and gives an oversized input a batch of its own", () => {
     const xs = [[[1, 2, 3]], [[4]], [new Array(10).fill(0)], [[5, 6]], [[7]]];
-    const groups = byValues(xs, 6);
+    // Sizes, every list counted: 5, 3, 12, 4 and 3.
+    const groups = byValues(xs, 9);
     expect(groups.flat()).toEqual(xs);
     expect(groups.map((g) => g.length)).toEqual([2, 1, 2]);
-    expect(byValues([], 6)).toEqual([]);
+    expect(byValues([], 9)).toEqual([]);
     // A batch that reaches the limit exactly stays one batch.
-    expect(byValues([[[1, 2, 3]], [[4, 5, 6]]], 6)).toHaveLength(1);
-    expect(byValues([[[1, 2, 3]], [[4, 5, 6, 7]]], 6)).toHaveLength(2);
+    expect(byValues([[[1, 2, 3]], [[4, 5, 6]]], 10)).toHaveLength(1);
+    expect(byValues([[[1, 2, 3]], [[4, 5, 6, 7]]], 10)).toHaveLength(2);
   });
 });
 

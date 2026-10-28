@@ -25,6 +25,11 @@ export function hashString(s: string): number {
 export function randInt(rng: Rng, min: number, max: number): number {
   if (max < min) return min;
   const span = max - min + 1;
+  // Wider than 2^53 (a symmetric safe range): offsets that large are all even, so split the range in two halves.
+  if (span > 2 ** 53) {
+    const mid = Math.floor(min / 2 + max / 2);
+    return rng() < 0.5 ? randInt(rng, min, mid) : randInt(rng, mid + 1, max);
+  }
   // One draw has 32 random bits: over a wider range that would leave the low bits constant (every value even).
   if (span > 2 ** 32) return Math.min(max, min + Math.floor((rng() * 2 ** 21 + rng()) * (span / 2 ** 21)));
   return min + Math.floor(rng() * span);
