@@ -517,6 +517,9 @@ async function main() {
       await attackButton(p).click();
       await p.locator("h2.verdict").waitFor({ timeout: 90_000 });
       eq(await axeViolations(p), "", `axe violations on the report (${where})`);
+      await p.getByRole("button", { name: "Share link" }).click();
+      await p.locator("input.share-link").waitFor({ timeout: 15_000 });
+      eq(await axeViolations(p), "", `axe violations with the share link shown (${where})`);
       await p.goto(link);
       await p.locator(".shared h2.verdict").waitFor({ timeout: 15_000 });
       eq(await axeViolations(p), "", `axe violations on a shared report (${where})`);
