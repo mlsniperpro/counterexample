@@ -12,7 +12,7 @@ export function HeroText({ mode }: { mode: UIMode | null }) {
   if (mode === "live") {
     return (
       <>
-        Nemotron <b>Ultra</b> writes a brute-force oracle, Nemotron <b>Super</b> designs adversarial generators, hundreds of inputs (thousands of runs) go through a sandbox, and any mismatch is shrunk to a minimal
+        Nemotron <b>Ultra</b> writes a brute-force oracle, Nemotron <b>Super</b> designs adversarial generators, dozens to hundreds of inputs (thousands of runs, with the fix&apos;s re-attack) go through a sandbox, and any mismatch is shrunk to a minimal
         counterexample. Ultra explains it and proposes a fix, which is re-attacked before it is called fixed.
       </>
     );
@@ -21,14 +21,14 @@ export function HeroText({ mode }: { mode: UIMode | null }) {
     return (
       <>
         Replay mode: no model runs. Hand-written stand-ins for the answers of Nemotron <b>Ultra</b> (oracle, explanation, fix) and Nemotron <b>Super</b> (adversarial generators) are served instead, while
-        hundreds of inputs (thousands of runs) really go through a sandbox and any mismatch is really shrunk to a minimal counterexample. The fix is really re-attacked before it is called fixed.
+        dozens to hundreds of inputs (thousands of runs, with the fix&apos;s re-attack) really go through a sandbox and any mismatch is really shrunk to a minimal counterexample. The fix is really re-attacked before it is called fixed.
       </>
     );
   }
   return (
     <>
       With a key on the server, Nemotron <b>Ultra</b> writes the oracle, explains the bug and proposes a fix, and Nemotron <b>Super</b> designs the adversarial generators. Without one, hand-written
-      stand-ins answer in their place. Either way, hundreds of inputs (thousands of runs) go through a sandbox, any mismatch is shrunk to a minimal counterexample, and the fix is re-attacked before it is called fixed.
+      stand-ins answer in their place. Either way, dozens to hundreds of inputs (thousands of runs, with the fix&apos;s re-attack) go through a sandbox, any mismatch is shrunk to a minimal counterexample, and the fix is re-attacked before it is called fixed.
     </>
   );
 }

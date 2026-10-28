@@ -81,11 +81,14 @@ export function generateInputs(f: Family, specs: TypeSpec[], seed: number, salt:
   return { inputs, dropped };
 }
 
-/** EvalPlus-style type-aware mutants of seed inputs, filtered by the problem's validator. */
-export function mutationInputs(seeds: unknown[][], specs: TypeSpec[], count: number, seed: number, salt: string): Generated {
+/**
+ * EvalPlus-style type-aware mutants of seed inputs, filtered by the problem's validator. `seedKeys` are the seeds'
+ * JSON texts when the caller has them (serialising hundreds of large seeds in one go blocks the event loop).
+ */
+export function mutationInputs(seeds: unknown[][], specs: TypeSpec[], count: number, seed: number, salt: string, seedKeys?: Iterable<string>): Generated {
   if (seeds.length === 0) return { inputs: [], dropped: 0 };
   const rng = seeded(seed, salt, "mutations");
-  const seen = new Set(seeds.map((s) => JSON.stringify(s)));
+  const seen = new Set(seedKeys ?? seeds.map((s) => JSON.stringify(s)));
   const inputs: unknown[][] = [];
   let dropped = 0;
   const want = inputsWithinBudget(specs, count);

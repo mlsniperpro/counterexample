@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 540 tests when counted on 2026-10-28 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 548 tests when counted on 2026-10-28 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -214,3 +214,5 @@ Legend:
   - judge: UI copy says "hundreds of inputs (thousands of runs)", with screenshots retaken; bench-sourced batch counts; official Sandboxes limits; the preflight owner step; unverifiable dates removed.
 - [x] Round 16 (audit of `b4f5c68`; details in `reaudit.md`): CLI scripts read `.env.local`; the per-input value cap sums all arguments and judging splits batches by value; `runStage` yields between families; think tags inside code are content; Python prints big integers; both retired Nano ids named; a 1200 x 800 Devpost thumbnail.
 - [x] Round 17 (audit of `a0570b8`; details in `reaudit.md`): fences open only at line start, so a mid-sentence "```" cannot hide `</think>`; a stray `</think>` before a pair is cut; order-dependent counts stay inside one process; `pnpm bench` writes nothing when a run errors; SUBMISSION screenshot sizes and round count.
+- [x] Round 17 security and round 16 UI (details in `reaudit.md`): nested `oneOf` checking cost capped; mutation seed keys built with yields; linear fence regex; a double-click on Cancel no longer starts a run; share race closed on hashchange and error paths; tests kill the Judge0 forged-record, short-oracle and four UI mutants.
+- [x] Round 18 (audit of `2f70b6f`; details in `reaudit.md`): natural `sorted` order; `unordered_nested`; class Solution refused clearly; order-dependent wording; unclosed draft fences; model formatting variants; owner step to merge PR #1 into `main`; simulated latency and stand-in search wording; input counts.

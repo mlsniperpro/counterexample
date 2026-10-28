@@ -1,4 +1,9 @@
-export type CompareMode = "exact" | "unordered" | "float";
+/**
+ * How two answers compare: "unordered" ignores the order of the returned list only (its items compare exactly, so an
+ * interval's [start, end] keeps its order); "unordered_nested" ignores the order of every list inside it as well
+ * (3Sum's triplets, grouped anagrams).
+ */
+export type CompareMode = "exact" | "unordered" | "unordered_nested" | "float";
 
 /**
  * Integers beyond 2^53 cannot be held exactly in a JS number, so the harness
@@ -85,7 +90,19 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
     const sb = b.map(canon).sort();
     return sa.every((x, i) => x === sb[i]);
   }
+  if (mode === "unordered_nested") return canonNested(a) === canonNested(b);
   return canon(a) === canon(b);
+}
+
+/** Canonical text with every list's items in sorted order, at any depth. */
+function canonNested(v: unknown): string {
+  const x = normalise(v);
+  if (Array.isArray(x)) return `[${x.map(canonNested).sort().join(",")}]`;
+  if (x && typeof x === "object") {
+    const o = x as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonNested(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(x);
 }
 
 const isPlainObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);

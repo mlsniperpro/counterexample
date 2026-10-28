@@ -269,19 +269,28 @@ async function main() {
   pace.lineDelayMs = 0;
   eq(await page.evaluate(() => document.activeElement?.tagName), "TEXTAREA", "focus in the code editor after the run ended");
   // A run started and ended from the keyboard still returns focus to the Attack button.
+  pace.lineDelayMs = 40;
   await attackButton(page).focus();
   await page.keyboard.press("Enter");
   await cancelButton.waitFor({ timeout: 5_000 });
+  eq(await focused(page), "BUTTON:Cancel", "focus while a keyboard run is on");
+  pace.lineDelayMs = 0;
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await attackButton(page).waitFor();
   eq(await focused(page), "BUTTON:Attack this solution", "focus after a keyboard run ended");
-  // Enter held down on Attack: its repeats land on Cancel once focus moves there, and must not cancel the run.
+  // Enter held down on Attack: its repeats land on Cancel once focus moves there, and must not cancel the run; held
+  // past the run's end, they land on Attack again and must not start another.
+  const heldFrom = attacks.length;
   await page.keyboard.down("Enter");
   await cancelButton.waitFor({ timeout: 5_000 });
   for (let i = 0; i < 3; i++) await page.keyboard.down("Enter");
-  await page.keyboard.up("Enter");
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Attack this solution", null, { timeout: 5_000 });
+  for (let i = 0; i < 3; i++) await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
+  await sleep(500);
   eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after holding Enter on Attack");
+  eq(attacks.length - heldFrom, 1, "attacks started by holding Enter on Attack");
   ok(step);
 
   step = "switching problems or starting a run lets go of what came before";
@@ -375,6 +384,23 @@ async function main() {
   check(!("problemId" in own) && own.statement === "Return x + 1." && own.code.startsWith("def solve") && own.routing === "routed" && own.research === "force", `"Your own" sends the statement, no problem id, and research ticked alone (${JSON.stringify(own).slice(0, 160)})`);
   await page.getByLabel("Research the web (Tavily)").uncheck();
   await page.unroute("**/api/attack");
+  // A new run clears the last report's share note, and a share still waiting on the clipboard when it starts writes nothing.
+  // The own report's share note (the first live region on the page is the shared-report banner's).
+  const shareNote = page.locator("section.result").last().locator("p.live").first();
+  await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  await attackButton(page).click();
+  await settled();
+  await page.getByRole("button", { name: "Share link" }).click();
+  await page.locator("p.live", { hasText: "Link copied" }).waitFor({ timeout: 5_000 });
+  await attackButton(page).click();
+  await settled();
+  eq(await shareNote.innerText(), "", "the share note after a new run");
+  await page.getByRole("button", { name: "Share link" }).click();
+  await attackButton(page).click();
+  await settled();
+  await sleep(2_500);
+  eq(await page.evaluate(() => window.location.hash), "", "the address bar after a late share for a report a new run replaced");
+  eq(await shareNote.innerText(), "", "the share note after a late share for a report a new run replaced");
   ok(step);
 
   step = "cancel a run mid-stream";
@@ -396,6 +422,14 @@ async function main() {
   const shown = await page.locator(".trace li.ev").count();
   await sleep(1_200);
   eq(await page.locator(".trace li.ev").count(), shown, "the trace stops growing after a cancel");
+  // A double-click on Cancel: its second click lands where Attack grows into Cancel's place, and must not start a run.
+  const beforeDouble = attacks.length;
+  await attackButton(page).click();
+  await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Cancel", exact: true }).dblclick();
+  await sleep(1_000);
+  eq(attacks.length - beforeDouble, 1, "attacks started by a run and a double-click on its Cancel");
+  eq(await page.getByRole("button", { name: "Cancel", exact: true }).count(), 0, "Cancel buttons after a double-click on Cancel");
   pace.lineDelayMs = 0;
   ok(step);
 

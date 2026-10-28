@@ -33,7 +33,7 @@ describe("API risk detection (questions the code raises)", () => {
     expect(codeOnly('a = "x"; b(1) // c', "javascript")).toBe('a = ""; b(1) ');
   });
 
-  it("every detectable API question has recorded search results for replay mode", () => {
+  it("every detectable API question has hand-written stand-in search results for replay mode", () => {
     for (const code of ["xs.sort()", "a >> 1", "Math.round(x)"]) for (const r of detectApiRisks(code, "javascript")) expect(RESEARCH_RESULTS[r.query], r.id).toBeDefined();
     for (const r of detectApiRisks("round(x)", "python")) expect(RESEARCH_RESULTS[r.query], r.id).toBeDefined();
   });

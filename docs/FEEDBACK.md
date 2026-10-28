@@ -20,7 +20,7 @@ Kept as we build (required written feedback for the hackathon). Items marked **p
 Everything here comes from reading docs and building against the API shape. No live Nemotron call has run yet (`BLOCKED.md`).
 
 **What worked**
-- The Ultra / Super split maps cleanly onto an agent: Ultra where a mistake is expensive (the oracle, the root cause), Super where many cheap tries are fine (generators, research summaries). Our benchmark measures routed vs Ultra-only cost and latency so the split is a number, not a slogan.
+- The Ultra / Super split maps cleanly onto an agent: Ultra where a mistake is expensive (the oracle, the root cause), Super where many cheap tries are fine (generators, research summaries). Our benchmark compares routed with Ultra-only cost and latency, so the split is a number, not a slogan (in replay mode the cost comes from replayed token counts and the latency is simulated; the live run measures both).
 - Because model output is interpreted (a JSON DSL, schema-checked), never executed, a weaker answer from the fast model costs a dropped family, not a false alarm. That made it safe to give Super the high-volume step.
 
 **What didn't / open questions (pending live run)**

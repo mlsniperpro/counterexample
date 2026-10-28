@@ -18,7 +18,7 @@ export function fixSummary(f: { verified: boolean; reattackInputs: number; reatt
 /** Arguments as text; showValue writes the exact big integers (exactReviver's markers) as plain digits. */
 /** The counterexample's heading: an order-dependent failure is not shrunk, and an exhausted shrink may not be minimal. */
 export function cxHeading(cx: { shrinkExhausted: boolean; orderDependent?: { precedingInputs: number } }): string {
-  if (cx.orderDependent) return `Counterexample (fails only after ${cx.orderDependent.precedingInputs} earlier call(s) in the same process: the solution keeps state between calls)`;
+  if (cx.orderDependent) return `Counterexample (fails only when run after ${cx.orderDependent.precedingInputs} earlier input(s): the solution keeps state between calls)`;
   return cx.shrinkExhausted ? "Counterexample (shrinking stopped early, may not be minimal)" : "Minimal counterexample";
 }
 

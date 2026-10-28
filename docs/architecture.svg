@@ -93,7 +93,7 @@
   <rect x="772" y="346" width="164" height="76" class="box" rx="10"/>
   <text x="786" y="372" class="h">5 Run</text>
   <text x="786" y="392" class="s">solution vs oracle on</text>
-  <text x="786" y="408" class="s">hundreds of inputs</text>
+  <text x="786" y="408" class="s">up to hundreds of inputs</text>
 
   <rect x="585" y="346" width="164" height="76" class="box" rx="10"/>
   <text x="599" y="372" class="h">6 Shrink</text>

@@ -7,6 +7,26 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 18 (2026-10-28, `2f70b6f`, core and judge Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Core** (3 medium, 3 low), each reproduced by the auditor's script and pinned by a test:
+  - medium (false alarm): `sorted` on strings or lists used JSON-text order (`"a b"` before `"a"`, `[10,1]` before `[2,1]`), so inputs breaking the precondition were generated and accepted. `compareJson` now compares as Python does (numbers by value, strings by character, lists element by element);
+  - medium (false alarm): `unordered` is top-level only, so 3Sum's inner triplets had to match in order. A new mode `unordered_nested` ignores the order of every list; the understand prompt says when to use which;
+  - medium (false alarm): with `class Solution`, the entry fallback picked a helper defined above the class and blamed it. A method entry, or a class Solution with no top-level `solve`, now stops with a clear "methods are not supported yet" error;
+  - low: on Judge0 the order-dependent count spanned several processes. The messages now say "fails only when run after N earlier input(s)" and the README says the replay splits over processes as the first run did;
+  - low: a draft in the reasoning whose fence never closed swallowed `</think>`. A line that is only `</think>` now ends an open fence;
+  - low: "``` python", "```python3" and "**EXPLANATION:**" are now read.
+- **Judge** (1 high, 2 medium, 3 low):
+  - high: `main` holds only `BRIEF.md`, `AGENTS.md` and `.agent/`, so the public repo link would show no README, code or `LICENSE`. Merging PR #1 (or making `counterexample` the default branch) is an owner step in BLOCKED.md and the SUBMISSION checklist (merging is the owner's call);
+  - medium: SUBMISSION's routing speed claim did not say the replay latency is simulated. It now does, the bullet is "Routing costs about half", and FEEDBACK says the same;
+  - medium: the replay trace said "recorded search results" for hand-written stand-ins. It now says "hand-written stand-in search results";
+  - low: "hundreds of inputs" did not match the 29 to 195 "inputs attacked" tiles. The copy now says "dozens to hundreds of inputs, and hundreds more on the fix";
+  - low: the hard-tier "not minimal" count is "2 to 4 of 8";
+  - low: the SUBMISSION checklist says to drop `nebius-ai-cloud` if the sandbox is not deployed there.
+- **Security, UI and tests:** not run this round (the round-17 security and round-16 UI audits were fixed in the same push).
+- Checks: lint, typecheck, 548/548 tests, build, and e2e (10 steps, with the new double-click, held-Enter and late-share checks).
+
 ## Round 17 (2026-10-28, `a0570b8`, parallel Sonnet audits; findings verified by the main session)
 
 Not clean.
@@ -19,8 +39,18 @@ Not clean.
   - low: SUBMISSION gave one size for all phone screenshots; it now gives each (the form, 390 x 1,574, needs no crop);
   - low: SUBMISSION's "14 rounds by 27 October" and the checklist's missing rounds 16 and 17 are updated;
   - low: `BRIEF.md` calls 2026-10-30 a Thursday; it is a Friday. The brief is the owner's, so it is left as written; the time (10:00 PT = 17:00Z) is right and every other doc uses Fri 2026-10-30 17:00Z.
-- **UI and tests (round 16), security:** pending.
-- Checks: lint, typecheck, 540/540 tests, build, and e2e (10 steps).
+- **Security** (1 high, 2 medium), each reproduced:
+  - high: nested `oneOf` multiplied the work of `conforms` without adding values. `array(10,000) of oneOf(16 x oneOf(16 x int))` passed the value cap and stalled the event loop for 4 to 5 s. `checkCost` now bounds the checking steps per input like the values (200,000), and the family budget counts whichever is larger (test refuses that spec with 2,560,000 steps);
+  - medium: work in single ticks. The mutation family serialised up to 400 large seeds in one go (1 s); the seed keys are now built in slices with yields. The other ticks the audit measured (generating one 500,000-value family, parsing one process's 1,000,000 characters of results, comparing one 256,000-character result) stay at a few hundred milliseconds at the caps. That is accepted as the bound and stated in the README's limits;
+  - medium: the fence regex's `\s*\n` retried at every newline after an unclosed fence (2.2 s on 128,000 newlines). The info string now ends at the first newline (test: under 300 ms CPU; 4.7 s before).
+- **UI and tests (round 16, on `b4f5c68`)** (2 medium, 3 low):
+  - medium: a double-click on Cancel cancelled the run, and its second click landed on Attack, which grows into Cancel's place, starting a new attack. Attack now ignores the second click of a double-click (`isSingleClick`, unit test plus an e2e step);
+  - medium: the Judge0 path's forged-record cap (`parseLines(stdout, chunk.length)`) had no test. A test with 2,000,000 forged records now kills the mutant (12 s of CPU without the cap);
+  - low: the share race. Opening a shared link through hashchange now bumps `view`, and the compress and error branches check it before writing a note, a link or a download;
+  - low: four round-15 UI mutants survived (held Enter past the run's end, `view` bump in `run()`, clearing the share note, Cancel focus). New e2e checks kill all four, each confirmed by rebuilding the mutant;
+  - low: lib mutants. `Judge.compare` with a short oracle answer now has a test (ExecutorError, not TypeError). The event-loop yields (dedupe, per result, per family) and the small-scope `evenly` and per-parameter budget keep no dedicated test: a regression there costs time, not results, and `evenly` is equivalent to a prefix on every spec tried. Accepted.
+- Checks: in the round-18 entry.
+
 
 ## Round 16 (2026-10-28, `b4f5c68`, 4 parallel Sonnet audits; findings verified by the main session)
 

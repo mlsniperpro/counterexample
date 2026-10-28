@@ -88,7 +88,7 @@ describe("agent loop, end to end in replay mode (no keys)", () => {
       expect(r.research?.facts.length, b.problem.id).toBeGreaterThan(0);
       expect(r.research?.influencedFamilies.length, b.problem.id).toBeGreaterThan(0);
       expect(r.verdict, b.problem.id).toBe("counterexample");
-      expect(r.trace.some((e) => e.kind === "stage_start" && e.msg.startsWith("Researching with recorded search results: Research the web was requested")), b.problem.id).toBe(true);
+      expect(r.trace.some((e) => e.kind === "stage_start" && e.msg.startsWith("Researching with hand-written stand-in search results: Research the web was requested")), b.problem.id).toBe(true);
     }
   });
 

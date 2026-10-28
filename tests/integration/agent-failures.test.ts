@@ -26,12 +26,12 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.trace.some((e) => e.kind === "warn" && /Research question failed, continuing/.test(e.msg))).toBe(true);
   });
 
-  it("calls replayed research recorded search results, and a live client Tavily", async () => {
+  it("calls replayed research hand-written stand-in search results, and a live client Tavily", async () => {
     const b = builtIn("binary-search");
     const replayed = await attack({ problem: b.problem, solution: b.demo, research: "force" }, deps());
     const lines = replayed.trace.filter((e) => e.stage === "research" && (e.kind === "stage_start" || e.kind === "research")).map((e) => e.msg);
-    expect(lines[0]).toMatch(/^Researching with recorded search results: /);
-    expect(lines.some((m) => /^Recorded search results: ".+" returned \d+ result\(s\)$/.test(m))).toBe(true);
+    expect(lines[0]).toMatch(/^Researching with hand-written stand-in search results: /);
+    expect(lines.some((m) => /^Hand-written stand-in search results: ".+" returned \d+ result\(s\)$/.test(m))).toBe(true);
     expect(lines.some((m) => /Tavily/.test(m))).toBe(false);
     // A client that is not the replay one keeps the Tavily wording.
     const replay = deps().research!;

@@ -108,6 +108,17 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       expect((await entryFor("async function later(a, b) { return a + b; }", "javascript")).entry).toBe("later");
     });
 
+    it("refuses a method inside a class instead of attacking a helper defined above it", async () => {
+      const py = "def is_pos(x):\n    return x > 0\n\nclass Solution:\n    def maxOf(self, nums):\n        return max(nums)\n";
+      await expect(entryFor(py, "python", "maxOf")).rejects.toThrow(/"maxOf", a method inside a class: methods are not supported yet, so write it as a top-level function \(without self\)/);
+      // With no entry named, a class Solution is refused too rather than replaced by the helper.
+      await expect(entryFor(py, "python", null)).rejects.toThrow(/a class Solution: methods are not supported yet/);
+      const js = "function isPos(x) { return x > 0; }\nclass Solution {\n  maxOf(nums) {\n    return Math.max(...nums);\n  }\n}\n";
+      await expect(entryFor(js, "javascript", "maxOf")).rejects.toThrow(/"maxOf", a method inside a class/);
+      // A top-level solve next to a class is still attacked.
+      expect((await entryFor("class Solution:\n    pass\n\ndef solve(a, b):\n    return a + b\n", "python", null)).entry).toBe("solve");
+    });
+
     it("throws a clear ModelOutputError when the code has no function at all", async () => {
       await expect(entryFor("x = 1\nprint(x)\n", "python")).rejects.toThrow(ModelOutputError);
       await expect(entryFor("x = 1\nprint(x)\n", "python")).rejects.toThrow(/entry "missing" is not defined in the code, and the code has no top-level function/);

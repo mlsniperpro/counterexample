@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 05:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- In this push, the fixes for the round-16 UI audit, the round-17 security audit, and the round-18 core and judge audits: lint, typecheck, 548/548 tests, build, and e2e. Details in reaudit.md.
+- **Owner step added (high):** `main` holds only BRIEF/AGENTS/.agent, so PR #1 must be merged (or `counterexample` made the default branch) before the repo goes public. It is in BLOCKED.md and the SUBMISSION checklist; the owner merges.
+- The UI copy changed ("dozens to hundreds of inputs"), so the screenshots need `pnpm screenshots` on the final HEAD, together with `pnpm bench --readme` on an idle machine.
+- Next: round 19 (core, security, UI/tests, judge) on this push; continue until 2 rounds in a row are clean.
+
 STATE 2026-10-28 05:15 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 17 core (1 medium, 2 low) and judge (1 medium, 3 low) are fixed in this push: lint, typecheck, 540/540 tests, build, and e2e (10 steps). Details in reaudit.md.
 - Still running: the round-16 UI/tests audit (on `b4f5c68`) and the round-17 security audit (on `a0570b8`). Verify and fix what they find, then run round 18.

@@ -149,10 +149,23 @@ describe("conforms / argsConform", () => {
     expect(argsConform([0, []], [g])).toBe(false); // n below min
   });
 
-  it("compareJson orders numbers numerically and other values by JSON text", () => {
+  it("compareJson orders values the way a statement means by sorted (as Python compares them)", () => {
     expect([10, 9, 100].sort(compareJson)).toEqual([9, 10, 100]);
     expect(compareJson("a", "a")).toBe(0);
     expect(compareJson([1], [2])).toBeLessThan(0);
+    // Strings by character and lists element by element, not by JSON text (where '"a b"' sorts before '"a"').
+    expect(["a b", "a", "ab"].sort(compareJson)).toEqual(["a", "a b", "ab"]);
+    expect([[10, 1], [2, 1], [-1, 0], [-2, 0]].sort(compareJson)).toEqual([[-2, 0], [-1, 0], [2, 1], [10, 1]]);
+    expect([[1, 2], [1]].sort(compareJson)).toEqual([[1], [1, 2]]);
+    const intervals: TypeSpec = { kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: -20, max: 20 }, { kind: "int", min: -20, max: 20 }] }, len: { min: 0, max: 5 }, sorted: "asc" };
+    expect(conforms([[2, 2], [10, 10]], intervals as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+    expect(conforms([[10, 10], [2, 2]], intervals as Exclude<TypeSpec, { kind: "graph" }>)).toBe(false);
+    // Generated sorted inputs are sorted in the same order.
+    const rng = mulberry32(7);
+    for (let i = 0; i < 50; i++) {
+      const v = genValue(intervals, rng) as number[][];
+      expect(v).toEqual([...v].sort(compareJson));
+    }
   });
 });
 
@@ -315,11 +328,11 @@ describe("sortJson", () => {
     );
   });
 
-  it("serialises each element once, so 10,000 nested arrays sort quickly", () => {
+  it("compares nested arrays in place, so 10,000 of them sort quickly", () => {
     const xs = Array.from({ length: 10_000 }, (_, i) => Array.from({ length: 20 }, (_, j) => (i * 7919 + j * 104729) % 1000));
     const cpu = cpuClock();
     sortJson(xs);
-    // The comparator alone took over a second here.
+    // Serialising both sides on every comparison took over a second here.
     expect(cpu()).toBeLessThan(400);
   });
 });

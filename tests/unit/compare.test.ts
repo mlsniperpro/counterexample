@@ -7,7 +7,7 @@ describe("outputsEqual", () => {
   it("is reflexive in every mode", () => {
     fc.assert(
       fc.property(jsonValueArb, (v) => {
-        for (const m of ["exact", "unordered", "float"] as const) expect(outputsEqual(v, structuredClone(v), m)).toBe(true);
+        for (const m of ["exact", "unordered", "unordered_nested", "float"] as const) expect(outputsEqual(v, structuredClone(v), m)).toBe(true);
       }),
     );
   });
@@ -22,6 +22,24 @@ describe("outputsEqual", () => {
     );
     expect(outputsEqual([1, 1, 2], [1, 2, 2], "unordered")).toBe(false);
     expect(outputsEqual([1], [1, 1], "unordered")).toBe(false);
+  });
+
+  it("unordered_nested ignores the order of every list inside the answer, unordered only the top level", () => {
+    // 3Sum: the triplets and the numbers in each may come in any order.
+    expect(outputsEqual([[1, -1, 0], [2, -1, -1]], [[-1, -1, 2], [-1, 0, 1]], "unordered_nested")).toBe(true);
+    expect(outputsEqual([[1, -1, 0]], [[-1, 0, 1]], "unordered")).toBe(false);
+    // Still a multiset at every level, and still exact on values.
+    expect(outputsEqual([[1, 1, 2]], [[1, 2, 2]], "unordered_nested")).toBe(false);
+    expect(outputsEqual([["a", "b"], ["c"]], [["c"], ["b", "a"]], "unordered_nested")).toBe(true);
+    expect(outputsEqual([["a,b"]], [["a", "b"]], "unordered_nested")).toBe(false);
+    expect(outputsEqual({ k: [2, 1] }, { k: [1, 2] }, "unordered_nested")).toBe(true);
+    expect(outputsEqual([2 ** 60], [2 ** 60 + 256], "unordered_nested")).toBe(false);
+    fc.assert(
+      fc.property(fc.array(fc.array(fc.integer({ min: -3, max: 3 }), { maxLength: 4 }), { maxLength: 5 }), (xss) => {
+        const shuffled = [...xss].reverse().map((xs) => [...xs].reverse());
+        expect(outputsEqual(xss, shuffled, "unordered_nested")).toBe(true);
+      }),
+    );
   });
 
   it("float compares two safe integers exactly, so an off-by-one count is caught at any magnitude", () => {
@@ -60,7 +78,7 @@ describe("outputsEqual", () => {
 
 describe("outputsEqual on objects and big integers", () => {
   it("ignores object key order, recursively and in every mode", () => {
-    for (const m of ["exact", "unordered", "float"] as const) {
+    for (const m of ["exact", "unordered", "unordered_nested", "float"] as const) {
       expect(outputsEqual({ even: 2, odd: 3 }, { odd: 3, even: 2 }, m)).toBe(true);
       expect(outputsEqual([{ a: 1, b: [{ x: 1, y: 2 }] }], [{ b: [{ y: 2, x: 1 }], a: 1 }], m)).toBe(true);
       expect(outputsEqual({ a: 1, b: 2 }, { a: 1, b: 3 }, m)).toBe(false);

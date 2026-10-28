@@ -12,7 +12,7 @@ import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
-import { ignoreHeldEnter } from "./keys";
+import { ignoreHeldEnter, isSingleClick } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
 
@@ -40,12 +40,16 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [{ shared, key: sharedKey, error: shareError }, dispatchShare] = useReducer(shareReducer, initialShare);
   const [shareNote, setShareNote] = useState("");
   const [shareLink, setShareLink] = useState("");
+  /** Bumped whenever the page shows something else (a run starts, a problem is picked, a shared link opens): async share work checks it before writing. */
+  const view = useRef(0);
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
   // Also on hashchange: pasting a link into a tab that already shows the app only changes the hash.
   useEffect(() => {
     const open = () => {
       const hash = window.location.hash;
       if (!isShareFragment(hash)) return;
+      // The page now shows this shared report: a share of the earlier one still in flight must not write its link.
+      view.current++;
       dispatchShare({ type: "decoding", key: hash });
       decodeReport(hash)
         .then((report) => dispatchShare({ type: "opened", report, key: hash }))
@@ -73,8 +77,6 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }, [running]);
   const abort = useRef<AbortController | null>(null);
   const lastRun = useRef(0);
-  /** Bumped whenever the page shows something else (a run starts, a problem is picked): async share work checks it before writing. */
-  const view = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
   const traceEnd = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -151,11 +153,14 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     try {
       enc = await encodeReport(report, fragmentBudget(window.location.origin, window.location.pathname));
     } catch (e) {
+      if (view.current !== shown) return;
       // No CompressionStream (an old browser): say so rather than leave an unhandled rejection.
       setShareLink("");
       setShareNote(`This browser could not build a report link (${e instanceof Error ? e.message : String(e)}). Use Copy report instead.`);
       return;
     }
+    // The page moved on while the report was compressed: no link, note or download for a report no longer shown.
+    if (view.current !== shown) return;
     if (!enc.ok) {
       setShareLink("");
       // Same content a link would carry (no trace, no oracle code), as a file instead.
@@ -167,7 +172,6 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       );
       return;
     }
-    if (view.current !== shown) return;
     const link = `${window.location.origin}${window.location.pathname}${enc.fragment}`;
     setShareLink(link);
     let copied = true;
@@ -280,7 +284,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
-          <button className="go" ref={goButton} onClick={run} disabled={running} onKeyDown={ignoreHeldEnter}>
+          <button className="go" ref={goButton} onClick={(e) => isSingleClick(e) && void run()} disabled={running} onKeyDown={ignoreHeldEnter}>
             {running ? "Attacking…" : "Attack this solution"}
           </button>
           {/* A held Enter repeats: on Cancel it would cancel the run it started, on Attack start one run after another. Other repeated keys (Tab) pass. */}

@@ -28,7 +28,9 @@ const MAX_UNCLOSED_STARTS = 32;
  * happens to contain a brace cannot break an earlier object).
  */
 export function extractJson(text: string, reviver?: (key: string, value: unknown, ctx?: { source?: string }) => unknown): unknown {
-  const fence = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text)?.[1];
+  // The info string ends at the first newline ([ \t\r]*, not \s*): with \s*, a fence followed by many newlines and no
+  // closing fence was tried once per newline, each try reading to the end of the text (quadratic).
+  const fence = /```(?:json)?[ \t\r]*\n([\s\S]*?)```/i.exec(text)?.[1];
   for (const c of [fence, text]) {
     if (!c) continue;
     let unclosed = 0;
@@ -61,8 +63,9 @@ export function parseJsonAnswer<T>(text: string, schema: z.ZodType<T>, what: str
 
 /** The first fenced code block, preferring one tagged with the language. */
 export function extractCode(text: string, language: "python" | "javascript"): string {
-  const tags = language === "python" ? ["python", "py"] : ["javascript", "js"];
-  const blocks = [...text.matchAll(/```([\w+-]*)\s*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
+  const tags = language === "python" ? ["python", "py", "python3", "py3"] : ["javascript", "js", "node", "mjs"];
+  // "``` python" (a space before the tag) is still tagged python.
+  const blocks = [...text.matchAll(/```[ \t]*([\w+-]*)[ \t\r]*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
   const block = blocks.find((b) => tags.includes(b.tag)) ?? blocks[0];
   if (!block || !block.body.trim()) throw new ModelOutputError("no code block found in model output");
   return block.body.trimEnd() + "\n";
@@ -100,10 +103,21 @@ function atLineStart(text: string, i: number): boolean {
   return j === 0 || text[j - 1] === "\n";
 }
 
-/** Index just past the fence that closes a block opened before `from`: the next "```" at the start of a line, or the end of the text. */
+/**
+ * Index just past the fence that closes a block opened before `from`: the next "```" at the start of a line, or the end
+ * of the text. A line that is only "</think>" also ends it (before that line): a draft in the reasoning whose fence
+ * never closed would otherwise run on into the answer and hide the end of the trace. No code has such a line.
+ */
 function fenceEnd(text: string, from: number): number {
-  for (let k = text.indexOf("```", from); k >= 0; k = text.indexOf("```", k + 3)) if (atLineStart(text, k)) return k + 3;
-  return text.length;
+  let end = text.length;
+  for (let k = text.indexOf("```", from); k >= 0; k = text.indexOf("```", k + 3)) {
+    if (atLineStart(text, k)) {
+      end = k + 3;
+      break;
+    }
+  }
+  const tag = /^[ \t]*<\/think>[ \t]*$/m.exec(text.slice(from, end));
+  return tag ? from + tag.index : end;
 }
 
 /** The span containing `at`, found by binary search (the spans are sorted and disjoint). */
@@ -172,7 +186,8 @@ export function extractExplanation(text: string): string {
     .replace(/```[\s\S]*?```/g, "")
     .replace(/```[\s\S]*$/, "")
     // Within a line only: a \s* before the label crossed newlines, so each blank line rescanned the rest of the text.
-    .replace(/^[ \t]*(EXPLANATION|Explanation)[ \t]*:\s*/m, "")
-    .replace(/^[ \t]*(FIX|Fix)[ \t]*:[ \t]*$/m, "")
+    // The labels as asked for, or in Markdown emphasis or a heading ("**EXPLANATION:**", "### Fix:").
+    .replace(/^[ \t]*(?:#{1,6}[ \t]*)?[*_]{0,2}(?:EXPLANATION|Explanation)(?:[ \t]*:[*_]{0,2}|[*_]{1,2}[ \t]*:)\s*/m, "")
+    .replace(/^[ \t]*(?:#{1,6}[ \t]*)?[*_]{0,2}(?:FIX|Fix)(?:[ \t]*:[*_]{0,2}|[*_]{1,2}[ \t]*:)[ \t]*$/m, "")
     .trim();
 }

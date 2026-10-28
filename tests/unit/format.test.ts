@@ -70,7 +70,7 @@ describe("ellipsize", () => {
 
 describe("counterexample heading", () => {
   it("names an order-dependent failure, an exhausted shrink, and a minimal counterexample", () => {
-    expect(cxHeading({ shrinkExhausted: true, orderDependent: { precedingInputs: 3 } })).toMatch(/fails only after 3 earlier call\(s\).*keeps state/);
+    expect(cxHeading({ shrinkExhausted: true, orderDependent: { precedingInputs: 3 } })).toMatch(/fails only when run after 3 earlier input\(s\).*keeps state/);
     expect(cxHeading({ shrinkExhausted: true })).toMatch(/may not be minimal/);
     expect(cxHeading({ shrinkExhausted: false })).toBe("Minimal counterexample");
   });

@@ -186,27 +186,34 @@ export function genArgs(specs: TypeSpec[], rng: Rng): unknown[] {
 }
 
 /**
- * Sort in compareJson's order, in place. Numbers compare as numbers; anything else is serialised once per element,
- * not twice per comparison (10,000 nested arrays took over a second with the comparator alone).
+ * Sort in compareJson's order, in place. A list of numbers sorts numerically; anything else by compareJson, which
+ * reads values in place (no serialising per comparison: 10,000 nested arrays took over a second that way).
  */
 export function sortJson(xs: unknown[]): void {
-  if (xs.every((x) => typeof x === "number")) {
-    (xs as number[]).sort((a, b) => a - b);
-    return;
-  }
-  const keyed = xs.map((x) => ({ x, k: typeof x === "number" ? undefined : JSON.stringify(x) }));
-  keyed.sort((a, b) => (a.k === undefined && b.k === undefined ? (a.x as number) - (b.x as number) : compareKeys(a, b)));
-  keyed.forEach((e, i) => (xs[i] = e.x));
+  if (xs.every((x) => typeof x === "number")) (xs as number[]).sort((a, b) => a - b);
+  else xs.sort(compareJson);
 }
 
-const compareKeys = (a: { x: unknown; k?: string }, b: { x: unknown; k?: string }): number => {
-  const sa = a.k ?? JSON.stringify(a.x);
-  const sb = b.k ?? JSON.stringify(b.x);
-  return sa < sb ? -1 : sa > sb ? 1 : 0;
-};
+/** Rank of a JSON type when two values of different types are compared: numbers, then strings, then lists, then the rest. */
+const typeRank = (v: unknown): number => (typeof v === "number" ? 0 : typeof v === "string" ? 1 : Array.isArray(v) ? 2 : 3);
 
+/**
+ * The natural order a statement means by "sorted", as Python compares values: numbers by value, strings by
+ * character, lists element by element (a shorter prefix first). Values of other types or mixed types fall back to a
+ * fixed order (by type, then by JSON text), so the order is still total.
+ */
 export function compareJson(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "string" && typeof b === "string") return a < b ? -1 : a > b ? 1 : 0;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    for (let i = 0; i < a.length && i < b.length; i++) {
+      const c = compareJson(a[i], b[i]);
+      if (c !== 0) return c;
+    }
+    return a.length - b.length;
+  }
+  const r = typeRank(a) - typeRank(b);
+  if (r !== 0) return r;
   const sa = JSON.stringify(a);
   const sb = JSON.stringify(b);
   return sa < sb ? -1 : sa > sb ? 1 : 0;
@@ -374,12 +381,43 @@ export function maxValues(spec: TypeSpec): number {
 }
 
 /**
- * Refuse argument specs whose inputs could hold more than SPEC_LIMITS.maxValuesPerInput values in all: the limit is
+ * Upper bound on the work `conforms` does for one value: a oneOf tries every option, so nested oneOfs multiply the
+ * work per value even though the value count stays small (an array of 10,000 values, each tried against 16 x 16
+ * options, is 2.6 million checks).
+ */
+export function checkCost(spec: TypeSpec): number {
+  switch (spec.kind) {
+    case "int":
+    case "const":
+    case "string":
+    case "graph":
+      return maxValues(spec);
+    case "array":
+      return Math.max(1, spec.len.max * checkCost(spec.of));
+    case "tuple":
+      return Math.max(1, spec.items.reduce((a, x) => a + checkCost(x), 0));
+    case "oneOf":
+      return spec.options.reduce((a, x) => a + checkCost(x), 0);
+  }
+}
+
+/** The cost one input of these argument specs counts against the per-input and per-family limits: its values, or the checks it takes, whichever is more. */
+function inputCost(args: TypeSpec[]): number {
+  return Math.max(
+    args.reduce((a, s) => a + maxValues(s), 0),
+    args.reduce((a, s) => a + checkCost(s), 0),
+  );
+}
+
+/**
+ * Refuse argument specs whose inputs could hold, or take to check, more than SPEC_LIMITS.maxValuesPerInput values in all: the limit is
  * per input (all its arguments together), not per argument, or six large arguments would make inputs six times over it.
  */
 export function checkInputValues(args: TypeSpec[], path: string): void {
   const total = args.reduce((a, s) => a + maxValues(s), 0);
   if (total > SPEC_LIMITS.maxValuesPerInput) throw new ModelOutputError(`${path}: one input could hold ${total} values across its arguments (limit ${SPEC_LIMITS.maxValuesPerInput})`);
+  const checks = args.reduce((a, s) => a + checkCost(s), 0);
+  if (checks > SPEC_LIMITS.maxValuesPerInput) throw new ModelOutputError(`${path}: checking one input could take ${checks} steps, because of oneOf options (limit ${SPEC_LIMITS.maxValuesPerInput})`);
 }
 
 /**
@@ -387,8 +425,7 @@ export function checkInputValues(args: TypeSpec[], path: string): void {
  * (at least one), so a family of maximal inputs cannot exhaust memory or time.
  */
 export function inputsWithinBudget(args: TypeSpec[], wanted: number): number {
-  const per = args.reduce((a, s) => a + maxValues(s), 0);
-  return Math.min(wanted, Math.max(1, Math.floor(SPEC_LIMITS.maxValuesPerFamily / Math.max(1, per))));
+  return Math.min(wanted, Math.max(1, Math.floor(SPEC_LIMITS.maxValuesPerFamily / Math.max(1, inputCost(args)))));
 }
 
 /** Nested graphs make no sense (a graph expands to two top-level arguments). */

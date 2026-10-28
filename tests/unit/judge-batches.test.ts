@@ -4,6 +4,7 @@ import { ranBefore } from "@/lib/agent/stages";
 import { Budget, DEFAULT_BUDGETS } from "@/lib/agent/budget";
 import { Tracer } from "@/lib/agent/trace";
 import type { Executor, RunRequest } from "@/lib/exec/types";
+import { ExecutorError } from "@/lib/errors";
 import { getProblem } from "@/lib/problems/catalog";
 
 describe("byValues", () => {
@@ -36,6 +37,22 @@ describe("Judge.compare in value-bounded batches", () => {
     // Solution and oracle both run every batch; each batch holds at most four of these 60,000-value inputs.
     expect(sent.length).toBeGreaterThan(2);
     expect(Math.max(...sent)).toBeLessThanOrEqual(JUDGE_BATCH_VALUES + 10);
+  });
+});
+
+describe("Judge.compare with a short answer from the executor", () => {
+  it("throws ExecutorError (which the attack degrades on), not a TypeError, when the oracle's run returns too few outcomes", async () => {
+    const executor = {
+      name: "fake",
+      label: "fake",
+      run: async (req: RunRequest) => {
+        const n = req.code === "oracle" ? req.inputs.length - 1 : req.inputs.length;
+        return { outcomes: req.inputs.slice(0, n).map(() => ({ ok: true as const, out: 1, ms: 1 })), processes: 1 };
+      },
+    } as unknown as Executor;
+    const judge = new Judge(getProblem("binary-search")!, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), new Tracer(0, () => 0));
+    judge.oracleCode = "oracle";
+    await expect(judge.compare("run", { language: "python", code: "x", entry: "solve" }, [[[1], 1], [[2], 2]])).rejects.toThrow(ExecutorError);
   });
 });
 

@@ -12,5 +12,6 @@ Everything below already has a working path behind replay fixtures or a stub; ea
 - [ ] **Network access**: a machine (or a cloud environment with `api.tokenfactory.nebius.com` and `docs.nebius.com` allowed) to run the live benchmark. The build session's policy denied those hosts.
 - [ ] **Nebius AI Cloud credentials** (project id; CLI logged in) for the sandbox endpoint above. The P1 executor is built as the sandbox endpoint rather than as per-batch Serverless Jobs; `docs/NEBIUS-SANDBOX.md` explains why.
 - [ ] **Demo video** filmed per `docs/VIDEO.md`, uploaded public on YouTube, link in `docs/SUBMISSION.md` ("Video demo link").
-- [ ] **Repo visibility**: make `mlsniperpro/counterexample` public before submission (MIT `LICENSE` is in place).
+- [ ] **Merge PR #1 into `main`** (or make `counterexample` the default branch) before the repo goes public: `main` holds only `BRIEF.md`, `AGENTS.md` and `.agent/`, so a judge opening the repo link would see no README, code or `LICENSE`.
+- [ ] **Repo visibility**: make `mlsniperpro/counterexample` public before submission (MIT `LICENSE` is in place once PR #1 is merged).
 - [ ] **Devpost submission** (every field is paste-ready in `docs/SUBMISSION.md`, which also has a pre-submit checklist) and the written feedback form (paste from `docs/FEEDBACK.md`). The owner submits on 2026-10-29; the Devpost deadline is 2026-10-30 17:00 UTC.

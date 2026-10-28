@@ -55,6 +55,18 @@ describe("model output parsing", () => {
     expect(cpu()).toBeLessThan(1000);
   });
 
+  it("stays linear on a fence followed by many blank lines and no closing fence", () => {
+    const cpu = cpuClock();
+    // 128,000 newlines took 2.2 s when the info string's \s* was retried at every newline.
+    const open = "```" + "\n".repeat(128_000);
+    expect(() => extractJson(open)).toThrow(ModelOutputError);
+    expect(() => extractCode(open, "python")).toThrow(ModelOutputError);
+    expect(cpu()).toBeLessThan(300);
+    // A blank line after the opening fence still belongs to the block.
+    expect(extractJson('```json\n\n{"a": 1}\n```')).toEqual({ a: 1 });
+    expect(extractCode("```python\r\n\ndef solve():\n    pass\n```", "python")).toBe("\ndef solve():\n    pass\n");
+  });
+
   it("stays linear on degenerate answers: many blank lines, many unclosed <think> tags", () => {
     const cpu = cpuClock();
     // 32,000 blank lines took 4.7 s when the label pattern's \s* crossed newlines.
@@ -65,6 +77,11 @@ describe("model output parsing", () => {
     expect(stripThinking("draft:\n```py\nwrong\n```\n</think>FIX:\n```py\nright\n```")).toBe("FIX:\n```py\nright\n```");
     // A "```" mentioned mid-sentence in the reasoning is not a fence, so it cannot hide the closing tag.
     expect(stripThinking("<think>I should wrap the fix in ``` fences.</think>\nEXPLANATION: off by one.\n\n```python\ndef solve(a):\n    return a\n```")).toBe("EXPLANATION: off by one.\n\n```python\ndef solve(a):\n    return a\n```");
+    // A draft in the reasoning whose fence never closed still ends at the trace's closing tag, alone on its line.
+    const draft = "<think>\nLet me draft:\n```python\ndef solve(x):\n    return x\nOkay.\n</think>\n```python\ndef solve(x):\n    return x + 1\n```";
+    expect(stripThinking(draft)).toBe("```python\ndef solve(x):\n    return x + 1\n```");
+    expect(extractCode(stripThinking(draft), "python")).toBe("def solve(x):\n    return x + 1\n");
+    expect(stripThinking(draft.replace("<think>\n", ""))).toBe("```python\ndef solve(x):\n    return x + 1\n```");
     // A stray closing tag before a complete pair still ends the prompt-opened trace.
     expect(stripThinking("trace</think>answer<think>x</think>")).toBe("answer");
     // Think tags inside code are content: a fix that handles the literal tags keeps them, in fences and inline.
@@ -80,6 +97,17 @@ describe("model output parsing", () => {
   it("still finds an object after a few stray braces that never close", () => {
     expect(extractJson('Use {x or {y, then: {"families": []}')).toEqual({ families: [] });
     expect(extractJson("{ ".repeat(30) + '{"a": 1}')).toEqual({ a: 1 });
+  });
+
+  it("reads the formatting models actually use: a space before the tag, python3, and labels in bold or a heading", () => {
+    expect(extractCode("``` python\ndef solve():\n    pass\n```", "python")).toBe("def solve():\n    pass\n");
+    expect(extractCode("```text\nsample\n```\n```python3\ndef solve():\n    pass\n```", "python")).toBe("def solve():\n    pass\n");
+    expect(extractCode("```node\nfunction solve() {}\n```", "javascript")).toBe("function solve() {}\n");
+    expect(extractExplanation("**EXPLANATION:** off by one.\n\n**FIX:**\n```py\nx\n```")).toBe("off by one.");
+    expect(extractExplanation("**Explanation**: off by one.")).toBe("off by one.");
+    expect(extractExplanation("### Explanation:\noff by one.\n### Fix:\n```py\nx\n```")).toBe("off by one.");
+    // A sentence that merely starts with the word keeps it.
+    expect(extractExplanation("Explanations differ here.")).toBe("Explanations differ here.");
   });
 
   it("separates the explanation from code and strips reasoning", () => {

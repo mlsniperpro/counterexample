@@ -6,9 +6,11 @@ Facts checked against the repo at the commit that last changed this file. The nu
 
 ## Before you submit (owner)
 
+- [ ] PR #1 is merged into `main` (or `counterexample` is the default branch): `main` alone has no README, code or `LICENSE`, and the repo link opens the default branch.
 - [ ] The repo `mlsniperpro/counterexample` is public (MIT `LICENSE` at the top).
 - [ ] The demo video is on YouTube, public, and at most 3 minutes (script: `docs/VIDEO.md`).
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
+- [ ] If the sandbox was not deployed on Nebius AI Cloud, remove `nebius-ai-cloud` from "Built with" and say in the Nebius products answer that the sandbox is built for AI Cloud but ran on another Judge0-compatible endpoint.
 - [ ] The live benchmark is pasted in, if a key was available (`pnpm bench --live --readme`); otherwise keep the "replay mode" wording below as it is.
 - [ ] The feedback form is filled from `docs/FEEDBACK.md`.
 - [ ] Before 2026-11-09, `MODEL_FAST` in the deployment is a current Nemotron id: Token Factory removes `nvidia/nemotron-3-super-120b-a12b` that day (`BLOCKED.md`). Update the model ids in "Which NVIDIA open models" below if they change.
@@ -73,7 +75,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 1. **Understand.** The problem becomes a typed spec of its parameters and constraints. When the statement relies on outside facts, or the code calls an API with a well-known trap (JavaScript's `sort()` without a comparator, Python's banker's `round()`), **Tavily** fetches the official sources and every fact is cited in the trace.
 2. **Build an oracle.** **Nemotron 3 Ultra** writes a slow but obviously-correct brute force. It must reproduce the statement's examples before it is trusted; otherwise the verdict is "oracle unreliable" and no bug is claimed.
 3. **Attack.** **Nemotron 3 Super** designs adversarial input *generators* (not test cases) in a typed JSON DSL: bounds, duplicates, overflow, worst-case sizes, deep chains. They run alongside deterministic families: bounded-exhaustive small inputs and EvalPlus-style mutants.
-4. **Run.** The solution and the oracle run on hundreds of inputs per attack (thousands of sandbox runs) in a sandbox (any Judge0-compatible API, or our own hardened sandbox).
+4. **Run.** The solution and the oracle run on dozens to hundreds of inputs per attack, and the fix on hundreds more (thousands of sandbox runs in all), in a sandbox (any Judge0-compatible API, or our own hardened sandbox).
 5. **Confirm and shrink.** A mismatch counts only once it reproduces alone on a fresh run. Delta debugging then shrinks it to a minimal counterexample, for example `solve([2, 5], 6)`: expected 3, got -1.
 6. **Explain and fix.** Ultra explains the bug in two sentences and proposes a fix. The whole attack is **re-run on the fix** before it is called fixed.
 7. **Report.** A live trace shows every model call (which model, why, tokens, cost, latency) and every run. A "Why Ultra here, Super there" panel shows the cost of each step, and a share link carries the report in the URL.
@@ -115,7 +117,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 
 - **38 of 38 known bugs found, 0 false alarms on 16 correct solutions**, across 13 problems in Python and JavaScript, with every fix verified by re-attack (replay mode: hand-written stand-ins for the model answers, real execution).
 - **Where the models matter, measured honestly.** On 8 "hard tier" bugs that only show at worst-case sizes or on specific structure (exponential backtracking, overflow on a long chain), the model-designed families find 8 of 8. Both ablations find 0 of 8: one without model families, and one with examples plus 1,000 random inputs. We wrote those stand-in families knowing the bug classes, and say so; the live run measures whether Super writes them itself.
-- **Routing pays.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts) and reaches the first counterexample faster (median 5.4 s against 11.3 s), with the same results.
+- **Routing costs about half.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts) with the same results. Its time to the first counterexample is shorter too (median 5.4 s against 11.3 s), but in replay mode that latency is simulated from each model's decode speed, so only the live benchmark can confirm it.
 - Counterexamples a person can read: `solve([0], 0)`, `solve(2147483647)`, `solve("baab")`.
 
 ## What we learned

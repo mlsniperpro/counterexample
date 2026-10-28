@@ -5,6 +5,7 @@ import { errorSummary, LocalExecutor } from "@/lib/exec/local";
 import { buildProgram, parseLines, runWithRestarts } from "@/lib/exec/program";
 import type { RunRequest } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
+import { cpuClock } from "../helpers";
 
 const local = new LocalExecutor();
 const base = { entry: "solve", timeLimitMs: 400, memoryLimitMb: 256 } as const;
@@ -318,6 +319,18 @@ describe("Judge0Executor", () => {
     expect(r.outcomes.every((o) => !o.ok && o.error === "compile")).toBe(true);
     const weird = new Judge0Executor({ baseUrl: "https://j.example", http: { fetchImpl: reply({ token: "abc" }) } });
     await expect(weird.run({ ...base, language: "python", code: "", inputs: [[1]] })).rejects.toThrow(/unexpected response shape/);
+  });
+
+  it("stays fast when the program forges millions of empty result records, as the local executor does", async () => {
+    // The same 2,000,000 forged records (8 MB) the local executor test uses: parsing them all took 33 s.
+    const out = "\x1eCR\n" + `\x1eCX${JSON.stringify({ ok: true, out: 1, ms: 1 })}\n` + "\x1eCX\n".repeat(2_000_000);
+    const fetchImpl = (async () => Response.json({ stdout: Buffer.from(out).toString("base64"), stderr: null, compile_output: null, message: null, status: { id: 3, description: "Accepted" } }, { status: 201 })) as unknown as typeof fetch;
+    const ex = new Judge0Executor({ baseUrl: "https://j.example", http: { fetchImpl } });
+    const cpu = cpuClock();
+    const r = await ex.run({ ...base, language: "javascript", code: "", inputs: [[1], [2], [3]] });
+    expect(cpu()).toBeLessThan(2000);
+    expect(r.outcomes).toHaveLength(3);
+    expect(r.outcomes[0]).toMatchObject({ ok: true, out: 1 });
   });
 
   it("rejects bad configuration", () => {

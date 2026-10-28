@@ -68,7 +68,7 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
   if (plan.queries.length === 0) return [];
   const client = ctx.deps.research;
   // Replay mode serves recorded results; the trace must not say a live search ran.
-  const source = client?.name === "replay" ? "recorded search results" : "Tavily";
+  const source = client?.name === "replay" ? "hand-written stand-in search results" : "Tavily";
   startStage(ctx, "research", `Researching with ${source}: ${plan.reasons.join("; ")}`);
   const research: NonNullable<typeof ctx.report.research> = { queries: plan.queries.map((q) => q.query), facts: [], influencedFamilies: [] };
   ctx.report.research = research;
@@ -83,7 +83,7 @@ export async function researchStage(ctx: AttackContext): Promise<ResearchFact[]>
   for (const q of plan.queries) {
     try {
       const r = await client.search(q.query, ctx.signal);
-      ctx.tracer.emit("research", "research", `${source === "Tavily" ? "Tavily: " : "Recorded search results: "}"${q.query}" returned ${r.results.length} result(s)`, { query: q.query, reason: q.reason, urls: r.results.map((x) => x.url), client: client.name });
+      ctx.tracer.emit("research", "research", `${source === "Tavily" ? "Tavily: " : "Hand-written stand-in search results: "}"${q.query}" returned ${r.results.length} result(s)`, { query: q.query, reason: q.reason, urls: r.results.map((x) => x.url), client: client.name });
       if (r.dropped) ctx.tracer.emit("research", "warn", `Dropped ${r.dropped} malformed search result(s) (non-http(s) URL or wrong shape)`);
       if (r.results.length === 0) continue;
       const focus = q.reason === "api" ? `the documented behaviour of ${q.label} that can make a solution wrong` : "official constraints and edge cases";
@@ -239,8 +239,9 @@ export async function attackStage(ctx: AttackContext, facts: ResearchFact[]): Pr
 
 /**
  * `confirmed`: the mismatch reproduced on a fresh re-run. `orderDependent`: it
- * reproduced only after `precedingInputs` earlier inputs ran in the same
- * process; `sequence` is those inputs and then this one, in the order they ran.
+ * reproduced only when run after `precedingInputs` earlier inputs (the judge's
+ * batch before it; an executor may split a batch over processes, the same way on
+ * every replay); `sequence` is those inputs and then this one, in the order they ran.
  */
 type Hit = { args: unknown[]; j: Judgement; family: string; confirmed: boolean; orderDependent?: { precedingInputs: number; sequence: unknown[][] } };
 
@@ -322,7 +323,7 @@ async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unkno
   return undefined;
 }
 
-function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Generated {
+async function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Promise<Generated> {
   // Generation is synchronous: check the deadline between families.
   ctx.signal.throwIfAborted();
   const specs = specsOf(ctx);
@@ -330,7 +331,7 @@ function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: str
     case "examples":
       return { inputs: ctx.input.problem.examples.map((e) => e.args), dropped: 0 };
     case "mutation":
-      return mutationInputs(tested, specs, f.count, ctx.seed, salt);
+      return mutationInputs(tested, specs, f.count, ctx.seed, salt, await jsonKeys(tested));
     case "exhaustive":
       // Deterministic: the same small inputs on attack and re-attack.
       return { inputs: smallScopeInputs(specs, f.count), dropped: 0 };
@@ -355,7 +356,7 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
       ctx.families.push({ name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: 0, dropped: 0, tested: 0, mismatches: 0, oracleSkipped: 0 });
       continue;
     }
-    const { inputs, dropped } = inputsFor(ctx, f, tested, "attack");
+    const { inputs, dropped } = await inputsFor(ctx, f, tested, "attack");
     // Generating a family of large inputs is synchronous work: let the event loop run between families.
     await breathe();
     const st: FamilyStats = { name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: inputs.length + dropped, dropped, tested: 0, mismatches: 0, oracleSkipped: 0 };
@@ -467,7 +468,7 @@ function keepOrderDependent(ctx: AttackContext, hit: Hit, order: NonNullable<Hit
   ctx.report.counterexample = cx;
   ctx.report.verdict = "counterexample";
   ctx.report.message = "The solution fails on this input only after earlier calls in the same process: it keeps state between calls. Run alone, it is correct.";
-  ctx.tracer.emit("shrink", "counterexample", `Counterexample (order-dependent, not shrunk): ${call(cx.args)} expected ${clipText(showValue(cx.expected))}, got ${cx.got}. It fails only after ${order.precedingInputs} earlier input(s) in the same process: the solution keeps state between calls. Run alone, it is correct.`, {
+  ctx.tracer.emit("shrink", "counterexample", `Counterexample (order-dependent, not shrunk): ${call(cx.args)} expected ${clipText(showValue(cx.expected))}, got ${cx.got}. It fails only when run after ${order.precedingInputs} earlier input(s) (replayed in order; the sandbox may split them over processes): the solution keeps state between calls. Run alone, it is correct.`, {
     args: cx.args,
     expected: cx.expected,
     got: cx.got,
@@ -483,7 +484,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
   const fresh: unknown[][] = [];
   for (const f of plan) {
     if (f.source === "examples") continue;
-    for (const x of inputsFor(ctx, f, tested, "reattack").inputs) fresh.push(x);
+    for (const x of (await inputsFor(ctx, f, tested, "reattack")).inputs) fresh.push(x);
     await breathe();
   }
   const others = [cx.args, cx.original.args, ...tested, ...fresh, ...problem.examples.map((e) => e.args)];
@@ -557,6 +558,22 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
 
 /** Characters serialised between yields while deduplicating. */
 const DEDUPE_SLICE = 1_000_000;
+
+/** The JSON text of each input, yielding to the event loop every DEDUPE_SLICE characters (400 inputs of 10,000 values took 1 s in one go). */
+async function jsonKeys(xs: unknown[][]): Promise<string[]> {
+  const keys: string[] = [];
+  let since = 0;
+  for (const x of xs) {
+    const text = JSON.stringify(x);
+    keys.push(text);
+    since += text.length;
+    if (since >= DEDUPE_SLICE) {
+      since = 0;
+      await breathe();
+    }
+  }
+  return keys;
+}
 
 /** First occurrences only, in order. Keyed by a digest (the inputs can be megabytes), yielding to the event loop as it goes. */
 async function dedupe(xs: unknown[][]): Promise<unknown[][]> {

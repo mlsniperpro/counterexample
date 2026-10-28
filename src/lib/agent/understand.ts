@@ -17,7 +17,7 @@ const specAnswerSchema = z.object({
   params: z.array(z.object({ name: z.string().min(1).max(40), type: z.unknown() })).min(1).max(MAX_PARAMS),
   returns: z.string().nullish().transform((r) => (r ?? "").slice(0, 200)),
   examples: z.array(z.object({ args: z.array(z.json()), output: z.json() })).max(MAX_EXAMPLES).default([]),
-  compare: z.enum(["exact", "unordered", "float"]).default("exact"),
+  compare: z.enum(["exact", "unordered", "unordered_nested", "float"]).default("exact"),
   references: z.array(z.string().max(200)).nullish().transform((r) => r?.slice(0, 2)),
 });
 
@@ -49,6 +49,13 @@ function definesFunction(code: string, language: Solution["language"], name: str
   return re.test(code);
 }
 
+/** Whether the code defines `name` as an indented method (inside a class) rather than at the top level. */
+function definesMethod(code: string, language: Solution["language"], name: string): boolean {
+  const n = escapeRe(name);
+  const re = language === "python" ? new RegExp(String.raw`^[ \t]+(?:async\s+)?def\s+${n}\s*\(`, "m") : new RegExp(String.raw`^[ \t]+(?:static\s+)?(?:async\s+)?${n}\s*\([^)]*\)\s*\{`, "m");
+  return re.test(code);
+}
+
 /**
  * The function the harness will call. The model's `entry` is used when the
  * code defines it; otherwise (an invented name would fail every input with a
@@ -56,6 +63,14 @@ function definesFunction(code: string, language: Solution["language"], name: str
  */
 function resolveEntry(code: string, language: Solution["language"], named: string | null | undefined): { entry: string; note?: string } {
   if (named && definesFunction(code, language, named)) return { entry: named };
+  // A method (LeetCode's class Solution) is not callable as a function: falling back to another top-level function,
+  // often a helper defined above the class, would attack the wrong code and blame it for a bug.
+  const method = named && definesMethod(code, language, named) ? named : !definesFunction(code, language, "solve") && /^\s*(?:export\s+)?class\s+Solution\b/m.test(code) ? "Solution" : undefined;
+  if (method) {
+    throw new ModelOutputError(
+      `the solution is ${method === "Solution" ? "a class Solution" : `"${method}", a method inside a class`}: methods are not supported yet, so write it as a top-level function${language === "python" ? " (without self)" : ""}`,
+    );
+  }
   const entry = definesFunction(code, language, "solve") ? "solve" : firstFunctionName(code, language);
   if (!entry) {
     throw new ModelOutputError(named ? `problem spec: entry "${named}" is not defined in the code, and the code has no top-level function` : "problem spec: no entry function named, and none found in the code");
