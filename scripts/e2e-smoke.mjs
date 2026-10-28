@@ -560,8 +560,11 @@ async function main() {
     // A second bad link that fails the same way, pasted without a reload: shown again, in view. (A spacer makes the page
     // tall enough that the alert is out of view unless it is scrolled to.)
     await p.evaluate(() => document.body.appendChild(Object.assign(document.createElement("div"), { style: "height: 5000px" })));
+    // Two links that fail with the same message, one after the other: the second must still be shown.
+    await p.evaluate(() => (window.location.hash = "#r=1.not-a-report"));
+    await p.locator("p.share-err", { hasText: "does not decompress" }).waitFor({ timeout: 15_000 });
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await p.evaluate(() => (window.location.hash = "#r=1.also-not-a-report"));
+    await p.evaluate(() => (window.location.hash = "#r=1.also-broken"));
     await p.waitForFunction(() => (document.querySelector("p.share-err")?.getBoundingClientRect().top ?? -1e9) > -2, null, { timeout: 15_000 }).catch(() => check(false, "a repeated bad link's alert is scrolled into view"));
     await p.goto(`${base}/`);
     await attackButton(p).waitFor({ timeout: 15_000 });
