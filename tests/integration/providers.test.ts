@@ -194,6 +194,19 @@ describe("executor selection", () => {
     expect(() => makeExecutor({ NODE_ENV: "production" })).toThrow(/JUDGE0_URL, or ALLOW_LOCAL_EXECUTOR=1/);
     // A ConfigError, which the API reports with its message (a plain Error became a bare "Server unavailable.").
     expect(() => makeExecutor({ NODE_ENV: "production" })).toThrow(ConfigError);
+    // The API shows a ConfigError's message to its caller: it names the variable, never its value.
+    for (const env of [{ JUDGE0_URL: "https://admin:s3cr3t-token@sandbox host.example.com:2358" }, { JUDGE0_URL: "https://j.example", JUDGE0_AUTH: "s3cr3t-token" }]) {
+      const message = (() => {
+        try {
+          makeExecutor(env);
+          return "";
+        } catch (e) {
+          return e instanceof Error ? e.message : String(e);
+        }
+      })();
+      expect(message).toMatch(/JUDGE0_/);
+      expect(message).not.toMatch(/s3cr3t/);
+    }
     expect(makeExecutor({ NODE_ENV: "production", ALLOW_LOCAL_EXECUTOR: "1" }).name).toBe("local");
   });
 });

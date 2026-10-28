@@ -213,4 +213,9 @@ describe("shrinker properties", () => {
   it("propagates a failing evaluator instead of swallowing it", async () => {
     await expect(shrink([[1, 2, 3]], { isValid: () => true, stillFails: async () => Promise.reject(new Error("sandbox down")) })).rejects.toThrow("sandbox down");
   });
+
+  it("measures an object by its keys and values, so shrinking scans and orders it by what it holds", () => {
+    expect(measure({ ab: [1, 2] })[0]).toBeGreaterThan(measure({ a: 1 })[0]);
+    expect(measure({ k: "x".repeat(100) })[0]).toBeGreaterThan(100);
+  });
 });

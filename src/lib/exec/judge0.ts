@@ -66,7 +66,8 @@ export class Judge0Executor implements Executor {
     try {
       url = new URL(this.cfg.baseUrl);
     } catch (e) {
-      throw new ConfigError(`JUDGE0_URL is not a valid URL: "${cfg.baseUrl}"`, { cause: e });
+      // The API shows a ConfigError's message to its caller: name the variable, never its value (it may hold credentials).
+      throw new ConfigError("JUDGE0_URL is not a valid URL", { cause: e });
     }
     if (url.protocol !== "https:" && url.protocol !== "http:") throw new ConfigError(`JUDGE0_URL must be http(s), got ${url.protocol}`);
     this.label = `Judge0 (${url.host})`;
@@ -161,5 +162,5 @@ export class Judge0Executor implements Executor {
 function authFromEnv(v: string | undefined): Judge0Config["auth"] {
   if (v === undefined || v === "" || v === "x-auth-token") return "x-auth-token";
   if (v === "bearer") return "bearer";
-  throw new ConfigError(`JUDGE0_AUTH must be "x-auth-token" or "bearer", got "${v}"`);
+  throw new ConfigError('JUDGE0_AUTH must be "x-auth-token" or "bearer"');
 }

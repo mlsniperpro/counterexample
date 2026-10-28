@@ -137,6 +137,18 @@ function genInt(spec: IntSpec, rng: Rng): number {
   return randInt(rng, min, max);
 }
 
+/** Size and nesting caps on a const's value. */
+const MAX_CONST_CHARS = 1000;
+const MAX_CONST_DEPTH = 8;
+
+/** Nesting depth of a JSON value (a scalar is 0), stopping once past the cap. */
+function jsonDepth(v: unknown, d = 0): number {
+  if (d > MAX_CONST_DEPTH || v === null || typeof v !== "object") return d;
+  let deepest = d + 1;
+  for (const x of Array.isArray(v) ? v : Object.values(v)) deepest = Math.max(deepest, jsonDepth(x, d + 1));
+  return deepest;
+}
+
 /** Largest integer range a `distinct` array is drawn from without replacement (the range is built in full). */
 const DISTINCT_SHUFFLE_MAX = 100_000;
 
@@ -175,7 +187,9 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   // A run of duplicates means the element domain is (nearly) used up: stop early instead of sampling n * 20 times
   // (a `distinct` array longer than its domain, say 10,000 elements of a 10-value constant, cost ~45 s of event loop).
   let misses = 0;
-  while (out.length < n && attempts < n * 20 + 50 && misses < MAX_DISTINCT_MISSES && (!spec.distinct || drawsLeft > 0)) {
+  // A short distinct array over a tiny domain gives up sooner: its misses were not counted by any value budget.
+  const missLimit = Math.min(MAX_DISTINCT_MISSES, 2 * n + 8);
+  while (out.length < n && attempts < n * 20 + 50 && misses < missLimit && (!spec.distinct || drawsLeft > 0)) {
     attempts++;
     const v = pool ? pick(rng, pool) : genValue(of, rng);
     if (spec.distinct) {
@@ -398,7 +412,11 @@ const typeSpecSchema: z.ZodType<TypeSpec> = z.lazy(() =>
     }),
     z.object({ kind: z.literal("string"), alphabet: z.string().min(1).max(256), len: range(SPEC_LIMITS.maxLen) }),
     z.object({ kind: z.literal("tuple"), items: z.array(typeSpecSchema).min(1).max(SPEC_LIMITS.maxOptions), nondecreasing: opt(z.boolean()) }),
-    z.object({ kind: z.literal("const"), value: z.json() }),
+    // A const is a small fixed value (a sentinel, a fixed word): its copies are cloned, compared and serialised per
+    // element, so a deep or long one cost seconds while counting as a few values.
+    z.object({ kind: z.literal("const"), value: z.json() }).refine((c) => JSON.stringify(c.value).length <= MAX_CONST_CHARS && jsonDepth(c.value) <= MAX_CONST_DEPTH, {
+      message: `a const must be at most ${MAX_CONST_CHARS} characters of JSON, nested at most ${MAX_CONST_DEPTH} deep`,
+    }),
     z.object({ kind: z.literal("oneOf"), options: z.array(typeSpecSchema).min(1).max(SPEC_LIMITS.maxOptions) }),
     z.object({
       kind: z.literal("graph"),

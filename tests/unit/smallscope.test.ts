@@ -296,3 +296,14 @@ describe("small-scope with oneOf elements", () => {
     expect(smallScopeInputs([mixed], 300).some((x) => (x[0] as unknown[]).some((v) => typeof v === "string"))).toBe(true);
   });
 });
+
+describe("small-scope with a const object", () => {
+  it("counts the object by what it holds, so the enumeration budget sees it", () => {
+    const obj: TypeSpec = { kind: "const", value: { a: "x".repeat(900) } };
+    const small: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: 2 }, len: { min: 0, max: 3 } };
+    const cpu = cpuClock();
+    const r = smallScope([obj, small, small, small], 300);
+    expect(cpu()).toBeLessThan(1500);
+    expect(r.inputs.length).toBeGreaterThan(0);
+  });
+});

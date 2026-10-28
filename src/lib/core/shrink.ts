@@ -28,6 +28,17 @@ export function measure(v: unknown): [number, number] {
     }
     return [nodes, mag];
   }
+  // An object counts its keys and values, so the scan budget and the size order see what it holds.
+  if (v !== null && typeof v === "object") {
+    let nodes = 1;
+    let mag = 0;
+    for (const [k, x] of Object.entries(v)) {
+      const [a, b] = measure(x);
+      nodes += k.length + a;
+      mag += b;
+    }
+    return [nodes, mag];
+  }
   return [1, 0];
 }
 

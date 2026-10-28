@@ -23,7 +23,12 @@ Not clean (core found medium items).
   - low: the WIN-CHECKLIST test count: updated.
 - **Judge** (4 low, none medium; full bench, fresh clone, 12 e2e steps, official docs and the API runs all match): the round count in SUBMISSION (updated); the test count (updated); the UI copy still says "dozens to hundreds of inputs" (changed with the final screenshots); `checks.sh` said "recorded model answers" (now "hand-written stand-ins").
 - **Soak (`pnpm soak --all --seeds 3`, 1,509 attacks):** 1,435 killed, 72 survived, 0 missed, 0 errors, and 2 "unsound". Both were the same equivalent mutant of `hard/decode-ways/bug-a` (an exponential solution), claimed as a timeout on the 29-character input while the machine ran the soak, two auditors and a bench (load about 10). Re-run on a quiet machine it takes 334 ms of its 500 ms limit there: a real, machine-dependent timeout, not a false alarm. The soak's checker compared values only. It now confirms a timeout claim when the mutant times out again or needs at least half its limit, and the README says so. The soak is rerun on the final commit (this run predates the round-21 generator changes).
-- **Security, UI and tests:** below once in.
+- **Security** (4 high, 2 low), all model-written-spec shapes whose real cost the budgets did not count. Fixed at the spec, where they enter:
+  - high: a nested const counted as one value but cost its depth per copy (70 s at depth 50; 5 GB at depth 1000); high: shrinking measured an object as one node (12.7 s in one tick); high: small-scope sized a const object as 1, so 20,000 combinations each serialised a 17 KB key (over 7 minutes). A const is now at most 1,000 characters of JSON and 8 levels deep (`parseTypeSpec` refuses more); shrinking measures objects by keys and values; small-scope sizes an object by what it holds;
+  - high: the `distinct` retry loop multiplied under an outer array (14 s for 10,000 pairs of a const). A distinct array of a const holds one element (round 21 core), one input's draws are capped, and a short distinct array now gives up after 2n + 8 misses (test under 500 ms);
+  - low: a ConfigError echoed `JUDGE0_URL` or `JUDGE0_AUTH` values to API callers; it now names the variable only (test);
+  - low: an attacker with a /48 can rotate /64s for fresh rate-limit buckets. The spend cap and concurrency cap still bind: accepted (fairness, not cost).
+- **UI and tests:** below once in.
 
 ## Round 20 (2026-10-28, `d15cb74`, 4 parallel Sonnet audits; findings verified by the main session)
 

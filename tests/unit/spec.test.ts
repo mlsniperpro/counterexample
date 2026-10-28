@@ -181,6 +181,22 @@ describe("conforms / argsConform", () => {
     expect(cpu()).toBeLessThan(1000);
   });
 
+  it("refuses a const that is long or deep, which is cloned and compared per element while counting as a few values", () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 9; i++) deep = [deep];
+    expect(() => parseTypeSpec({ kind: "const", value: deep })).toThrow(/a const must be at most 1000 characters of JSON, nested at most 8 deep/);
+    expect(() => parseTypeSpec({ kind: "const", value: { a: "x".repeat(1000) } })).toThrow(/a const must be/);
+    expect(parseTypeSpec({ kind: "const", value: [[[[[[[[1]]]]]]]] })).toMatchObject({ kind: "const" });
+    expect(parseTypeSpec({ kind: "const", value: "a".repeat(990) })).toMatchObject({ kind: "const" });
+  });
+
+  it("gives up a short distinct array over a tiny domain quickly, as an outer array multiplies its retries", () => {
+    const spec = parseTypeSpec({ kind: "array", len: { min: 10_000, max: 10_000 }, of: { kind: "array", len: { min: 2, max: 2 }, distinct: true, of: { kind: "string", alphabet: "a", len: { min: 1, max: 1 } } } });
+    const cpu = cpuClock();
+    genArgs([spec], mulberry32(1));
+    expect(cpu()).toBeLessThan(500);
+  });
+
   it("sorts nondecreasing tuples the way conforms checks them, strings and lists included", () => {
     const rng = mulberry32(4);
     const pair: TypeSpec = { kind: "tuple", items: [{ kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }], nondecreasing: true };

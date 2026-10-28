@@ -1,4 +1,4 @@
-import { argsConform, fanOut, type GraphSpec, type TypeSpec } from "./spec";
+import { argsConform, fanOut, jsonValues, type GraphSpec, type TypeSpec } from "./spec";
 
 /**
  * Bounded-exhaustive ("small scope") inputs: every combination of small
@@ -195,6 +195,8 @@ const sizes = new WeakMap<object, number>();
 /** Scalar values in a small value (a string counts its characters). */
 function size(v: unknown): number {
   if (typeof v === "string") return 1 + v.length;
+  // An object (from a const) counts what it holds, keys included.
+  if (v !== null && typeof v === "object" && !Array.isArray(v)) return 1 + jsonValues(v);
   if (!Array.isArray(v)) return 1;
   const known = sizes.get(v);
   if (known !== undefined) return known;
