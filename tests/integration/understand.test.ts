@@ -96,6 +96,9 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect(r.problem.params[0]?.type).toMatchObject({ len: { min: 1, max: 10_000 } });
     expect(r.problem.params[1]?.type).toMatchObject({ len: { min: 0, max: 10_000 } });
     expect(r.note).toMatch(/Sizes beyond the generator's limits were lowered/);
+    // Graph sizes too: n <= 10^5 nodes and 2 * 10^5 edges come down to the caps.
+    const g = await run({ ...spec, params: [{ name: "g", type: { kind: "graph", n: { min: 2, max: 100_000 }, m: { min: 1, max: 200_000 }, weight: { min: 0, max: 9 } } }], examples: [{ args: [2, [[0, 1, 1]]], output: 3 }] });
+    expect(g.problem.params[0]?.type).toMatchObject({ n: { min: 2, max: 1_000 }, m: { min: 1, max: 10_000 } });
   });
 
   it("leaves out examples whose arguments hold integers past 2^53, which no program receives exactly", async () => {

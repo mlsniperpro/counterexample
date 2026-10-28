@@ -9,8 +9,9 @@ const statusRegions = (html: string) => [...html.matchAll(/<p[^>]*role="status"[
 
 describe("ReportView markup", () => {
   it("keeps both note live regions mounted while empty, so a later note is announced", () => {
-    expect(statusRegions(render())).toEqual(["", ""]);
-    expect(statusRegions(render(fullReport(), { shareNote: "Link copied." }))).toEqual(["Link copied.", ""]);
+    // Each note sits in a span inside its region: the span is replaced for every note, so an identical one is announced again.
+    expect(statusRegions(render())).toEqual(["<span></span>", "<span></span>"]);
+    expect(statusRegions(render(fullReport(), { shareNote: "Link copied." }))).toEqual(["<span>Link copied.</span>", "<span></span>"]);
   });
 
   it("tells screen readers which diff lines were added and which removed", () => {

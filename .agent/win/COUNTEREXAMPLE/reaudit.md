@@ -24,7 +24,12 @@ Not clean (core, security and judge each found a medium-or-above item).
 - **Judge** (1 medium, 2 low):
   - medium: WIN-CHECKLIST cites `break-it.md`, which is written on the final commit with the evidence runs (fresh clone, FC_NUM_RUNS=5000, the soak, the Docker sandbox). Until then the citation points ahead; HANDOFF lists it as the last step before the gate;
   - low: test count (updated); "over a thousand when nothing breaks" holds for 13 of 16 correct solutions (588 to 1,547): the README now says "hundreds to over a thousand".
-- **UI and tests:** below once in.
+- **UI and tests** (3 medium, 7 low; 0 axe violations in 72 states, wcag22aa target size included; announcements once each; 20 report kinds round-trip through share links; touch, keyboard and reflow at 280 px hold):
+  - medium (test gap): nothing pinned the alert's key, which makes a repeated same-message bad link announced. The e2e now counts inserted alert nodes for the repeat;
+  - medium (a11y): a second Copy report or Share link with the same text was silent. Each note is now a new node in its live region (a counter key), and the e2e counts two announcements for two copies;
+  - medium (test gap): the graph node and edge caps had no test; one now lowers n <= 10^5 and m <= 2 * 10^5 to the caps;
+  - low: the e2e now checks that picking a problem clears a `#r=2.` link;
+  - low (accepted): generator guards pinned only in combination; the wide-range integer test checks parity and low bits; other single-mutant survivors (graph arity counting, unsafe integers inside objects, a spurious note at the cap, link-version regex variants); link messages for a trailing character; a redundant status sentence; identical verdict headings for a shared and an own report; identical source-link names; no feedback when pasting the same link again (no hashchange fires).
 
 ## Round 21 (2026-10-28, `2ab4d46`, 4 parallel Sonnet audits; findings verified by the main session)
 

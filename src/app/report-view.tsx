@@ -15,14 +15,20 @@ type Props = {
   /** Absent for a report opened from a link. */
   onShare?: () => void;
   shareNote?: string;
+  /** Bumped with every share note, even an identical one, so a repeated note is a new node and is announced again. */
+  shareNoteKey?: number;
   shareLink?: string;
 };
 
-export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }: Props) {
-  const [copied, setCopied] = useState("");
+export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey = 0, shareLink }: Props) {
+  // The note and a count: a second "Copied" (or "Could not copy") is a new node, so a screen reader announces it again.
+  const [copied, setCopied] = useState({ text: "", n: 0 });
   // A shared report can sit above the reader's own: its regions need names of their own (one name, one landmark).
   const name = (label: string) => (onShare ? label : `Shared report: ${label.charAt(0).toLowerCase()}${label.slice(1)}`);
-  const copy = async () => setCopied(await copyNote(onCopy));
+  const copy = async () => {
+    const text = await copyNote(onCopy);
+    setCopied((c) => ({ text, n: c.n + 1 }));
+  };
   return (
     <section className="card result">
       <div className="row between">
@@ -40,10 +46,10 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       </div>
       {/* Live regions stay mounted and only their text changes: a region inserted together with its text is often not announced. */}
       <p className="small muted live" role="status">
-        {shareNote}
+        <span key={shareNoteKey}>{shareNote}</span>
       </p>
       <p className="small muted live" role="status">
-        {copied}
+        <span key={copied.n}>{copied.text}</span>
       </p>
       {shareLink && <input className="share-link" readOnly value={shareLink} aria-label="Shareable report link" onFocus={(e) => e.currentTarget.select()} />}
       <p className="muted">{r.message}</p>

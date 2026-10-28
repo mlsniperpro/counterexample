@@ -38,7 +38,13 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
   const [{ shared, key: sharedKey, error: shareError, failures: shareFailures }, dispatchShare] = useReducer(shareReducer, initialShare);
-  const [shareNote, setShareNote] = useState("");
+  const [shareNote, setShareNoteText] = useState("");
+  const [shareNoteKey, setShareNoteKey] = useState(0);
+  /** Every share note is a new node in the live region, so an identical second one ("Link copied") is announced again. */
+  const setShareNote = (text: string) => {
+    setShareNoteText(text);
+    setShareNoteKey((n) => n + 1);
+  };
   const [shareLink, setShareLink] = useState("");
   /** Bumped whenever the page shows something else (a run starts, a problem is picked, a shared link opens): async share work checks it before writing. */
   const view = useRef(0);
@@ -370,7 +376,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             </div>
           </section>
 
-          {report && <ReportView r={report} onCopy={copyReport} onShare={shareReport} shareNote={shareNote} shareLink={shareLink} />}
+          {report && <ReportView r={report} onCopy={copyReport} onShare={shareReport} shareNote={shareNote} shareNoteKey={shareNoteKey} shareLink={shareLink} />}
         </div>
       )}
 

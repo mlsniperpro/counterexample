@@ -455,6 +455,16 @@ async function main() {
   await sleep(2_500);
   eq(await page.evaluate(() => window.location.hash), "", "the address bar after a late share for a report a new run replaced");
   eq(await shareNote.innerText(), "", "the share note after a late share for a report a new run replaced");
+  // Copy twice: the same "Copied" note twice is two announcements (a new node each time), not one.
+  await page.evaluate(() => {
+    window.__notes = 0;
+    const region = [...document.querySelectorAll("section.result")].at(-1)?.querySelectorAll("p.live")[1];
+    new MutationObserver((ms) => ms.forEach((m) => (window.__notes += m.addedNodes.length))).observe(region, { childList: true, subtree: true });
+  });
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole("button", { name: "Copy report" }).click();
+    await page.waitForFunction((n) => window.__notes >= n, i + 1, { timeout: 15_000 }).catch(() => check(false, `copy ${i + 1} announces a note`));
+  }
   // A share link pasted into the tab while a share still waits on the clipboard: the pasted link stays in the address bar.
   await page.getByRole("button", { name: "Share link" }).click();
   const pasted = new URL(link2).hash;
@@ -564,8 +574,19 @@ async function main() {
     await p.evaluate(() => (window.location.hash = "#r=1.not-a-report"));
     await p.locator("p.share-err", { hasText: "does not decompress" }).waitFor({ timeout: 15_000 });
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // Count alert nodes inserted from here: the repeat must be a new node, or a screen reader hears nothing.
+    await p.evaluate(() => {
+      window.__alerts = 0;
+      new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => n.nodeType === 1 && n.getAttribute("role") === "alert" && window.__alerts++))).observe(document.body, { childList: true, subtree: true });
+    });
     await p.evaluate(() => (window.location.hash = "#r=1.also-broken"));
     await p.waitForFunction(() => (document.querySelector("p.share-err")?.getBoundingClientRect().top ?? -1e9) > -2, null, { timeout: 15_000 }).catch(() => check(false, "a repeated bad link's alert is scrolled into view"));
+    check((await p.evaluate(() => window.__alerts)) >= 1, "a repeated bad link inserts a new alert, so it is announced again");
+    // Picking a problem drops any report link from the address bar, also one of another format.
+    await p.evaluate(() => (window.location.hash = "#r=2.abc"));
+    await p.locator("p.share-err", { hasText: "a format this page does not read" }).waitFor({ timeout: 15_000 });
+    await p.getByRole("button", { name: "Binary search", exact: true }).click();
+    eq(await p.evaluate(() => window.location.hash), "", "the address bar after picking a problem with a #r=2 link open");
     await p.goto(`${base}/`);
     await attackButton(p).waitFor({ timeout: 15_000 });
     // The status region is a polite live region.
