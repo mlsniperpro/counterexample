@@ -70,7 +70,7 @@ describe("POST /api/attack (replay mode)", () => {
     const r = (await lines(await post({ problemId: "isqrt", code: edited, language: "javascript" }, { ip: "6.6.6.6" }))).at(-1).report;
     expect(r.verdict).toBe("counterexample");
     expect(r.counterexample.args).toEqual([5]);
-    expect(r.explanation).toMatch(/^Replay mode has no recorded explanation for edited code/);
+    expect(r.explanation).toMatch(/^Replay mode has no hand-written explanation for edited code/);
     expect(r.explanation).not.toMatch(/32-bit/);
     expect(r.fix.verified).toBe(true);
     const demo = (await lines(await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "6.6.6.7" }))).at(-1).report;
@@ -81,7 +81,7 @@ describe("POST /api/attack (replay mode)", () => {
     const js = "function solve(nums, target) { return nums.length === 1 ? -1 : nums.indexOf(target); }";
     const r = (await lines(await post({ problemId: "binary-search", code: js, language: "javascript" }, { ip: "6.6.6.8" }))).at(-1).report;
     expect(r.verdict).toBe("counterexample");
-    expect(r.explanation).toMatch(/no recorded explanation or reference fix in this language/);
+    expect(r.explanation).toMatch(/no hand-written explanation or reference fix in this language/);
     expect(r.fix).toBeUndefined();
   });
 

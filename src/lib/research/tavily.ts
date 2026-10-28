@@ -66,7 +66,7 @@ export class ReplayResearch implements ResearchClient {
   constructor(private readonly byQuery: Record<string, SearchResult[]>) {}
   async search(query: string): Promise<SearchResponse> {
     const hit = this.byQuery[query];
-    if (!hit) throw new ReplayMissError(`replay: no recorded search results for "${query}"`);
+    if (!hit) throw new ReplayMissError(`replay: no hand-written search results for "${query}"`);
     return { results: hit, dropped: 0 };
   }
 }

@@ -677,13 +677,13 @@ export const editedKey = (problemId: string, sameLanguage = true) => `${problemI
 for (const [id, code] of Object.entries(REFERENCES)) {
   FIXTURES[editedKey(id)] = {
     explain:
-      "EXPLANATION: Replay mode has no recorded explanation for edited code, so this is the problem's reference solution rather than a targeted fix of your code. The counterexample above is real: it was found and shrunk by running your code against the oracle.\n\n```\n" +
+      "EXPLANATION: Replay mode has no hand-written explanation for edited code, so this is the problem's reference solution rather than a targeted fix of your code. The counterexample above is real: it was found and shrunk by running your code against the oracle.\n\n```\n" +
       code +
       "```",
   };
   // No reference exists in the other language: explain without a fix (nothing to re-attack).
   FIXTURES[editedKey(id, false)] = {
     explain:
-      "EXPLANATION: Replay mode has no recorded explanation or reference fix in this language for edited code. The counterexample above is real: it was found and shrunk by running your code against the oracle.",
+      "EXPLANATION: Replay mode has no hand-written explanation or reference fix in this language for edited code. The counterexample above is real: it was found and shrunk by running your code against the oracle.",
   };
 }
