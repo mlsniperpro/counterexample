@@ -323,6 +323,20 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-click on Attack's right edge");
   eq(attacks.length - edgeFrom, 1, "attacks started by a double-click on Attack's right edge");
+  // Cancelling from the keyboard, then a quick second Enter that lands on Attack as focus returns: no new run.
+  pace.lineDelayMs = 300;
+  const keyCancelFrom = attacks.length;
+  await attackButton(page).focus();
+  await page.keyboard.press("Enter");
+  await cancelButton.waitFor({ timeout: 15_000 });
+  await sleep(700);
+  await page.keyboard.press("Enter");
+  await page.locator(".note", { hasText: "Attack cancelled" }).waitFor({ timeout: 15_000 });
+  await page.keyboard.press("Enter");
+  await sleep(500);
+  pace.lineDelayMs = 0;
+  eq(attacks.length - keyCancelFrom, 1, "attacks started by Enter, Enter on Cancel, then a quick Enter on Attack");
+  eq(await cancelButton.count(), 0, "Cancel buttons after a quick Enter that follows a keyboard cancel");
   // A deliberate click on Cancel shortly after the start (past the 300 ms tap window) does cancel.
   pace.lineDelayMs = 300;
   await attackButton(page).click();
@@ -543,7 +557,9 @@ async function main() {
       const top = await alert.evaluate((el) => el.getBoundingClientRect().top);
       check(top >= -1 && top < 200, `the alert for ${hash} is scrolled into view (its top is at ${Math.round(top)} px)`);
     }
-    // A second bad link that fails the same way, pasted without a reload: shown again, in view.
+    // A second bad link that fails the same way, pasted without a reload: shown again, in view. (A spacer makes the page
+    // tall enough that the alert is out of view unless it is scrolled to.)
+    await p.evaluate(() => document.body.appendChild(Object.assign(document.createElement("div"), { style: "height: 5000px" })));
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await p.evaluate(() => (window.location.hash = "#r=1.also-not-a-report"));
     await p.waitForFunction(() => (document.querySelector("p.share-err")?.getBoundingClientRect().top ?? -1e9) > -2, null, { timeout: 15_000 }).catch(() => check(false, "a repeated bad link's alert is scrolled into view"));
