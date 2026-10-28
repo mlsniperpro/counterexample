@@ -29,7 +29,7 @@ A coding agent that breaks your code before your interviewer does: Nemotron writ
 ## Thumbnail and image gallery (Owner: upload)
 
 - Thumbnail: `docs/screenshots/devpost-thumbnail-1200x800.png` (3:2, 1200 x 800: the verdict, the minimal counterexample, the fix diff and the live trace). Devpost crops thumbnails to 3:2, so do not use the tall phone screenshots for it.
-- Gallery, in order: `docs/screenshots/devpost-thumbnail-1200x800.png`, `docs/architecture.svg` (export to PNG), then the phone screenshots `docs/screenshots/390-1-form.png`, `390-2-report.png` and `390-3-shared-link.png`. Each phone screenshot is a full page (about 390 x 6,000), so crop it to the part worth seeing (the form; the counterexample card; the shared banner) before uploading.
+- Gallery, in order: `docs/screenshots/devpost-thumbnail-1200x800.png`, `docs/architecture.svg` (export to PNG), then the phone screenshots `docs/screenshots/390-1-form.png`, `390-2-report.png` and `390-3-shared-link.png`. The form screenshot (390 x 1,574) can go up as it is; the report and shared-link screenshots are full pages (390 x 6,018 and 390 x 5,319), so crop them to the part worth seeing (the counterexample card; the shared banner) before uploading.
 
 ## Video demo link (Owner)
 
@@ -108,7 +108,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 - **False alarms are worse than misses.** A correct binary search looked broken under a loaded sandbox. We now confirm every mismatch alone in a fresh process before claiming it. A failure that only appears after earlier calls is reported as "order-dependent" (the solution keeps state), never as flaky.
 - **Judge0 has one time limit per submission.** We size batches so every input keeps its full limit inside the 15 s CPU cap, and blame a timeout on an input only after it times out alone.
 - **Exact answers.** Integers past 2^53 lose digits in JavaScript, so an overflow in the last digit would go unnoticed. We compare them by their exact digits.
-- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (14 rounds by 27 October) found and fixed more than 150 issues.
+- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (17 rounds by 28 October) found and fixed more than 150 issues.
 - **No keys in the build environment.** The Token Factory API and docs were unreachable from our build sandbox, so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
 
 ## Accomplishments that we're proud of

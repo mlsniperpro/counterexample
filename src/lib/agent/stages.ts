@@ -10,7 +10,7 @@ import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
 import { startStage, type AttackContext } from "./context";
 import { generateInputs, mutationInputs, parseFamilies, type Generated } from "./families";
-import { Judge, showOutcome, type Judgement } from "./judge";
+import { byValues, Judge, JUDGE_BATCH_VALUES, type Judgement, showOutcome } from "./judge";
 import { CUT_NOTE, readCut } from "./model-call";
 import { extractCode, extractExplanation, parseJsonAnswer } from "./parse";
 import { explainPrompt, generatorsPrompt, oraclePrompt, researchPrompt, understandPrompt } from "./prompts";
@@ -302,13 +302,22 @@ export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unkn
   return result;
 }
 
-/** Re-runs `chunk` in order in one process; the smallest hit that fails again, after at least one earlier input (with the inputs it took to fail), or undefined. */
+/**
+ * The inputs that ran before `x` in its own process when `chunk` was judged. The judge splits a chunk of large inputs
+ * into batches of JUDGE_BATCH_VALUES values, each in a fresh process, so that is the part of x's batch before it.
+ */
+export function ranBefore(chunk: unknown[][], x: unknown[]): unknown[][] {
+  const batch = byValues(chunk, JUDGE_BATCH_VALUES).find((b) => b.includes(x)) ?? [];
+  return batch.slice(0, Math.max(0, batch.indexOf(x)));
+}
+
+/** Re-runs `chunk` in order as the run did; the smallest hit that fails again, after at least one earlier input (with the inputs it took to fail), or undefined. */
 async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
   const again = await ctx.judge.compare("run", ctx.input.solution, chunk);
   for (const h of sorted) {
-    const at = chunk.indexOf(h.args);
-    const j = again[at];
-    if (at > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: at, sequence: chunk.slice(0, at + 1) } };
+    const j = again[chunk.indexOf(h.args)];
+    const before = ranBefore(chunk, h.args);
+    if (before.length > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } };
   }
   return undefined;
 }

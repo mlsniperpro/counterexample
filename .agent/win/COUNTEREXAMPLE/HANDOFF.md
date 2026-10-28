@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 05:15 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 17 core (1 medium, 2 low) and judge (1 medium, 3 low) are fixed in this push: lint, typecheck, 540/540 tests, build, and e2e (10 steps). Details in reaudit.md.
+- Still running: the round-16 UI/tests audit (on `b4f5c68`) and the round-17 security audit (on `a0570b8`). Verify and fix what they find, then run round 18.
+- BRIEF.md says "Thu 2026-10-30"; that date is a Friday. The brief is the owner's, so it is left as written (the time, 17:00Z, is right).
+- Next: rounds until 2 in a row are clean; then the evidence on an idle machine (bench, soak, FC 5000, sandbox bench, fresh clone, axe), break-it.md, the reaudit header, the gate, and the PR.
+
 STATE 2026-10-28 01:05 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Rounds 15 and 16 (core, security, judge) are fixed and pushed (`9fd209c`): lint, typecheck, 539/539 tests, build, and e2e (10 steps). The suite also passes with the clock set to 2026-12-05.
 - The round-16 UI/tests audit is running on `b4f5c68`.

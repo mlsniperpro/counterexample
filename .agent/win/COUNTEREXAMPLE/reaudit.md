@@ -7,6 +7,21 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 17 (2026-10-28, `a0570b8`, parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Core** (1 medium, 2 low), each reproduced before fixing and pinned by a test:
+  - medium: `codeSpans` paired every "```", so a fence mentioned mid-sentence in the reasoning swallowed `</think>` and the report showed the leaked trace. A fence now opens and closes only at the start of a line, as in Markdown;
+  - low: a stray `</think>` before a complete `<think>…</think>` pair was no longer cut. The cut now runs on what is left once the pairs are removed;
+  - low: once `Judge.compare` splits a chunk by value, an order-dependent failure counted inputs from earlier processes. `ranBefore` now takes only the inputs that ran before it in its own batch.
+- **Judge** (1 medium, 3 low):
+  - medium: `pnpm bench --live` with a bad key or an outage wrote its all-error zeros to `bench/results` and the README. Any run that ends in error now writes nothing, prints the first error, and exits 1 (checked with an unreachable Judge0 URL: "16 of 16 runs ended in error, so no results were written", exit 1). Error rows print their message;
+  - low: SUBMISSION gave one size for all phone screenshots; it now gives each (the form, 390 x 1,574, needs no crop);
+  - low: SUBMISSION's "14 rounds by 27 October" and the checklist's missing rounds 16 and 17 are updated;
+  - low: `BRIEF.md` calls 2026-10-30 a Thursday; it is a Friday. The brief is the owner's, so it is left as written; the time (10:00 PT = 17:00Z) is right and every other doc uses Fri 2026-10-30 17:00Z.
+- **UI and tests (round 16), security:** pending.
+- Checks: lint, typecheck, 540/540 tests, build, and e2e (10 steps).
+
 ## Round 16 (2026-10-28, `b4f5c68`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.

@@ -62,7 +62,11 @@ describe("model output parsing", () => {
     expect(stripThinking("<think>".repeat(10_000) + "answer")).toBe("<think>".repeat(10_000) + "answer");
     expect(cpu()).toBeLessThan(300);
     // A template that opens the trace in the prompt leaves only its closing tag: the answer is what follows the last one.
-    expect(stripThinking("draft ```py\nwrong\n``` </think>FIX:\n```py\nright\n```")).toBe("FIX:\n```py\nright\n```");
+    expect(stripThinking("draft:\n```py\nwrong\n```\n</think>FIX:\n```py\nright\n```")).toBe("FIX:\n```py\nright\n```");
+    // A "```" mentioned mid-sentence in the reasoning is not a fence, so it cannot hide the closing tag.
+    expect(stripThinking("<think>I should wrap the fix in ``` fences.</think>\nEXPLANATION: off by one.\n\n```python\ndef solve(a):\n    return a\n```")).toBe("EXPLANATION: off by one.\n\n```python\ndef solve(a):\n    return a\n```");
+    // A stray closing tag before a complete pair still ends the prompt-opened trace.
+    expect(stripThinking("trace</think>answer<think>x</think>")).toBe("answer");
     // Think tags inside code are content: a fix that handles the literal tags keeps them, in fences and inline.
     const fix = "EXPLANATION: strip `</think>` first.\n```python\ndef solve(s):\n    return s.replace('<think>', '').replace('</think>', '')\n```";
     expect(stripThinking(fix)).toBe(fix);

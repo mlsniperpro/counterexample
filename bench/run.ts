@@ -76,11 +76,20 @@ async function main(args: string[]) {
       });
       const ok = s.buggy ? r.verdict === "counterexample" : r.verdict === "no_counterexample";
       const tag = ok ? "ok  " : config.id === "random-only" || config.id === "no-model" ? "miss" : "MISS";
-      console.log(`${tag} ${config.id.padEnd(11)} ${s.key.padEnd(40)} ${r.verdict.padEnd(18)} ${r.counterexample ? JSON.stringify(r.counterexample.args).slice(0, 50) : ""}`);
+      const detail = r.verdict === "error" ? r.message.slice(0, 160) : r.counterexample ? JSON.stringify(r.counterexample.args).slice(0, 50) : "";
+      console.log(`${tag} ${config.id.padEnd(11)} ${s.key.padEnd(40)} ${r.verdict.padEnd(18)} ${detail}`);
     }
   }
   const label = mode === "live" ? "live" : "fixture";
   const md = markdown(rows, label, executorLabel);
+  // A run that ended in error (a wrong or expired key, a service outage) measures the setup, not the agent: publishing
+  // its zeros would put them in the README, so nothing is written and the command fails.
+  const errors = rows.filter((r) => r.verdict === "error");
+  if (errors.length > 0) {
+    console.error(`\n${errors.length} of ${rows.length} runs ended in error, so no results were written. First: ${errors[0]?.key} (${errors[0]?.config}): ${errors[0]?.message}`);
+    process.exitCode = 1;
+    return;
+  }
   if (!only) {
     const outDir = join(ROOT, "bench/results");
     mkdirSync(outDir, { recursive: true });

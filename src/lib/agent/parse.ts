@@ -75,9 +75,10 @@ export function extractCode(text: string, language: "python" | "javascript"): st
 function codeSpans(text: string): [number, number][] {
   const spans: [number, number][] = [];
   for (let i = 0; i < text.length; ) {
-    if (text.startsWith("```", i)) {
-      const close = text.indexOf("```", i + 3);
-      const end = close < 0 ? text.length : close + 3;
+    // A fence opens only at the start of a line (Markdown's rule), so a "```" mentioned mid-sentence in a reasoning
+    // trace does not pair with the answer's first fence and swallow the `</think>` between them.
+    if (atLineStart(text, i) && text.startsWith("```", i)) {
+      const end = fenceEnd(text, i + 3);
       spans.push([i, end]);
       i = end;
     } else if (text[i] === "`") {
@@ -90,6 +91,19 @@ function codeSpans(text: string): [number, number][] {
     } else i++;
   }
   return spans;
+}
+
+/** Whether `i` starts a line, after at most three spaces of indentation. */
+function atLineStart(text: string, i: number): boolean {
+  let j = i;
+  while (j > 0 && i - j < 3 && text[j - 1] === " ") j--;
+  return j === 0 || text[j - 1] === "\n";
+}
+
+/** Index just past the fence that closes a block opened before `from`: the next "```" at the start of a line, or the end of the text. */
+function fenceEnd(text: string, from: number): number {
+  for (let k = text.indexOf("```", from); k >= 0; k = text.indexOf("```", k + 3)) if (atLineStart(text, k)) return k + 3;
+  return text.length;
 }
 
 /** The span containing `at`, found by binary search (the spans are sorted and disjoint). */
@@ -137,10 +151,12 @@ export function stripThinking(text: string): string {
     at = c.index + c[0].length;
   }
   // Some reasoning templates open the trace in the prompt, so the answer holds only its closing tag: drop everything
-  // up to the last one outside code.
-  let after = at;
-  for (let c = tagOutsideCode(text, close, at, spans); c; c = tagOutsideCode(text, close, c.index + c[0].length, spans)) after = c.index + c[0].length;
-  return (after > at ? text.slice(after) : out + text.slice(at)).trim();
+  // up to the last one outside code, in what is left once the paired traces are gone.
+  const rest = out + text.slice(at);
+  const restSpans = codeSpans(rest);
+  let after = 0;
+  for (let c = tagOutsideCode(rest, close, 0, restSpans); c; c = tagOutsideCode(rest, close, c.index + c[0].length, restSpans)) after = c.index + c[0].length;
+  return rest.slice(after).trim();
 }
 
 /** The answer a reader would see: no reasoning trace, and nothing after a `<think>` (outside code) that never closes (an answer cut inside its thinking has no answer in it). */
