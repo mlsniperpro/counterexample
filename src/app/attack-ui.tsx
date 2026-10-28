@@ -45,12 +45,14 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   /** Set when a link is pasted into this tab, so the shared report it opens is scrolled into view. */
   const revealShared = useRef(false);
   const sharedBox = useRef<HTMLDivElement | null>(null);
+  const shareErrorBox = useRef<HTMLParagraphElement | null>(null);
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
   // Also on hashchange: pasting a link into a tab that already shows the app only changes the hash.
   useEffect(() => {
     const open = () => {
       const hash = window.location.hash;
-      if (!isShareFragment(hash)) return;
+      // Any report link, also one of a format this page does not read (it gets a message, not silence).
+      if (!hash.startsWith("#r=")) return;
       // The page now shows this shared report: a share of the earlier one still in flight must not write its link.
       view.current++;
       dispatchShare({ type: "decoding", key: hash });
@@ -70,7 +72,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   useEffect(() => {
     if (!revealShared.current || (!shared && !shareError)) return;
     revealShared.current = false;
-    sharedBox.current?.scrollIntoView({ block: "start" });
+    // The error for a bad link sits above the report's place: scroll to it, or the reader sees the page jump to the form.
+    (shareError ? shareErrorBox : sharedBox).current?.scrollIntoView({ block: "start" });
   }, [shared, shareError]);
   const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
   const goButton = useRef<HTMLButtonElement | null>(null);
@@ -226,7 +229,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       </header>
 
       {shareError && (
-        <p className="err share-err" role="alert">
+        <p className="err share-err" role="alert" ref={shareErrorBox}>
           {shareError}
         </p>
       )}

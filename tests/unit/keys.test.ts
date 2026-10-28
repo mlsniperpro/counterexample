@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter } from "@/app/keys";
+import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter, TAP_ECHO_MS } from "@/app/keys";
 
 describe("ignoreHeldEnter", () => {
   const press = (key: string, repeat: boolean) => {
@@ -18,19 +18,24 @@ describe("ignoreHeldEnter", () => {
 });
 
 describe("echoesCancel / echoesStart (a repeated activation, not a new one)", () => {
-  it("drops the second click of a double-click on Cancel, and only right after a cancel", () => {
+  it("drops a second click, tap-free key press or click burst on Attack right after a cancel, not a deliberate single click", () => {
     expect(echoesCancel({ detail: 2 }, 100)).toBe(true);
     expect(echoesCancel({ detail: 3 }, ECHO_MS - 1)).toBe(true);
-    // A single click, a keyboard activation, or rapid clicks long after any cancel all start a run.
+    // A quick second Enter or Space (detail 0) lands on Attack as focus moves there.
+    expect(echoesCancel({ detail: 0 }, 60)).toBe(true);
+    // A single click, or anything long after the cancel, starts a run.
     expect(echoesCancel({ detail: 1 }, 100)).toBe(false);
-    expect(echoesCancel({ detail: 0 }, 100)).toBe(false);
     expect(echoesCancel({ detail: 2 }, ECHO_MS)).toBe(false);
-    expect(echoesCancel({ detail: 2 }, Infinity)).toBe(false);
+    expect(echoesCancel({ detail: 0 }, Infinity)).toBe(false);
   });
 
-  it("drops a quick second Enter that lands on Cancel as the run starts, never a click", () => {
-    expect(echoesStart({ detail: 0 }, 60)).toBe(true);
-    expect(echoesStart({ detail: 0 }, ECHO_MS)).toBe(false);
-    expect(echoesStart({ detail: 1 }, 60)).toBe(false);
+  it("drops a double-click on Attack's edge, a second key press or a quick second tap that lands on Cancel, not a later deliberate click", () => {
+    for (const detail of [0, 2]) {
+      expect(echoesStart({ detail }, 60)).toBe(true);
+      expect(echoesStart({ detail }, ECHO_MS - 1)).toBe(true);
+      expect(echoesStart({ detail }, ECHO_MS)).toBe(false);
+    }
+    expect(echoesStart({ detail: 1 }, 100)).toBe(true);
+    expect(echoesStart({ detail: 1 }, TAP_ECHO_MS)).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TraceEvent } from "@/lib/agent/trace";
 import type { ReportNoTrace } from "@/app/format";
-import { CANCEL_NOTE, CANCELLED, focusIsIdle, initialRun, NO_DETAILS_MESSAGE, runReducer, TIMED_OUT, TIMEOUT_MESSAGE, UNREACHABLE_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
+import { CANCEL_NOTE, CANCELLED, focusIsIdle, initialRun, NO_DETAILS_MESSAGE, runReducer, START_NOTE, TIMED_OUT, TIMEOUT_MESSAGE, UNREACHABLE_MESSAGE, type RunAction, type RunState } from "@/app/run-state";
 import { CUT_MESSAGE, type StreamMsg } from "@/app/stream";
 
 const ev = (seq: number): TraceEvent => ({ seq, t: seq, stage: "run", kind: "info", msg: `e${seq}` }) as TraceEvent;
@@ -29,10 +29,10 @@ describe("runReducer (the attack run's state machine)", () => {
     const before = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), msg(1, { type: "report", report }));
     expect(before).toMatchObject({ report, error: "" });
     expect(before.events).toHaveLength(1);
-    expect(runReducer(before, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true });
+    expect(runReducer(before, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true, status: START_NOTE });
     const failed = play({ type: "start", runId: 1 }, msg(1, { type: "event", event: ev(0) }), { type: "finish", runId: 1, outcome: { complete: false } });
     expect(failed.error).toBe(CUT_MESSAGE);
-    expect(runReducer(failed, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true });
+    expect(runReducer(failed, { type: "start", runId: 2 })).toEqual({ ...initialRun, runId: 2, running: true, status: START_NOTE });
   });
 
   it("ignores every message and the finish of a superseded run", () => {

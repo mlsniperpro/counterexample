@@ -123,6 +123,8 @@ describe("model output parsing", () => {
     expect(extractCode("```\nreturn a[0]\n```\nFixed:\n```\ndef solve(a):\n    return a[-1]\n```", "python")).toBe("def solve(a):\n    return a[-1]\n");
     expect(extractCode("1. Fix:\n   ```python\n   def solve(a):\n       return 0\n   ```", "python")).toBe("def solve(a):\n    return 0\n");
     expect(extractCode('```python title="sol.py"\ndef solve(a):\n    return 0\n```', "python")).toBe("def solve(a):\n    return 0\n");
+    // Of two blocks that both define the entry, the later one (a draft, then the corrected version).
+    expect(extractCode("Draft:\n```python\ndef solve(a):\n    return 0\n```\nCorrected:\n```python\ndef solve(a):\n    return 1\n```", "python")).toBe("def solve(a):\n    return 1\n");
     // The fix keeps the solution's entry name.
     expect(extractCode("```js\nfunction helper() {}\n```\n```js\nfunction twoSum(a) { return 0; }\n```\n```js\nconst check = () => twoSum([1]);\n```", "javascript", "twoSum")).toBe("function twoSum(a) { return 0; }\n");
     // A sentence that merely starts with the word keeps it.

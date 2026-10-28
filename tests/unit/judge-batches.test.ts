@@ -43,6 +43,24 @@ describe("Judge.compare in value-bounded batches", () => {
   });
 });
 
+describe("Judge.compare under the problem's comparison mode", () => {
+  it("compares as the problem says: the same list in another order agrees when unordered, not when exact", async () => {
+    const executor = {
+      name: "fake",
+      label: "fake",
+      run: async (req: RunRequest) => ({ outcomes: req.inputs.map(() => ({ ok: true as const, out: req.code === "oracle" ? [2, 1] : [1, 2], ms: 1 })), processes: 1 }),
+    } as unknown as Executor;
+    const judgeFor = (compare: "exact" | "unordered") => {
+      const j = new Judge({ ...getProblem("binary-search")!, compare }, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), new Tracer(0, () => 0));
+      j.oracleCode = "oracle";
+      return j;
+    };
+    const sol = { language: "python" as const, code: "x", entry: "solve" };
+    expect((await judgeFor("unordered").compare("run", sol, [[[1], 1]]))[0]?.status).toBe("agree");
+    expect((await judgeFor("exact").compare("run", sol, [[[1], 1]]))[0]?.status).toBe("mismatch");
+  });
+});
+
 describe("Judge.compare with a short answer from the executor", () => {
   it("throws ExecutorError (which the attack degrades on), not a TypeError, when the oracle's run returns too few outcomes", async () => {
     const executor = {

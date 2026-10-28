@@ -13,6 +13,9 @@ export const CLIENT_TIMEOUT_MS = 75_000;
 /** Abort reasons, so a run's failure can be told apart from a timeout. */
 export const CANCELLED = "cancelled";
 export const TIMED_OUT = "timed out";
+/** What the status region says when a run starts. */
+export const START_NOTE = "Attack started. The verdict will be announced when it is ready.";
+
 export const CANCEL_NOTE = "Attack cancelled; the partial trace is shown.";
 export const TIMEOUT_MESSAGE = `The attack took longer than ${CLIENT_TIMEOUT_MS / 1000} s, so it was stopped; the partial trace is shown.`;
 /** Shown when the request failed before the server sent anything (offline, DNS, a reset). */
@@ -64,7 +67,8 @@ function failure(outcome: { thrown: unknown; abortReason?: unknown }, received: 
 export function runReducer(s: RunState, a: RunAction): RunState {
   switch (a.type) {
     case "start":
-      return { ...initialRun, runId: a.runId, running: true };
+      // Announced through the polite status region: focus moves to Cancel, and the trace is not a live region.
+      return { ...initialRun, runId: a.runId, running: true, status: START_NOTE };
     case "reset":
       return initialRun;
     case "cancel":

@@ -432,6 +432,7 @@ async function main() {
   const before = attacks.length;
   await attackButton(page).click();
   await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
+  await sleep(700); // a deliberate cancel, after the window in which a second click or key press counts as an echo of Attack
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator(".note", { hasText: "Attack cancelled; the partial trace is shown." }).waitFor({ timeout: 15_000 });
   eq(await page.locator("h2.verdict").count(), 0, "no verdict after a cancel");
@@ -449,6 +450,7 @@ async function main() {
   const beforeDouble = attacks.length;
   await attackButton(page).click();
   await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
+  await sleep(700); // a deliberate cancel, after the window in which a second click or key press counts as an echo of Attack
   await page.getByRole("button", { name: "Cancel", exact: true }).dblclick();
   await sleep(1_000);
   eq(attacks.length - beforeDouble, 1, "attacks started by a run and a double-click on its Cancel");
@@ -496,6 +498,32 @@ async function main() {
   await page.locator("p.err", { hasText: "Failed to reach" }).waitFor();
   await noHorizontalOverflow(page, "error with long text");
   await page.unroute("**/api/attack");
+  ok(step);
+
+  step = "bad share links and a failed status check say so";
+  {
+    const p = await ctx.newPage();
+    await p.goto(base);
+    await attackButton(p).waitFor({ timeout: 15_000 });
+    // A damaged link, then a link of a format this page does not read, pasted into the tab while scrolled down.
+    for (const [hash, says] of [["#r=1.not-a-report", "Could not open the shared report"], ["#r=2.abc", "a format this page does not read"]]) {
+      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await p.evaluate((h) => (window.location.hash = h), hash);
+      const alert = p.locator("p.share-err[role=alert]");
+      await alert.waitFor({ timeout: 15_000 });
+      check((await alert.innerText()).includes(says), `the alert for ${hash} says "${says}" (got "${await alert.innerText()}")`);
+      const top = await alert.evaluate((el) => el.getBoundingClientRect().top);
+      check(top >= -1 && top < 200, `the alert for ${hash} is scrolled into view (its top is at ${Math.round(top)} px)`);
+      await p.goto(`${base}/`);
+      await attackButton(p).waitFor({ timeout: 15_000 });
+    }
+    // The status check fails: the badge says so instead of claiming a mode.
+    await p.route("**/api/problems", (route) => route.fulfill({ status: 500, body: "down" }));
+    await p.reload();
+    await p.getByText("Server mode unknown (status check failed)").waitFor({ timeout: 15_000 });
+    eq(await p.getByText("Live: Nebius Token Factory").count(), 0, "live badges after a failed status check");
+    await p.close();
+  }
   ok(step);
 
   step = "accessibility: axe finds nothing at 390 and 1280 px, light and dark";

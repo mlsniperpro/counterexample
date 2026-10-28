@@ -45,6 +45,8 @@ code, pre, textarea.code { font-family: var(--mono); font-size: 0.88rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .chip { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 0.9rem; }
 .chip.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
+/* Forced colours drop the fill: mark the picked problem with a thicker border and a weight instead. */
+@media (forced-colors: active) { .chip.on { border: 3px solid Highlight; font-weight: 700; } }
 .statement { margin: 0 0 6px; overflow-wrap: anywhere; }
 .statement code { background: var(--code-bg); border-radius: 4px; padding: 0 4px; }
 .examples { margin: 0; padding-left: 18px; color: var(--muted); }

@@ -7,17 +7,22 @@ export function ignoreHeldEnter(e: { key: string; repeat: boolean; preventDefaul
 export const ECHO_MS = 600;
 
 /**
- * Whether a click on Attack is the second click of a double-click on Cancel: as Cancel goes away, Attack grows into its
- * place and takes that click. Only right after a cancel: a reader clicking Attack quickly on purpose still starts a run.
+ * Whether activating Attack echoes a cancel just made: the second click of a double-click on Cancel (Attack grows into
+ * its place as it goes away) or a second, quick Enter or Space (focus moved to Attack). A single click right after a
+ * cancel is a reader starting again on purpose, and still starts a run.
  */
 export function echoesCancel(e: { detail: number }, msSinceCancel: number): boolean {
-  return e.detail > 1 && msSinceCancel < ECHO_MS;
+  return e.detail !== 1 && msSinceCancel < ECHO_MS;
 }
 
+/** How soon after the start a single click on Cancel is taken as the second tap of a double tap (taps carry no click count). */
+export const TAP_ECHO_MS = 300;
+
 /**
- * Whether a keyboard activation of Cancel is a second, quick Enter on Attack: focus moves to Cancel as the run starts,
- * so a double-tapped Enter would cancel the run it just started. A click (detail 1 or more) always cancels.
+ * Whether activating Cancel echoes the start just made: the second click of a double-click on Attack's edge (Cancel
+ * appears there), a second Enter or Space (focus moved to Cancel), or a quick second tap. A single click after
+ * TAP_ECHO_MS is a reader cancelling on purpose.
  */
 export function echoesStart(e: { detail: number }, msSinceStart: number): boolean {
-  return e.detail === 0 && msSinceStart < ECHO_MS;
+  return e.detail === 1 ? msSinceStart < TAP_ECHO_MS : msSinceStart < ECHO_MS;
 }

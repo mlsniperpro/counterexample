@@ -161,6 +161,7 @@ export function isShareFragment(hash: string): boolean {
 
 /** Decode and validate a shared-report fragment. Throws ShareLinkError with a user-facing reason. */
 export async function decodeReport(hash: string): Promise<SharedReport> {
+  if (hash.startsWith("#r=") && !isShareFragment(hash)) throw new ShareLinkError("this link uses a format this page does not read (it may come from a newer version)");
   if (!isShareFragment(hash)) throw new ShareLinkError("not a Counterexample report link");
   if (hash.length > MAX_LINK_CHARS) throw new ShareLinkError("the link is longer than any report link can be");
   let bytes: Uint8Array;

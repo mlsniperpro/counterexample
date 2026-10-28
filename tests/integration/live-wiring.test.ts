@@ -125,6 +125,8 @@ describe("POST /api/attack in live mode (fake services)", () => {
     expect(customReport.stages[0]).toMatchObject({ stage: "understand", purpose: "understand" });
     expect(customReport.stats.modelCalls).toBe(customReport.stages.reduce((n: number, s: { calls: number }) => n + s.calls, 0));
     expect(customReport.stats.modelCalls).toBeLessThanOrEqual(PUBLIC_BUDGETS.maxModelCalls);
+    // The public caps the README states.
+    expect(PUBLIC_BUDGETS).toEqual({ maxModelCalls: 8, wallClockMs: 50_000 });
   });
 });
 
