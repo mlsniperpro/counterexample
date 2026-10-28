@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 19:40 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Rounds 20 and 21 are fully fixed and pushed (HEAD `f217892`): lint, typecheck, 573/573 tests, build, e2e (12 steps, axe, echo guards and bad-link checks verified by mutants). Details in reaudit.md.
+- **Clean-round criterion (decision in reaudit.md, round 20):** a round is clean when no auditor finds a new verified defect rated medium or above; lows are fixed when cheap or recorded and accepted.
+- Round 22 (4 auditors on `876e650`) was paused by the usage limit from about 17:00 to 19:30 and resumed at 19:38.
+- Final-commit evidence still to do once two clean rounds are in: `pnpm soak --all --seeds 3 -j 2 --readme` (round 21 fixed its timeout checker; the earlier run is discarded), `pnpm bench --readme` on a quiet machine, `pnpm screenshots` with the UI copy "dozens to hundreds" updated to the README wording, FC_NUM_RUNS=5000, fresh clone, then break-it.md, the reaudit header and the gate.
+
 STATE 2026-10-28 10:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 19 is fully fixed and pushed: the UI/tests findings are in this push (axe in the e2e, which caught a duplicate-landmark violation, now fixed; double-tapped Enter; pasted share link scrolled into view; mutate and boundary tests). Checks: lint, typecheck, 551/551 tests, build, e2e (11 steps).
 - Next: retake the screenshots (copy changed), then round 20 with 4 auditors on this HEAD.
