@@ -24,7 +24,10 @@ export function hashString(s: string): number {
 
 export function randInt(rng: Rng, min: number, max: number): number {
   if (max < min) return min;
-  return min + Math.floor(rng() * (max - min + 1));
+  const span = max - min + 1;
+  // One draw has 32 random bits: over a wider range that would leave the low bits constant (every value even).
+  if (span > 2 ** 32) return Math.min(max, min + Math.floor((rng() * 2 ** 21 + rng()) * (span / 2 ** 21)));
+  return min + Math.floor(rng() * span);
 }
 
 /** A uniformly random element of a non-empty list. */

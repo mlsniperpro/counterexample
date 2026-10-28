@@ -7,6 +7,24 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 21 (2026-10-28, `2ab4d46`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (core found medium items).
+- **Core** (5 medium, 5 low), each reproduced by the auditor's script:
+  - medium: an understand `entry` in any other form ("def solve(x)", "solve(x: int) -> int", "Solution.solve", "`solve`", "") failed the attack. The entry is now the identifier before the first "(", else the last identifier, else none (the code decides); it is only ever an identifier;
+  - medium: lengths, node and edge counts past the DSL caps (a statement's n <= 10^5) failed the attack. They are lowered to the caps with a note, as integer bounds are;
+  - medium (false alarm): the last-function fallback picked a trailing `main()` or helper. It now prefers the last function that takes as many parameters as the problem passes, and never `main`;
+  - medium (wrong verdict): example arguments past 2^53 reached the oracle rounded, so a perfect oracle "never matched the examples". Such examples are left out of the check with a note (all of them unusable is a clear error);
+  - medium (stall): a `distinct` array of a large const retried 100 cloned draws, and nested infeasible `distinct` arrays multiplied the retries (17.9 s). Generation now caps a distinct array of a const at one element, and one input's draws (discarded ones included) at 800,000 values (test under 1 s CPU);
+  - low: `"compare": null` or "Exact" failed; now read as the default and case-insensitively;
+  - low: `nondecreasing` tuples of strings or lists were sorted with `a - b` and then dropped; they sort with `compareJson`;
+  - low: ranges wider than 2^32 left the low bits constant (no odd values on [0, 2^53)). `randInt` combines two draws there;
+  - low: `extractCode` edge cases (a column-0 line inside an indented fence, a tagged test block beating an untagged fix, `solve =` in a comment): rare, accepted;
+  - low: the WIN-CHECKLIST test count: updated.
+- **Judge** (4 low, none medium; full bench, fresh clone, 12 e2e steps, official docs and the API runs all match): the round count in SUBMISSION (updated); the test count (updated); the UI copy still says "dozens to hundreds of inputs" (changed with the final screenshots); `checks.sh` said "recorded model answers" (now "hand-written stand-ins").
+- **Soak (`pnpm soak --all --seeds 3`, 1,509 attacks):** 1,435 killed, 72 survived, 0 missed, 0 errors, and 2 "unsound". Both were the same equivalent mutant of `hard/decode-ways/bug-a` (an exponential solution), claimed as a timeout on the 29-character input while the machine ran the soak, two auditors and a bench (load about 10). Re-run on a quiet machine it takes 334 ms of its 500 ms limit there: a real, machine-dependent timeout, not a false alarm. The soak's checker compared values only. It now confirms a timeout claim when the mutant times out again or needs at least half its limit, and the README says so. The soak is rerun on the final commit (this run predates the round-21 generator changes).
+- **Security, UI and tests:** below once in.
+
 ## Round 20 (2026-10-28, `d15cb74`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.

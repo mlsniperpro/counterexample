@@ -14,7 +14,7 @@ pnpm test
 # Property tests again at a higher example count.
 FC_NUM_RUNS=1000 pnpm exec vitest run tests/unit --testTimeout 600000
 
-# Replay end to end through the benchmark CLI on one problem (real execution, recorded model answers).
+# Replay end to end through the benchmark CLI on one problem (real execution, hand-written stand-ins for model answers).
 pnpm bench --only binary-search
 
 # Production build.

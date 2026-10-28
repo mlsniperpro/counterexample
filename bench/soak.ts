@@ -51,7 +51,7 @@ async function runOn(p: Problem, s: Solution, inputs: unknown[][]): Promise<RunO
  * recorded oracle is re-run on the counterexample: its full output must match
  * the reported text, and the reference must match its full output.
  */
-async function confirm(p: Problem, ref: Solution, mutant: Solution, args: unknown[], expected: unknown): Promise<string | null> {
+async function confirm(p: Problem, ref: Solution, mutant: Solution, args: unknown[], expected: unknown, got: string): Promise<string | null> {
   const [r] = await runOn(p, ref, [args]);
   const [m] = await runOn(p, mutant, [args]);
   if (!r?.ok) return `reference failed on the counterexample: ${show(r)}`;
@@ -64,6 +64,9 @@ async function confirm(p: Problem, ref: Solution, mutant: Solution, args: unknow
     want = o.out;
   }
   if (!outputsEqual(r.out, want, p.compare)) return `oracle said ${JSON.stringify(expected)}, reference says ${show(r)}`;
+  // A timeout claims the mutant is too slow, not wrong: it holds when the mutant times out again or still needs at
+  // least half its time limit on that input (the attack's machine may have been busier than this re-run's).
+  if (got.startsWith("timeout") && (!m?.ok ? m?.error === "timeout" : m.ms >= p.timeLimitMs / 2)) return null;
   if (m?.ok && outputsEqual(m.out, r.out, p.compare)) return `mutant agrees with the reference on ${JSON.stringify(args)}`;
   return null;
 }
@@ -116,7 +119,7 @@ async function main(args: string[]) {
           const r = await attack({ problem, solution: mutant, replayKey: subject.problem, solutionKey: key, seed }, makeDeps({ mode: "replay", fixtures }));
           const base = { key, seed, operator: m.operator, after: m.after, verdict: r.verdict, wallMs: Date.now() - started };
           if (r.verdict === "counterexample" && r.counterexample) {
-            const bad = await confirm(problem, refSol, mutant, r.counterexample.args, r.counterexample.expected);
+            const bad = await confirm(problem, refSol, mutant, r.counterexample.args, r.counterexample.expected, r.counterexample.got);
             row = { ...base, outcome: bad ? "unsound" : "killed", detail: bad ?? JSON.stringify(r.counterexample.args).slice(0, 80) };
           } else if (r.verdict === "no_counterexample" || r.verdict === "compile_error") {
             const found = r.verdict === "compile_error" ? null : await search(problem, refSol, mutant, seed);

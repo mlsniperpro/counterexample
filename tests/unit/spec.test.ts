@@ -171,6 +171,30 @@ describe("conforms / argsConform", () => {
     expect(maxValues({ kind: "const", value: { ["k".repeat(20_000)]: 0 } })).toBe(20_001);
   });
 
+  it("bounds the draws of one input: distinct arrays of a const, and nested infeasible distinct arrays, stop early", () => {
+    const rng = mulberry32(9);
+    const floats: TypeSpec = { kind: "array", distinct: true, of: { kind: "const", value: Array.from({ length: 1000 }, (_, i) => i + 0.5) }, len: { min: 5, max: 5 } };
+    const nested: TypeSpec = { kind: "array", distinct: true, len: { min: 50, max: 50 }, of: { kind: "array", distinct: true, len: { min: 5, max: 5 }, of: { kind: "array", of: { kind: "const", value: null }, len: { min: 0, max: 3 } } } };
+    const cpu = cpuClock();
+    for (let i = 0; i < 200; i++) expect((genArgs([floats], rng)[0] as unknown[]).length).toBeLessThanOrEqual(1);
+    for (let i = 0; i < 20; i++) genArgs([nested], rng);
+    expect(cpu()).toBeLessThan(1000);
+  });
+
+  it("sorts nondecreasing tuples the way conforms checks them, strings and lists included", () => {
+    const rng = mulberry32(4);
+    const pair: TypeSpec = { kind: "tuple", items: [{ kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }, { kind: "string", alphabet: "ab", len: { min: 0, max: 3 } }], nondecreasing: true };
+    for (let i = 0; i < 300; i++) expect(conforms(genValue(pair, rng), pair as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+  });
+
+  it("draws every bit of integers in ranges wider than 2^32", () => {
+    const rng = mulberry32(2);
+    const xs = Array.from({ length: 2000 }, () => genValue({ kind: "int", min: 0, max: Number.MAX_SAFE_INTEGER }, rng) as number);
+    expect(xs.filter((x) => x % 2 === 1).length).toBeGreaterThan(800);
+    expect(new Set(xs.map((x) => x % 2 ** 21)).size).toBeGreaterThan(1900);
+    expect(xs.every((x) => Number.isSafeInteger(x) && x >= 0)).toBe(true);
+  });
+
   it("draws distinct integers that fill their range without replacement, so permutations come out whole", () => {
     const rng = mulberry32(3);
     for (const n of [10, 300, 1000]) {

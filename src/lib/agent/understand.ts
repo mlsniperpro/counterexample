@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { checkInputValues, parseTypeSpec } from "../core/spec";
+import { checkInputValues, parseTypeSpec, SPEC_LIMITS } from "../core/spec";
 import { ModelOutputError } from "../errors";
 import type { Problem, Solution } from "../problems/types";
 import { exactReviver } from "../core/compare";
@@ -14,17 +14,17 @@ const IDENT = /^[A-Za-z_$][\w$]*$/;
 // call, extra examples); anything else that changes behaviour must be valid as given.
 const specAnswerSchema = z.object({
   title: z.string().min(1).transform((t) => t.slice(0, 80)),
-  // "solve(nums, target)" means solve.
+  // The name in whatever the model wrote ("solve(nums, target)", "def solve(x) -> int", "Solution.solve", "`solve`"),
+  // or none: resolveEntry then finds the function in the code, rather than the whole attack failing on this text.
   entry: z
     .string()
-    .transform((e) => /^\s*([A-Za-z_$][\w$]*)\s*(?:\([^()]*\)\s*)?$/.exec(e)?.[1] ?? e)
-    .pipe(z.string().regex(IDENT, "entry must be an identifier"))
-    .nullish(),
+    .nullish()
+    .transform((e) => (e ? entryName(e) : null)),
   params: z.array(z.object({ name: z.string().min(1).transform((n) => n.slice(0, 40)), type: z.unknown() })).min(1).max(MAX_PARAMS),
   returns: z.string().nullish().transform((r) => (r ?? "").slice(0, 200)),
   // The first MAX_EXAMPLES are enough to check the oracle.
   examples: z.array(z.object({ args: z.array(z.json()), output: z.json() })).default([]).transform((xs) => xs.slice(0, MAX_EXAMPLES)),
-  compare: z.enum(["exact", "unordered", "unordered_nested", "float"]).default("exact"),
+  compare: z.preprocess((c) => (typeof c === "string" ? c.toLowerCase() : (c ?? undefined)), z.enum(["exact", "unordered", "unordered_nested", "float"]).default("exact")),
   references: z.array(z.string()).nullish().transform((r) => r?.slice(0, 2).map((x) => x.slice(0, 200))),
 });
 
@@ -32,22 +32,42 @@ const specAnswerSchema = z.object({
  * Integer bounds past 2^53 - 1 (a statement's 1 <= n <= 10^18) clamped to the largest exact integer, since inputs
  * are bounded to safe integers anyway; reports whether anything was clamped.
  */
-function clampIntBounds(type: unknown): { type: unknown; clamped: boolean } {
+function clampIntBounds(type: unknown): { type: unknown; clamped: boolean; capped: boolean } {
   let clamped = false;
-  const walk = (v: unknown, depth: number): unknown => {
+  let capped = false;
+  // Sizes past the DSL's caps (a statement's n <= 10^5) come down to the cap: the attack then covers the inputs it can
+  // generate, and says so, instead of failing on the number.
+  const caps: Record<string, number> = { len: SPEC_LIMITS.maxLen, n: SPEC_LIMITS.maxNodes, m: SPEC_LIMITS.maxEdges };
+  const walk = (v: unknown, depth: number, key: string): unknown => {
     if (depth > 16 || v === null || typeof v !== "object") return v;
-    if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1));
-    const o = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, depth + 1)]));
+    if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1, ""));
+    const o = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, depth + 1, k)]));
     for (const k of ["min", "max"]) {
       const x = o[k];
       if (typeof x === "number" && Number.isFinite(x) && Math.abs(x) > Number.MAX_SAFE_INTEGER && "min" in o && "max" in o) {
         o[k] = Math.sign(x) * Number.MAX_SAFE_INTEGER;
         clamped = true;
       }
+      const cap = caps[key];
+      if (cap !== undefined && typeof o[k] === "number" && (o[k] as number) > cap && "min" in o && "max" in o) {
+        o[k] = cap;
+        capped = true;
+      }
     }
     return o;
   };
-  return { type: walk(type, 0), clamped };
+  return { type: walk(type, 0, ""), clamped, capped };
+}
+
+const KEYWORDS = new Set(["def", "function", "async", "export", "default", "const", "let", "var", "return", "self", "class", "lambda"]);
+
+/** The function name in an entry as a model may write it: the identifier before the first "(", else the last identifier. */
+function entryName(text: string): string | null {
+  const t = text.slice(0, 200);
+  const words = [...t.matchAll(/[A-Za-z_$][\w$]*/g)].filter((m) => !KEYWORDS.has(m[0]));
+  const called = words.find((m) => /^\s*\(/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 20)));
+  const name = (called ?? words.at(-1))?.[0];
+  return name && IDENT.test(name) ? name : null;
 }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -99,7 +119,23 @@ function definesMethod(code: string, language: Solution["language"], name: strin
  * misleading load error) the same name spelled another way, else `solve`, else the
  * last top-level function.
  */
-function resolveEntry(code: string, language: Solution["language"], named: string | null | undefined): { entry: string; note?: string } {
+/** How many parameters a top-level function takes (self, `*` and `/` markers aside), or undefined when it cannot tell. */
+function paramCount(code: string, language: Solution["language"], name: string): number | undefined {
+  const n = escapeRe(name);
+  const re =
+    language === "python"
+      ? new RegExp(String.raw`^(?:async[ \t]+)?def[ \t]+${n}[ \t]*\(([^)]*)\)`, "m")
+      : new RegExp(String.raw`function[ \t]*\*?[ \t]*${n}[ \t]*\(([^)]*)\)|(?:const|let|var)[ \t]+${n}[ \t]*=[ \t]*(?:async[ \t]*)?(?:function[ \t]*\(([^)]*)\)|\(([^)]*)\)|([A-Za-z_$][\w$]*)[ \t]*=>)`, "m");
+  const m = re.exec(code);
+  if (!m) return undefined;
+  const list = m[1] ?? m[2] ?? m[3] ?? m[4] ?? "";
+  return list
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p && p !== "self" && p !== "*" && p !== "/").length;
+}
+
+function resolveEntry(code: string, language: Solution["language"], named: string | null | undefined, arity: number): { entry: string; note?: string } {
   if (named && definesFunction(code, language, named)) return { entry: named };
   // A method (LeetCode's class Solution) is not callable as a function: falling back to another top-level function,
   // often a helper defined above the class, would attack the wrong code and blame it for a bug.
@@ -113,14 +149,25 @@ function resolveEntry(code: string, language: Solution["language"], named: strin
     );
   }
   // The named function under another spelling (integer_sqrt for integerSqrt), else solve, else the last top-level
-  // function: helpers are defined before the function that uses them, so the first one is usually a helper.
+  // function that takes as many parameters as the problem passes (helpers usually come first, and a trailing main()
+  // takes none), else the last one that is not main.
   const fns = topLevelFunctions(code, language);
   const spelled = named ? fns.find((f) => looseName(f) === looseName(named)) : undefined;
-  const entry = spelled ?? (hasSolve ? "solve" : fns.at(-1));
+  const candidates = fns.filter((f) => f !== "main");
+  const fitting = candidates.filter((f) => paramCount(code, language, f) === arity);
+  const entry = spelled ?? (hasSolve ? "solve" : (fitting.at(-1) ?? candidates.at(-1) ?? fns.at(-1)));
   if (!entry) {
     throw new ModelOutputError(named ? `problem spec: entry "${named}" is not defined in the code, and the code has no top-level function` : "problem spec: no entry function named, and none found in the code");
   }
   return named ? { entry, note: `The model named entry "${named}", which the code does not define; using "${entry}" instead` } : { entry };
+}
+
+/** True when a JSON value holds an integer past 2^53 (it was rounded when parsed). */
+function hasUnsafeInteger(v: unknown): boolean {
+  if (typeof v === "number") return Number.isInteger(v) && !Number.isSafeInteger(v);
+  if (Array.isArray(v)) return v.some(hasUnsafeInteger);
+  if (v !== null && typeof v === "object") return Object.values(v).some(hasUnsafeInteger);
+  return false;
 }
 
 /** True when a JSON value holds a number that is not an integer (an average, a probability). */
@@ -139,7 +186,8 @@ export function hasFraction(v: unknown): boolean {
  */
 export function parseUnderstanding(text: string, statement: string, solution: Pick<Solution, "code" | "language">): { problem: Problem; entry: string; note?: string } {
   const a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
-  const { entry, note } = resolveEntry(solution.code, solution.language, a.entry);
+  const arity = a.params.reduce((n, p) => n + (typeof p.type === "object" && p.type !== null && (p.type as { kind?: unknown }).kind === "graph" ? 2 : 1), 0);
+  const { entry, note } = resolveEntry(solution.code, solution.language, a.entry, arity);
   const bounds = a.params.map((p) => clampIntBounds(p.type));
   const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(bounds[i]?.type, `params[${i}].type`) }));
   checkInputValues(params.map((p) => p.type), "params");
@@ -147,7 +195,11 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   // Expected outputs keep integers beyond 2^53 exact, like the harness's outputs they are compared with
   // (arguments stay plain numbers: inputs are bounded to safe integers anyway).
   const exact = extractJson(stripThinking(text), exactReviver) as { examples?: { output?: unknown }[] };
-  const examples = a.examples.map((e, i) => ({ ...e, output: exact.examples?.[i]?.output ?? e.output }));
+  // An argument beyond 2^53 reaches the oracle rounded, so its example could never match: such examples are left out.
+  const all = a.examples.map((e, i) => ({ ...e, output: exact.examples?.[i]?.output ?? e.output }));
+  const examples = all.filter((e) => !hasUnsafeInteger(e.args));
+  const dropped = all.length - examples.length;
+  if (examples.length === 0) throw new ModelOutputError("problem spec: every example passes an integer beyond 2^53, which no program receives exactly, so the oracle could not be checked");
   // Exact comparison of floating-point answers flags a correct solution that sums in another order (1.6666666666666665
   // against 1.6666666666666667), so an exact spec whose example outputs hold fractions compares as floats.
   const floats = a.compare === "exact" && examples.some((e) => hasFraction(e.output));
@@ -156,6 +208,8 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
     note,
     floats ? 'The examples return non-integer numbers, so outputs are compared as floats (the model asked for "exact")' : undefined,
     bounds.some((b) => b.clamped) ? "Integer bounds beyond 2^53 - 1 were lowered to 2^53 - 1, the largest integer every input can hold exactly" : undefined,
+    bounds.some((b) => b.capped) ? `Sizes beyond the generator's limits were lowered to them (lengths ${SPEC_LIMITS.maxLen.toLocaleString("en-US")}, graphs ${SPEC_LIMITS.maxNodes.toLocaleString("en-US")} nodes and ${SPEC_LIMITS.maxEdges.toLocaleString("en-US")} edges), so the largest inputs are not tried` : undefined,
+    dropped ? `${dropped} example(s) whose arguments hold integers beyond 2^53 were left out of the oracle check (they cannot be passed exactly)` : undefined,
   ]
     .filter(Boolean)
     .join("; ");

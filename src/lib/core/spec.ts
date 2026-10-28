@@ -72,11 +72,30 @@ function alphabetOf(spec: StringSpec): string[] {
   return chars;
 }
 
+/**
+ * Values one genArgs call may draw, discarded draws included: a `distinct` array retries duplicate draws, and nested
+ * infeasible ones multiplied those retries (18 s for distinct arrays of distinct arrays of a const). Once spent, a
+ * `distinct` array stops drawing; an input left too short is dropped by the validator, as any infeasible one is.
+ */
+const DRAW_BUDGET = 4 * 200_000;
+let drawsLeft = Infinity;
+const spend = (n: number) => {
+  drawsLeft -= n;
+};
+const constSizes = new WeakMap<object, number>();
+function constValues(spec: { value: unknown }): number {
+  let n = constSizes.get(spec);
+  if (n === undefined) constSizes.set(spec, (n = jsonValues(spec.value)));
+  return n;
+}
+
 export function genValue(spec: Exclude<TypeSpec, GraphSpec>, rng: Rng): unknown {
+  spend(1);
   switch (spec.kind) {
     case "int":
       return genInt(spec, rng);
     case "const":
+      spend(constValues(spec));
       return structuredClone(spec.value);
     case "oneOf": {
       const opt = pick(rng, spec.options);
@@ -95,7 +114,8 @@ export function genValue(spec: Exclude<TypeSpec, GraphSpec>, rng: Rng): unknown 
         if (it.kind === "graph") throw new Error("graph is not allowed inside tuple");
         return genValue(it, rng);
       });
-      if (spec.nondecreasing) (out as number[]).sort((a, b) => a - b);
+      // The order conforms checks: numbers by value, strings and lists as Python compares them.
+      if (spec.nondecreasing) out.sort(compareJson);
       return out;
     }
     case "array":
@@ -129,7 +149,8 @@ const poolSize = (spec: ArraySpec): number => (spec.pool && spec.pool > 0 ? Math
 function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   if (spec.of.kind === "graph") throw new Error("graph is not allowed inside array");
   const of = spec.of;
-  const n = randInt(rng, spec.len.min, spec.len.max);
+  // Copies of one const are all equal: a distinct array of them holds at most one.
+  const n = spec.distinct && of.kind === "const" ? Math.min(1, randInt(rng, spec.len.min, spec.len.max)) : randInt(rng, spec.len.min, spec.len.max);
   const size = poolSize(spec);
   const pool = size > 0 ? Array.from({ length: size }, () => genValue(of, rng)) : undefined;
   // Distinct integers that fill at least half their range (a permutation of 0..n-1): draw without replacement. Drawing
@@ -154,7 +175,7 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   // A run of duplicates means the element domain is (nearly) used up: stop early instead of sampling n * 20 times
   // (a `distinct` array longer than its domain, say 10,000 elements of a 10-value constant, cost ~45 s of event loop).
   let misses = 0;
-  while (out.length < n && attempts < n * 20 + 50 && misses < MAX_DISTINCT_MISSES) {
+  while (out.length < n && attempts < n * 20 + 50 && misses < MAX_DISTINCT_MISSES && (!spec.distinct || drawsLeft > 0)) {
     attempts++;
     const v = pool ? pick(rng, pool) : genValue(of, rng);
     if (spec.distinct) {
@@ -197,9 +218,15 @@ function genGraph(spec: GraphSpec, rng: Rng): [number, number[][]] {
 /** Generate one full argument list for a list of parameter specs. */
 export function genArgs(specs: TypeSpec[], rng: Rng): unknown[] {
   const args: unknown[] = [];
-  for (const s of specs) {
-    if (s.kind === "graph") args.push(...genGraph(s, rng));
-    else args.push(genValue(s, rng));
+  const outer = drawsLeft;
+  drawsLeft = Math.min(outer, DRAW_BUDGET);
+  try {
+    for (const s of specs) {
+      if (s.kind === "graph") args.push(...genGraph(s, rng));
+      else args.push(genValue(s, rng));
+    }
+  } finally {
+    drawsLeft = outer;
   }
   return args;
 }

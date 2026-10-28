@@ -69,9 +69,35 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
 
   it("reads an entry padded with a long run of spaces in linear time", async () => {
     const t0 = process.cpuUsage();
-    await expect(run({ ...spec, entry: "a" + " ".repeat(60_000) + "!" })).rejects.toThrow(/entry must be an identifier/);
+    expect((await run({ ...spec, entry: "a" + " ".repeat(60_000) + "!" })).entry).toBe("add");
     const used = process.cpuUsage(t0);
     expect((used.user + used.system) / 1000).toBeLessThan(300);
+  });
+
+  it("reads the entry in any form a model writes it, and falls back to the code when there is none", async () => {
+    for (const entry of ["def add(a, b)", "add(a: int, b: int) -> int", "Solution.add", "`add`", '"add"', "", null]) expect((await run({ ...spec, entry })).entry, String(entry)).toBe("add");
+  });
+
+  it("lowers sizes past the generator's caps instead of failing, and says so", async () => {
+    const r = await run({
+      ...spec,
+      params: [
+        { name: "a", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 1, max: 100_000 } } },
+        { name: "b", type: { kind: "string", alphabet: "ab", len: { min: 0, max: 50_000 } } },
+      ],
+      examples: [{ args: [[1], "a"], output: 3 }],
+    });
+    expect(r.problem.params[0]?.type).toMatchObject({ len: { min: 1, max: 10_000 } });
+    expect(r.problem.params[1]?.type).toMatchObject({ len: { min: 0, max: 10_000 } });
+    expect(r.note).toMatch(/Sizes beyond the generator's limits were lowered/);
+  });
+
+  it("leaves out examples whose arguments hold integers past 2^53, which no program receives exactly", async () => {
+    const text = '```json\n{"title":"Sum","entry":"add","params":[{"name":"a","type":{"kind":"int","min":-10,"max":9007199254740991}},{"name":"b","type":{"kind":"int","min":-10,"max":10}}],"examples":[{"args":[9223372036854775807,1],"output":9223372036854775808},{"args":[1,2],"output":3}]}\n```';
+    const r = parseUnderstanding(text, "Add.", { code: "def add(a, b): return a + b", language: "python" });
+    expect(r.problem.examples).toEqual([{ args: [1, 2], output: 3 }]);
+    expect(r.note).toMatch(/1 example\(s\) whose arguments hold integers beyond 2\^53 were left out/);
+    await expect(run({ ...spec, examples: [{ args: [2 ** 63, 1], output: 0 }] })).rejects.toThrow(/every example passes an integer beyond 2\^53/);
   });
 
   it("finds a fraction anywhere in an output", () => {
@@ -122,6 +148,13 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       const r = await entryFor("import math\n\ndef helper(a):\n    return a\n\ndef add(a, b):\n    return a + b\n", "python");
       expect(r.entry).toBe("add");
       expect(r.note).toMatch(/named entry "missing", which the code does not define; using "add"/);
+    });
+
+    it("falls back to a function that takes the problem's parameters, never a trailing main()", async () => {
+      const code = "import math\n\ndef floor_root(x):\n    return math.isqrt(x)\n\ndef main():\n    print(floor_root(16))\n\nif __name__ == '__main__':\n    main()\n";
+      const one = { ...spec, entry: "squareRoot", params: [{ name: "x", type: { kind: "int", min: 0, max: 100 } }], examples: [{ args: [4], output: 2 }] };
+      expect(parseUnderstanding("```json\n" + JSON.stringify(one) + "\n```", "isqrt", { code, language: "python" }).entry).toBe("floor_root");
+      expect((await entryFor("function solveIt(a, b) { return a + b; }\nfunction helper(x) { return x; }\n", "javascript", "missing")).entry).toBe("solveIt");
     });
 
     it("finds the named function spelled another way before any fallback", async () => {
@@ -201,13 +234,14 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
   it("rejects malformed or unsafe answers with ModelOutputError", async () => {
     const bad: unknown[] = [
       "not json",
-      { ...spec, entry: "add(); import os" },
       { ...spec, params: [] },
       { ...spec, params: [{ name: "a", type: { kind: "int", min: 5, max: 1 } }] },
       { ...spec, examples: [] },
       { ...spec, compare: "fuzzy" },
     ];
     for (const b of bad) await expect(run(b), JSON.stringify(b).slice(0, 50)).rejects.toThrow(ModelOutputError);
+    // An entry is only ever an identifier taken from the text, never the text itself.
+    expect((await run({ ...spec, entry: "add(); import os" })).entry).toBe("add");
     expect(() => parseUnderstanding(JSON.stringify({ ...spec, entry: null }), "x", { code: "print(1)", language: "python" })).toThrow(/no entry function/);
   });
 });
