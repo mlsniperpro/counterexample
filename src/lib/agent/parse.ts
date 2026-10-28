@@ -61,17 +61,30 @@ export function parseJsonAnswer<T>(text: string, schema: z.ZodType<T>, what: str
   return r.data;
 }
 
-/** The first fenced code block, preferring one tagged with the language. */
-export function extractCode(text: string, language: "python" | "javascript"): string {
+/** Code with the indentation all its lines share removed (a fence indented inside a list item). */
+function dedent(code: string): string {
+  const lines = code.split("\n");
+  const indents = lines.filter((l) => l.trim()).map((l) => /^[ \t]*/.exec(l)?.[0].length ?? 0);
+  const cut = indents.length ? Math.min(...indents) : 0;
+  return cut ? lines.map((l) => l.slice(cut)).join("\n") : code;
+}
+
+/**
+ * The program in a model answer: of its fenced blocks (those tagged with the language, else all), the last one that
+ * defines `entry`, else the last one that defines any function, else the first. An explanation may quote the faulty
+ * line in a block of its own before the fixed program, and a test block may follow it.
+ */
+export function extractCode(text: string, language: "python" | "javascript", entry = "solve"): string {
   const tags = language === "python" ? ["python", "py", "python3", "py3"] : ["javascript", "js", "node", "mjs"];
-  // "``` python" (a space before the tag) is still tagged python. The spaces before the tag sit in an optional group
-  // that needs the tag: two adjacent space runs could split a long run of spaces every way (quadratic backtracking).
-  const blocks = [...text.matchAll(/```(?:[ \t]*([\w+-]+))?[ \t\r]*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
-  // A block in the language that defines a function: the last one, since an explanation may quote the faulty line in
-  // a block of its own before the fixed program.
-  const defines = language === "python" ? /^[ \t]*(?:async[ \t]+)?def[ \t]/m : /\bfunction\b|=>/;
+  // The info line in one run ([^\n`]*, read for its tag afterwards): "``` python", "```python title=\"x.py\"". Two
+  // adjacent runs that could share characters would backtrack quadratically on a long line with no newline.
+  const blocks = [...text.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g)].map((m) => ({ tag: (/^[ \t]*([\w+-]+)/.exec(m[1] ?? "")?.[1] ?? "").toLowerCase(), body: dedent(m[2] ?? "") }));
+  const n = entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const definesEntry = language === "python" ? new RegExp(String.raw`^(?:async[ \t]+)?def[ \t]+${n}[ \t]*\(`, "m") : new RegExp(String.raw`\bfunction[ \t]*\*?[ \t]*${n}[ \t]*\(|\b${n}[ \t]*=`);
+  const definesAny = language === "python" ? /^[ \t]*(?:async[ \t]+)?def[ \t]/m : /\bfunction\b|=>/;
   const tagged = blocks.filter((b) => tags.includes(b.tag));
-  const block = tagged.filter((b) => defines.test(b.body)).at(-1) ?? tagged[0] ?? blocks[0];
+  const pool = tagged.length ? tagged : blocks;
+  const block = pool.filter((b) => definesEntry.test(b.body)).at(-1) ?? pool.filter((b) => definesAny.test(b.body)).at(-1) ?? pool[0];
   if (!block || !block.body.trim()) throw new ModelOutputError("no code block found in model output");
   return block.body.trimEnd() + "\n";
 }

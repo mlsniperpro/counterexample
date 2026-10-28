@@ -32,6 +32,13 @@ const MAX_SCALARS = 2_000_000;
 /** What is left of one smallScope call's MAX_SCALARS. */
 type Budget = { left: number };
 
+/** The lists' items taken in turn: the first of each, then the second of each, and so on. */
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  for (let i = 0; lists.some((l) => i < l.length); i++) for (const l of lists) if (i < l.length) out.push(l[i] as T);
+  return out;
+}
+
 /** `n` of `xs`, evenly spread over it and in order (all of it when it has at most `n`). */
 const evenly = <T>(xs: T[], n: number): T[] => (xs.length <= n ? xs : Array.from({ length: n }, (_, i) => xs[Math.floor((i * xs.length) / n)] as T));
 
@@ -49,7 +56,8 @@ function values(spec: TypeSpec, top: boolean, budget: Budget, limit = Infinity):
     case "const":
       return [spec.value];
     case "oneOf":
-      return spec.options.flatMap((o) => (o.kind === "graph" ? [] : values(o, top, budget, limit))).slice(0, limit);
+      // Round robin over the options, so a cut to a few element values still holds each kind (an int and a null).
+      return interleave(spec.options.map((o) => (o.kind === "graph" ? [] : values(o, top, budget, limit)))).slice(0, limit);
     case "string": {
       const alphabet = [...spec.alphabet].slice(0, ELEM_VALUES);
       return sequences(alphabet, spec.len.min, Math.min(spec.len.max, spec.len.min + SMALL_LEN), limit, budget).map((cs) => cs.join(""));

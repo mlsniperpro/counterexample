@@ -7,6 +7,17 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 20 (2026-10-28, `d15cb74`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Core** (4 medium, 2 low), each reproduced by the auditor's script:
+  - medium (false alarm): when the model's entry name was not in the code, the fallback took the first top-level function, usually a helper (a correct isqrt was blamed through its `clamp`). The fallback now matches the name spelled another way (integerSqrt for integer_sqrt), then `solve`, then the last top-level function; a JavaScript `const solve = memoize(...)` counts as a definition;
+  - medium: an understand answer with an entry written as a call, more than 10 examples, a long reference or parameter name, or a 10^18 bound failed the whole attack. These are now read (the call's name, the first 10 examples, text shortened, integer bounds lowered to 2^53 - 1 with a note), and the prompt states the limits;
+  - medium (missed bugs): `distinct` arrays that fill most of their integer range (permutations) gave up after 100 duplicate draws and were dropped (97 of 100 at n = 300). They are now drawn without replacement;
+  - medium (coverage): small-scope `oneOf` elements came from the first option only (no nulls in a nullable array). Options now take turns;
+  - low: small-scope strings use the first 3 characters of the alphabet. That is the documented ELEM_VALUES bound, and model families cover full alphabets (valid-parentheses bug-a in the bench): accepted;
+  - low: `extractCode` took a test block after the fix, the first of untagged blocks, kept a list item's indentation, and missed info strings with attributes. It now prefers the last block that defines the entry (the solution's own name for a fix), applies the same rule to untagged blocks, dedents, and reads the tag from the info line (one linear run).
+
 ## Round 19 (2026-10-28, `58dbebe`, 4 parallel Sonnet audits, paused 05:50 to 09:38 by the usage limit; findings verified by the main session)
 
 Not clean.

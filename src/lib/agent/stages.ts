@@ -505,7 +505,7 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
     ctx.tracer.emit("explain", "info", ctx.report.explanation, { attempt: a });
     let fix: Solution;
     try {
-      fix = { language: solution.language, code: extractCode(text, solution.language), entry: solution.entry };
+      fix = { language: solution.language, code: extractCode(text, solution.language, solution.entry), entry: solution.entry };
     } catch (e) {
       if (!(e instanceof ModelOutputError)) throw e;
       // An explanation without code is still useful; there is just nothing to re-attack.

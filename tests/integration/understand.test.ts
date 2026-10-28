@@ -47,6 +47,26 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     await expect(run({ ...spec, params: Array.from({ length: 3 }, (_, i) => ({ name: `a${i}`, type: big })), examples: [{ args: [[], [], []], output: 3 }] })).rejects.toThrow(/across its arguments \(limit 200000\)/);
   });
 
+  it("reads what has one obvious meaning instead of failing the attack: an entry written as a call, extra examples, long text, huge bounds", async () => {
+    const r = await run({
+      ...spec,
+      entry: "add(a, b)",
+      params: [
+        { name: "a".repeat(60), type: { kind: "int", min: 1, max: 1e18 } },
+        { name: "b", type: { kind: "int", min: -1e18, max: 10 } },
+      ],
+      examples: Array.from({ length: 12 }, (_, i) => ({ args: [i, 1], output: i + 1 })),
+      references: ["x".repeat(300)],
+    });
+    expect(r.entry).toBe("add");
+    expect(r.problem.examples).toHaveLength(10);
+    expect(r.problem.params[0]?.name).toHaveLength(40);
+    expect(r.problem.params[0]?.type).toMatchObject({ kind: "int", min: 1, max: Number.MAX_SAFE_INTEGER });
+    expect(r.problem.params[1]?.type).toMatchObject({ kind: "int", min: -Number.MAX_SAFE_INTEGER, max: 10 });
+    expect(r.problem.references?.[0]).toHaveLength(200);
+    expect(r.note).toMatch(/Integer bounds beyond 2\^53 - 1 were lowered/);
+  });
+
   it("finds a fraction anywhere in an output", () => {
     expect([1.5, [1, [2.25]], { a: { b: 0.1 } }].map(hasFraction)).toEqual([true, true, true]);
     expect([3, [1, 2], { a: 1 }, "1.5", null, Infinity, NaN].map(hasFraction)).toEqual([false, false, false, false, false, false, false]);
@@ -91,10 +111,19 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       return parseUnderstanding(text, "Add two numbers.", { code, language });
     };
 
-    it("falls back to the first top-level function, with a note, instead of failing every input as a load error", async () => {
+    it("falls back to the last top-level function (helpers come first), with a note, instead of failing every input as a load error", async () => {
       const r = await entryFor("import math\n\ndef helper(a):\n    return a\n\ndef add(a, b):\n    return a + b\n", "python");
-      expect(r.entry).toBe("helper");
-      expect(r.note).toMatch(/named entry "missing", which the code does not define; using "helper"/);
+      expect(r.entry).toBe("add");
+      expect(r.note).toMatch(/named entry "missing", which the code does not define; using "add"/);
+    });
+
+    it("finds the named function spelled another way before any fallback", async () => {
+      // A correct isqrt with a clamp helper above it: the model's camelCase name means integer_sqrt, not clamp.
+      const code = "def clamp(x):\n    return max(0, x)\n\ndef integer_sqrt(n):\n    return int(n ** 0.5)\n\ndef unused():\n    pass\n";
+      expect((await entryFor(code, "python", "integerSqrt")).entry).toBe("integer_sqrt");
+      expect((await entryFor("function twoSum(a) { return 0; }\nfunction helper() {}\n", "javascript", "two_sum")).entry).toBe("twoSum");
+      // A binding to a wrapped function is a definition too.
+      expect((await entryFor("const memoize = (f) => f;\nconst solve = memoize((a, b) => a + b);\n", "javascript", "solve")).entry).toBe("solve");
     });
 
     it("prefers a function named solve over an earlier one", async () => {

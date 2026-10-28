@@ -117,6 +117,9 @@ function genInt(spec: IntSpec, rng: Rng): number {
   return randInt(rng, min, max);
 }
 
+/** Largest integer range a `distinct` array is drawn from without replacement (the range is built in full). */
+const DISTINCT_SHUFFLE_MAX = 100_000;
+
 /** Consecutive duplicate draws after which a `distinct` array stops growing (its element domain is used up). */
 const MAX_DISTINCT_MISSES = 100;
 
@@ -129,6 +132,22 @@ function genArray(spec: ArraySpec, rng: Rng): unknown[] {
   const n = randInt(rng, spec.len.min, spec.len.max);
   const size = poolSize(spec);
   const pool = size > 0 ? Array.from({ length: size }, () => genValue(of, rng)) : undefined;
+  // Distinct integers that fill at least half their range (a permutation of 0..n-1): draw without replacement. Drawing
+  // with retries gives up on the last few free values, so most such arrays came out too short and were dropped.
+  if (spec.distinct && !pool && of.kind === "int" && of.max - of.min + 1 <= DISTINCT_SHUFFLE_MAX && 2 * n >= of.max - of.min + 1) {
+    const domain = Array.from({ length: of.max - of.min + 1 }, (_, i) => of.min + i);
+    const take = Math.min(n, domain.length);
+    for (let i = 0; i < take; i++) {
+      const j = randInt(rng, i, domain.length - 1);
+      [domain[i], domain[j]] = [domain[j] as number, domain[i] as number];
+    }
+    const out = domain.slice(0, take);
+    if (spec.sorted) {
+      sortJson(out);
+      if (spec.sorted === "desc") out.reverse();
+    }
+    return out;
+  }
   const out: unknown[] = [];
   const seen = new Set<string>();
   let attempts = 0;

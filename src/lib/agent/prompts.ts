@@ -139,7 +139,7 @@ ${code}
 
 ${DSL_DOC}
 
-Answer with JSON {"title":"...","entry":"function name in the solution","params":[{"name":"...","type":T}],"returns":"...","examples":[{"args":[...],"output":...}],"compare":"exact"|"unordered"|"unordered_nested"|"float","references":["external facts the statement depends on, if any"]}. Use "float" when the answer holds non-integer numbers (it is then compared with a small tolerance), "unordered" when the order of the returned list does not matter but each item must match exactly (intervals), "unordered_nested" when the order inside its inner lists does not matter either (3Sum triplets, grouped anagrams), else "exact". Keep types within the stated constraints but small enough that a brute-force oracle stays fast.`,
+Answer with JSON {"title":"...","entry":"function name in the solution","params":[{"name":"...","type":T}],"returns":"...","examples":[{"args":[...],"output":...}],"compare":"exact"|"unordered"|"unordered_nested"|"float","references":["external facts the statement depends on, if any"]}. Use "float" when the answer holds non-integer numbers (it is then compared with a small tolerance), "unordered" when the order of the returned list does not matter but each item must match exactly (intervals), "unordered_nested" when the order inside its inner lists does not matter either (3Sum triplets, grouped anagrams), else "exact". Keep types within the stated constraints but small enough that a brute-force oracle stays fast. Limits: at most 6 params and 10 examples, integers within ±(2^53 - 1), at most 2 references of 200 characters each.`,
     },
   ];
 }

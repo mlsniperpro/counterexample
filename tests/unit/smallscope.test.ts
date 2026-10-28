@@ -285,3 +285,14 @@ describe("small-scope with oneOf options that are slow to check", () => {
     expect(r.inputs.every((x) => argsConform(x, [spec]))).toBe(true);
   });
 });
+
+describe("small-scope with oneOf elements", () => {
+  it("takes element values from every option, so nulls and strings appear next to numbers", () => {
+    const nullable: TypeSpec = { kind: "array", of: { kind: "oneOf", options: [{ kind: "int", min: -5, max: 5 }, { kind: "const", value: null }] }, len: { min: 0, max: 4 } };
+    const inputs = smallScopeInputs([nullable], 300);
+    expect(inputs.some((x) => (x[0] as unknown[]).includes(null))).toBe(true);
+    expect(inputs.some((x) => (x[0] as unknown[]).some((v) => typeof v === "number"))).toBe(true);
+    const mixed: TypeSpec = { kind: "array", of: { kind: "oneOf", options: [{ kind: "int", min: 0, max: 9 }, { kind: "string", alphabet: "ab", len: { min: 1, max: 2 } }] }, len: { min: 1, max: 3 } };
+    expect(smallScopeInputs([mixed], 300).some((x) => (x[0] as unknown[]).some((v) => typeof v === "string"))).toBe(true);
+  });
+});

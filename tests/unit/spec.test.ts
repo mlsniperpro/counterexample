@@ -149,6 +149,21 @@ describe("conforms / argsConform", () => {
     expect(argsConform([0, []], [g])).toBe(false); // n below min
   });
 
+  it("draws distinct integers that fill their range without replacement, so permutations come out whole", () => {
+    const rng = mulberry32(3);
+    for (const n of [10, 300, 1000]) {
+      const perm: TypeSpec = { kind: "array", of: { kind: "int", min: 0, max: n - 1 }, len: { min: n, max: n }, distinct: true };
+      for (let i = 0; i < 20; i++) {
+        const v = genValue(perm, rng) as number[];
+        expect(v).toHaveLength(n);
+        expect(conforms(v, perm as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+      }
+    }
+    // Sorted distinct arrays that fill their range are in order.
+    const sorted: TypeSpec = { kind: "array", of: { kind: "int", min: 1, max: 6 }, len: { min: 4, max: 6 }, distinct: true, sorted: "desc" };
+    for (let i = 0; i < 20; i++) expect(conforms(genValue(sorted, rng), sorted as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
+  });
+
   it("compareJson orders values the way a statement means by sorted (as Python compares them)", () => {
     expect([10, 9, 100].sort(compareJson)).toEqual([9, 10, 100]);
     expect(compareJson("a", "a")).toBe(0);

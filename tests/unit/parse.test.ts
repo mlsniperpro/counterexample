@@ -116,6 +116,13 @@ describe("model output parsing", () => {
     const quoted = "EXPLANATION: The bug is here:\n```python\nmid = (lo + hi) >> 1\n```\nFIX:\n```python\ndef solve(a, t):\n    return 0\n```";
     expect(extractCode(quoted, "python")).toBe("def solve(a, t):\n    return 0\n");
     expect(extractCode("```js\nx >> 1\n```\n```js\nconst solve = (a) => a;\n```", "javascript")).toBe("const solve = (a) => a;\n");
+    // A test block after the fix, a quoted line before an untagged fix, a fence indented in a list, attributes after the tag.
+    expect(extractCode("```python\ndef solve(a):\n    return 1\n```\nTests:\n```python\ndef test_solve():\n    assert solve([1]) == 1\n```", "python")).toBe("def solve(a):\n    return 1\n");
+    expect(extractCode("```\nreturn a[0]\n```\nFixed:\n```\ndef solve(a):\n    return a[-1]\n```", "python")).toBe("def solve(a):\n    return a[-1]\n");
+    expect(extractCode("1. Fix:\n   ```python\n   def solve(a):\n       return 0\n   ```", "python")).toBe("def solve(a):\n    return 0\n");
+    expect(extractCode('```python title="sol.py"\ndef solve(a):\n    return 0\n```', "python")).toBe("def solve(a):\n    return 0\n");
+    // The fix keeps the solution's entry name.
+    expect(extractCode("```js\nfunction helper() {}\n```\n```js\nfunction twoSum(a) { return 0; }\n```\n```js\nconst check = () => twoSum([1]);\n```", "javascript", "twoSum")).toBe("function twoSum(a) { return 0; }\n");
     // A sentence that merely starts with the word keeps it.
     expect(extractExplanation("Explanations differ here.")).toBe("Explanations differ here.");
   });
