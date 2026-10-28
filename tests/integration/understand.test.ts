@@ -78,6 +78,12 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     for (const entry of ["def add(a, b)", "add(a: int, b: int) -> int", "Solution.add", "`add`", '"add"', "", null]) expect((await run({ ...spec, entry })).entry, String(entry)).toBe("add");
   });
 
+  it("keeps a const value exactly as written, and lowers a pool past the length cap", async () => {
+    const value = { sorted: false, pool: 0, distinct: false, min: 1, max: 1e18, keep: 1 };
+    const r = await run({ ...spec, params: [{ name: "a", type: { kind: "array", of: { kind: "const", value }, len: { min: 0, max: 3 }, pool: 100_000 } }, spec.params[1]] });
+    expect(r.problem.params[0]?.type).toMatchObject({ of: { kind: "const", value }, pool: 10_000 });
+  });
+
   it("reads flags written as off and a hyphenated comparison mode", async () => {
     const r = await run({ ...spec, compare: "unordered-nested", params: [{ name: "a", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 5 }, sorted: false, pool: 0, distinct: false } }, spec.params[1]] });
     expect(r.problem.compare).toBe("unordered_nested");
@@ -171,6 +177,13 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       for (const entry of ["Solution().max_profit", "max_profit(prices, fee)", "def max_profit(prices: List[int], fee: int) -> int"]) expect((await entryFor(py, "python", entry)).entry, entry).toBe("max_profit");
       const js = "var twoSum = function (nums, target) { return [0, 1]; };\nfunction helper(a, b) { return a; }\n";
       for (const entry of ["var twoSum = function(nums, target)", "const twoSum = (nums, target) =>", "twoSum"]) expect((await entryFor(js, "javascript", entry)).entry, entry).toBe("twoSum");
+    });
+
+    it("never takes a parameter name that a driver line assigns, or a parameter reassigned in the body", async () => {
+      const py = "def two_sum(nums, target):\n    return [0, 1]\n\nnums = [2, 7, 11, 15]\ntarget = 9\nprint(two_sum(nums, target))\n";
+      expect((await entryFor(py, "python", "twoSum(nums, target)")).entry).toBe("two_sum");
+      const js = "const nums = [1];\nvar rotate = function (nums, k) {\n  k = (k % nums.length + nums.length) % nums.length;\n  return nums;\n};\n";
+      for (const entry of ["var rotate = function(nums, k)", "const rotate = (nums, k) =>"]) expect((await entryFor(js, "javascript", entry)).entry, entry).toBe("rotate");
     });
 
     it("counts parameters with commas inside type annotations as one, so the arity fallback picks the right function", async () => {

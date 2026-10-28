@@ -42,11 +42,17 @@ function clampIntBounds(type: unknown): { type: unknown; clamped: boolean; cappe
     if (depth > 16 || v === null || typeof v !== "object") return v;
     if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1, ""));
     // A flag written as off ("sorted": false, "pool": 0) means it is not set.
+    // A const's value is data, not a spec: it is kept exactly as written.
+    if ((v as { kind?: unknown }).kind === "const") return v;
     const o = Object.fromEntries(
       Object.entries(v)
         .filter(([k, x]) => !(["sorted", "distinct", "nondecreasing"].includes(k) && x === false) && !(k === "pool" && x === 0))
         .map(([k, x]) => [k, walk(x, depth + 1, k)]),
     );
+    if (typeof o.pool === "number" && o.pool > SPEC_LIMITS.maxLen) {
+      o.pool = SPEC_LIMITS.maxLen;
+      capped = true;
+    }
     for (const k of ["min", "max"]) {
       const x = o[k];
       if (typeof x === "number" && Number.isFinite(x) && Math.abs(x) > Number.MAX_SAFE_INTEGER && "min" in o && "max" in o) {
@@ -76,7 +82,7 @@ function entryNames(text: string): string[] {
   const words = [...t.matchAll(/[A-Za-z_$][\w$]*/g)].filter((m) => !KEYWORDS.has(m[0]) && IDENT.test(m[0]));
   const called = words.find((m) => /^\s*\(/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 20)));
   const names = words.map((m) => m[0]);
-  return called ? [called[0], ...names.filter((n) => n !== called[0])] : names.reverse();
+  return called ? [called[0], ...names.filter((n) => n !== called[0])] : names;
 }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -158,7 +164,10 @@ function paramCount(code: string, language: Solution["language"], name: string):
 }
 
 function resolveEntry(code: string, language: Solution["language"], names: string[], arity: number): { entry: string; note?: string } {
-  const defined = names.find((n) => definesFunction(code, language, n));
+  // A name the code defines as a top-level function; any other definition (a module-level `x = ...`, a `const solve =
+  // memoize(...)`) only for the one name meant (the first), or a parameter name assigned in a driver line would win.
+  const tops = topLevelFunctions(code, language);
+  const defined = names.find((n) => tops.includes(n)) ?? (names[0] && definesFunction(code, language, names[0]) ? names[0] : undefined);
   if (defined) return { entry: defined };
   const named = names.find((n) => definesMethod(code, language, n)) ?? names[0];
   // A method (LeetCode's class Solution) is not callable as a function: falling back to another top-level function,

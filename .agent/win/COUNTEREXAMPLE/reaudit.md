@@ -7,6 +7,15 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 23 (2026-10-28, `9a9c561`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Core** (3 medium, 5 low; full bench verdicts identical, 578/578 tests):
+  - medium (false alarm): keeping every identifier of the entry let a parameter name win when a driver line assigns it (`nums = [...]` made `nums` the entry); medium (regression): "var rotate = function(nums, k)" took `k`, which the body reassigns, giving a compile error on correct code. The entry is now the first name the code defines as a top-level function; any other definition counts only for the first name (the one called or written first). Tests for both;
+  - medium (documented limit): tree and linked-list inputs (a `TreeNode` solution receives a list) can blame a correct solution. The README's "Your own code" list now names node inputs, equal-length parallel arrays, and that the harness adds no imports;
+  - low: `clampIntBounds` rewrote const values (dropped `sorted: false`, clamped `min`/`max` inside data) and did not lower `pool`. Consts are now kept exactly, and a pool past the length cap is lowered (test);
+  - low (accepted): lenient flags apply to the understand answer only, not to model families (a rejected family leaves the others); strict JSON in model answers (no trailing commas or comments) with one understand call; parallel arrays (now listed).
+
 ## Round 22 (2026-10-28, `876e650`, 4 parallel Sonnet audits, paused 17:00 to 19:30 by the usage limit; findings verified by the main session)
 
 Not clean (core, security and judge each found a medium-or-above item).
