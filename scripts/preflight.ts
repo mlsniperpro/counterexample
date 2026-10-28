@@ -1,8 +1,9 @@
 /**
- * Live-path preflight: `pnpm preflight` (reads .env.local via your shell or
- * `node --env-file`). Exits 1 if any check fails; skipped checks name the
+ * Live-path preflight: `pnpm preflight` (reads .env.local, then .env; variables
+ * set in the shell win). Exits 1 if any check fails; skipped checks name the
  * missing credential.
  */
+import "./load-env";
 import { formatChecks, preflight } from "../src/lib/preflight";
 
 preflight().then(

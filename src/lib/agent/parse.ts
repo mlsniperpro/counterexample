@@ -69,35 +69,85 @@ export function extractCode(text: string, language: "python" | "javascript"): st
 }
 
 /**
+ * Spans of code in a model answer, in order: fenced blocks (to the end of the text when a fence never closes) and
+ * inline code on one line. Think tags inside them are content (a fix that handles the literal "</think>"), not markup.
+ */
+function codeSpans(text: string): [number, number][] {
+  const spans: [number, number][] = [];
+  for (let i = 0; i < text.length; ) {
+    if (text.startsWith("```", i)) {
+      const close = text.indexOf("```", i + 3);
+      const end = close < 0 ? text.length : close + 3;
+      spans.push([i, end]);
+      i = end;
+    } else if (text[i] === "`") {
+      const close = text.indexOf("`", i + 1);
+      const nl = text.indexOf("\n", i + 1);
+      if (close >= 0 && (nl < 0 || close < nl)) {
+        spans.push([i, close + 1]);
+        i = close + 1;
+      } else i++;
+    } else i++;
+  }
+  return spans;
+}
+
+/** The span containing `at`, found by binary search (the spans are sorted and disjoint). */
+function spanAt(spans: [number, number][], at: number): [number, number] | undefined {
+  let lo = 0;
+  let hi = spans.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const span = spans[mid] as [number, number];
+    if (at < span[0]) hi = mid - 1;
+    else if (at >= span[1]) lo = mid + 1;
+    else return span;
+  }
+  return undefined;
+}
+
+/** The first match of `tag` at or after `from` that is not inside a code span, or undefined. */
+function tagOutsideCode(text: string, tag: RegExp, from: number, spans: [number, number][]): RegExpExecArray | undefined {
+  tag.lastIndex = from;
+  for (let m = tag.exec(text); m; m = tag.exec(text)) {
+    const span = spanAt(spans, m.index);
+    if (!span) return m;
+    tag.lastIndex = span[1];
+  }
+  return undefined;
+}
+
+/**
  * Strip reasoning traces some models emit before the answer. One forward scan: a regex retried from every unclosed
  * `<think>` rereads the rest of the text each time (quadratic on a degenerate answer). A `<think>` that never closes
- * is left in place, for answerText to cut.
+ * is left in place, for answerText to cut. Tags inside code are left alone.
  */
 export function stripThinking(text: string): string {
+  const spans = codeSpans(text);
   const open = /<think>/gi;
   const close = /<\/think>/gi;
-  let out = "";
   let at = 0;
+  let out = "";
   for (;;) {
-    open.lastIndex = at;
-    const o = open.exec(text);
+    const o = tagOutsideCode(text, open, at, spans);
     if (!o) break;
-    close.lastIndex = o.index + o[0].length;
-    const c = close.exec(text);
+    const c = tagOutsideCode(text, close, o.index + o[0].length, spans);
     if (!c) break;
     out += text.slice(at, o.index);
     at = c.index + c[0].length;
   }
-  const rest = out + text.slice(at);
-  // Some reasoning templates open the trace in the prompt, so the answer holds only its closing tag: drop everything up to it.
-  let after = 0;
-  for (const m of rest.matchAll(/<\/think>/gi)) after = m.index + m[0].length;
-  return rest.slice(after).trim();
+  // Some reasoning templates open the trace in the prompt, so the answer holds only its closing tag: drop everything
+  // up to the last one outside code.
+  let after = at;
+  for (let c = tagOutsideCode(text, close, at, spans); c; c = tagOutsideCode(text, close, c.index + c[0].length, spans)) after = c.index + c[0].length;
+  return (after > at ? text.slice(after) : out + text.slice(at)).trim();
 }
 
-/** The answer a reader would see: no reasoning trace, and nothing after a `<think>` that never closes (an answer cut inside its thinking has no answer in it). */
+/** The answer a reader would see: no reasoning trace, and nothing after a `<think>` (outside code) that never closes (an answer cut inside its thinking has no answer in it). */
 export function answerText(text: string): string {
-  return stripThinking(text).replace(/<think>[\s\S]*$/i, "").trim();
+  const stripped = stripThinking(text);
+  const open = tagOutsideCode(stripped, /<think>/gi, 0, codeSpans(stripped));
+  return (open ? stripped.slice(0, open.index) : stripped).trim();
 }
 
 /** Explanation text = everything outside code fences (a fence never closed, as in a cut answer, runs to the end), minus a leading label. */

@@ -347,6 +347,8 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
       continue;
     }
     const { inputs, dropped } = inputsFor(ctx, f, tested, "attack");
+    // Generating a family of large inputs is synchronous work: let the event loop run between families.
+    await breathe();
     const st: FamilyStats = { name: f.name, rationale: f.rationale, citations: f.citations, source: f.source, generated: inputs.length + dropped, dropped, tested: 0, mismatches: 0, oracleSkipped: 0 };
     ctx.families.push(st);
     if (dropped) ctx.tracer.emit("run", "warn", `${f.name}: dropped ${dropped} input(s) that violate the problem constraints`);
@@ -481,7 +483,9 @@ export async function fixStage(ctx: AttackContext, cx: Counterexample, plan: Fam
   const sequence = cx.orderDependent?.sequence ?? [];
   const unordered = cx.orderDependent !== undefined && sequence.length === 0;
   const inSequence = new Set(sequence.map((x) => JSON.stringify(x)));
-  const reattack = [...sequence, ...(await dedupe(others)).filter((x) => !inSequence.has(JSON.stringify(x)))];
+  const unique = await dedupe(others);
+  // Usually there is no sequence: then nothing is re-serialised (that pass alone took about half a second at the caps).
+  const reattack = inSequence.size === 0 ? unique : [...sequence, ...unique.filter((x) => !inSequence.has(JSON.stringify(x)))];
   const cxAt = Math.max(0, sequence.length - 1);
   let feedback: string | undefined;
   for (let a = 0; a < ctx.limits.maxFixAttempts; a++) {

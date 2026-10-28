@@ -42,6 +42,11 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect((await run({ ...avg, compare: "unordered" })).problem.compare).toBe("unordered");
   });
 
+  it("refuses a problem whose inputs hold more than the per-input value limit across all their parameters", async () => {
+    const big = { kind: "array", of: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 10 } }, len: { min: 0, max: 10_000 } };
+    await expect(run({ ...spec, params: Array.from({ length: 3 }, (_, i) => ({ name: `a${i}`, type: big })), examples: [{ args: [[], [], []], output: 3 }] })).rejects.toThrow(/across its arguments \(limit 200000\)/);
+  });
+
   it("finds a fraction anywhere in an output", () => {
     expect([1.5, [1, [2.25]], { a: { b: 0.1 } }].map(hasFraction)).toEqual([true, true, true]);
     expect([3, [1, 2], { a: 1 }, "1.5", null, Infinity, NaN].map(hasFraction)).toEqual([false, false, false, false, false, false, false]);

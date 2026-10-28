@@ -7,6 +7,23 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 16 (2026-10-28, `b4f5c68`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean.
+- **Judge** (1 medium, 2 low). A fresh clone gives 532/532, a full bench reproduces every count, and the official docs match. Fixed:
+  - medium: `pnpm preflight` and `pnpm bench --live` ran under tsx and never read the `.env.local` the README tells the owner to write, so every live check was skipped. They now load `.env.local`, then `.env`, with shell variables winning (`scripts/load-env.ts`, unit-tested; checked end to end, where a key in `.env.local` now reaches Token Factory);
+  - low: FEEDBACK named one Nano id; the docs also list `Nemotron-3-Nano-Omni`, which was removed in August. Both are now named;
+  - low: the suggested Devpost thumbnail was a 390 x 6,018 page. `pnpm screenshots` now also captures `devpost-thumbnail-1200x800.png` (3:2), and SUBMISSION says to crop the phone shots.
+- **Security** (1 high, 1 low). The round-15 fixes hold. Fixed:
+  - high: the 200,000-values-per-input cap was checked per argument, so six large arguments made 1.2-million-value inputs. With shrink batches of 16 that meant 5 s stalls and 1.5 GB of RSS. `checkInputValues` now caps the sum across arguments, for model families and pasted problems alike. `Judge.compare` also splits batches at 250,000 values (`byValues`), so no executor call serialises megabytes at once;
+  - low: `runStage` generated families back to back with no yield. It now yields between families.
+- **Core** (3 low). The round-15 changes hold (20,000 sortJson cases, no races from the yields, and the bench matches). Fixed:
+  - think tags inside code fences or inline code were treated as markup, which dropped or corrupted a fix that handles the literal tags. Tags inside code are now content;
+  - the re-attack filter re-serialised every input even with no sequence. It is now skipped in that case;
+  - Python 3.11+ refused to print integers of more than 4,300 digits, so such oracle answers went unjudged. The harness lifts the limit inside the sandbox process.
+- **UI and tests:** pending.
+- Checks: lint, typecheck, 539/539 tests, build, and e2e (10 steps).
+
 ## Round 15 (2026-10-27, `c90b859`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.

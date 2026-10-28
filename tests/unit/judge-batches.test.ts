@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import { byValues, Judge, JUDGE_BATCH_VALUES } from "@/lib/agent/judge";
+import { Budget, DEFAULT_BUDGETS } from "@/lib/agent/budget";
+import { Tracer } from "@/lib/agent/trace";
+import type { Executor, RunRequest } from "@/lib/exec/types";
+import { getProblem } from "@/lib/problems/catalog";
+
+describe("byValues", () => {
+  it("keeps order, never exceeds the limit with more than one input, and gives an oversized input a batch of its own", () => {
+    const xs = [[[1, 2, 3]], [[4]], [new Array(10).fill(0)], [[5, 6]], [[7]]];
+    const groups = byValues(xs, 6);
+    expect(groups.flat()).toEqual(xs);
+    expect(groups.map((g) => g.length)).toEqual([2, 1, 2]);
+    expect(byValues([], 6)).toEqual([]);
+  });
+});
+
+describe("Judge.compare in value-bounded batches", () => {
+  it("sends no executor call more than JUDGE_BATCH_VALUES values (unless one input is over it alone), and keeps every judgement in place", async () => {
+    const sent: number[] = [];
+    const executor: Executor = {
+      name: "fake",
+      label: "fake",
+      run: async (req: RunRequest) => {
+        sent.push(req.inputs.reduce((n, x) => n + ((x[0] as unknown[]).length + 2), 0));
+        return { outcomes: req.inputs.map((x) => ({ ok: true as const, out: (x[0] as unknown[]).length, ms: 1 })), processes: 1 };
+      },
+    } as unknown as Executor;
+    const problem = getProblem("binary-search")!;
+    const judge = new Judge(problem, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), new Tracer(0, () => 0));
+    const inputs = Array.from({ length: 16 }, (_, i) => [new Array(60_000 + i).fill(0), 1]);
+    const out = await judge.compare("shrink", { language: "python", code: "x", entry: "solve" }, inputs);
+    expect(out).toHaveLength(16);
+    expect(out.every((j) => j.status === "agree")).toBe(true);
+    // Solution and oracle both run every batch; each batch holds at most four of these 60,000-value inputs.
+    expect(sent.length).toBeGreaterThan(2);
+    expect(Math.max(...sent)).toBeLessThanOrEqual(JUDGE_BATCH_VALUES + 10);
+  });
+});

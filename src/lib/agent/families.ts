@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { mutateArgs } from "../core/mutate";
 import { hashString, mulberry32, pick } from "../core/rng";
-import { argsConform, arity, genArgs, inputsWithinBudget, parseTypeSpec, type TypeSpec } from "../core/spec";
+import { argsConform, arity, checkInputValues, genArgs, inputsWithinBudget, parseTypeSpec, type TypeSpec } from "../core/spec";
 import { errorMessage } from "../errors";
 import { parseJsonAnswer } from "./parse";
 import type { Family } from "./types";
@@ -46,6 +46,7 @@ export function parseFamilies(text: string, specs: TypeSpec[], perFamily: number
       const args = f.args.map((x, j) => parseTypeSpec(x, `families[${i}].args[${j}]`));
       const got = args.reduce((n, s) => n + arity(s), 0);
       if (got !== want) throw new Error(`expected ${want} argument(s), got ${got}`);
+      checkInputValues(args, `families[${i}].args`);
       seen.add(f.name);
       families.push({ name: f.name, rationale: f.rationale, citations: f.citations, args, count: Math.min(perFamily, f.count ?? perFamily), source: "model" });
     } catch (e) {

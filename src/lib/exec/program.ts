@@ -38,6 +38,9 @@ def __cx_main():
     __cx_sys.setrecursionlimit(100000)
     __out = __cx_sys.stdout
     __cx_sys.stdout = __cx_sys.stderr
+    # Python 3.11+ refuses to print integers of more than 4,300 digits; an exact big answer must still be judged.
+    if hasattr(__cx_sys, "set_int_max_str_digits"):
+        __cx_sys.set_int_max_str_digits(0)
     __data = __cx_json.loads(__cx_sys.stdin.read())
     __f = getattr(__cx_mod, "${entry}")
     __out.write("\\x1eCR\\n")

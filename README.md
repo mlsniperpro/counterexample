@@ -149,7 +149,7 @@ pnpm dev                  # http://localhost:3000, replay mode without keys
 pnpm bench                # fixture-mode benchmark (Python 3 and Node 22+ needed for the local executor)
 ```
 
-Live mode: copy `.env.example` to `.env.local` and set `NEBIUS_API_KEY` (plus `TAVILY_API_KEY` for research). Confirm the model ids against Token Factory's model list first.
+Live mode: copy `.env.example` to `.env.local` and set `NEBIUS_API_KEY` (plus `TAVILY_API_KEY` for research). The app, `pnpm preflight` and `pnpm bench` all read `.env.local` (then `.env`); a variable set in the shell wins. Confirm the model ids against Token Factory's model list first.
 
 Sandbox: set `JUDGE0_URL` (and `JUDGE0_TOKEN`, or `JUDGE0_RAPIDAPI_HOST` for RapidAPI) to run code on any Judge0-compatible API. The repo ships its own: **the Counterexample sandbox** (`sandbox/`, one small container) is built to run as a Nebius AI Cloud endpoint (deploy pending, `BLOCKED.md`; the deploy commands have not been run against the live CLI), so the models would run on Token Factory and the attacked code on Nebius AI Cloud. See [docs/NEBIUS-SANDBOX.md](docs/NEBIUS-SANDBOX.md). Run it locally with `pnpm sandbox` (or Docker) and set `JUDGE0_URL=http://localhost:2358`. Without a sandbox, the **local executor** runs Python/JS as subprocesses with time and memory limits. **It is for development only: it is not a security sandbox**, and production refuses it unless `ALLOW_LOCAL_EXECUTOR=1`.
 

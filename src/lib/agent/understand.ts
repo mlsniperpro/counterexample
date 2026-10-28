@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseTypeSpec } from "../core/spec";
+import { checkInputValues, parseTypeSpec } from "../core/spec";
 import { ModelOutputError } from "../errors";
 import type { Problem, Solution } from "../problems/types";
 import { exactReviver } from "../core/compare";
@@ -81,6 +81,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   const a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
   const { entry, note } = resolveEntry(solution.code, solution.language, a.entry);
   const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(p.type, `params[${i}].type`) }));
+  checkInputValues(params.map((p) => p.type), "params");
   if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
   // Expected outputs keep integers beyond 2^53 exact, like the harness's outputs they are compared with
   // (arguments stay plain numbers: inputs are bounded to safe integers anyway).

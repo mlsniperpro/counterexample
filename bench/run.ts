@@ -13,6 +13,7 @@
  *   pnpm bench --live --record # also save live responses as replay fixtures
  *   pnpm bench --only isqrt    # one problem, nothing written
  */
+import "../scripts/load-env";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { attack } from "../src/lib/agent/run";

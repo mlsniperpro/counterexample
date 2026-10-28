@@ -333,7 +333,7 @@ function depth(spec: TypeSpec): number {
 }
 
 /** Scalar values in a JSON value, counted like generated ones: a string as its length (at least one), a container as its contents (at least one). */
-function jsonValues(value: unknown): number {
+export function jsonValues(value: unknown): number {
   let total = 0;
   const stack: unknown[] = [value];
   while (stack.length > 0) {
@@ -371,6 +371,15 @@ export function maxValues(spec: TypeSpec): number {
     case "graph":
       return 1 + 3 * spec.m.max;
   }
+}
+
+/**
+ * Refuse argument specs whose inputs could hold more than SPEC_LIMITS.maxValuesPerInput values in all: the limit is
+ * per input (all its arguments together), not per argument, or six large arguments would make inputs six times over it.
+ */
+export function checkInputValues(args: TypeSpec[], path: string): void {
+  const total = args.reduce((a, s) => a + maxValues(s), 0);
+  if (total > SPEC_LIMITS.maxValuesPerInput) throw new ModelOutputError(`${path}: one input could hold ${total} values across its arguments (limit ${SPEC_LIMITS.maxValuesPerInput})`);
 }
 
 /**

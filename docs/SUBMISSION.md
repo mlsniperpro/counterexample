@@ -28,8 +28,8 @@ A coding agent that breaks your code before your interviewer does: Nemotron writ
 
 ## Thumbnail and image gallery (Owner: upload)
 
-- Thumbnail: `docs/screenshots/390-2-report.png` (the report with the minimal counterexample).
-- Gallery, in order: `docs/architecture.svg` (export to PNG), `docs/screenshots/390-1-form.png`, `docs/screenshots/390-2-report.png`, `docs/screenshots/390-3-shared-link.png`.
+- Thumbnail: `docs/screenshots/devpost-thumbnail-1200x800.png` (3:2, 1200 x 800: the verdict, the minimal counterexample, the fix diff and the live trace). Devpost crops thumbnails to 3:2, so do not use the tall phone screenshots for it.
+- Gallery, in order: `docs/screenshots/devpost-thumbnail-1200x800.png`, `docs/architecture.svg` (export to PNG), then the phone screenshots `docs/screenshots/390-1-form.png`, `390-2-report.png` and `390-3-shared-link.png`. Each phone screenshot is a full page (about 390 x 6,000), so crop it to the part worth seeing (the form; the counterexample card; the shared banner) before uploading.
 
 ## Video demo link (Owner)
 

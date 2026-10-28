@@ -124,6 +124,15 @@ describe("LocalExecutor (dev only)", () => {
     expect(r2.outcomes[0]).toMatchObject({ ok: false, error: "compile" });
   });
 
+  it("returns a Python integer of thousands of digits exactly (3.11+ caps int-to-str at 4,300 by default)", async () => {
+    const r = await local.run({ ...base, language: "python", code: "import math\ndef solve(n):\n    return math.factorial(n)\n", inputs: [[3000]] });
+    const [o] = r.outcomes;
+    expect(o?.ok).toBe(true);
+    let f = 1n;
+    for (let i = 2n; i <= 3000n; i++) f *= i;
+    if (o?.ok) expect(showValue(o.out)).toBe(f.toString());
+  });
+
   it("reports a Python async function as a runtime error that says why", async () => {
     const r = await local.run({ ...base, language: "python", code: "async def solve(a):\n    return a + 1\n", inputs: [[1]] });
     expect(r.outcomes[0]).toMatchObject({ ok: false, error: "runtime", message: expect.stringMatching(/returned a coroutine: make it synchronous/) });

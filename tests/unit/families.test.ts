@@ -34,6 +34,18 @@ describe("parseFamilies", () => {
     expect(r.rejected[2]!.reason).toMatch(/duplicate/);
   });
 
+  it("refuses a family whose inputs hold more than the per-input value limit across all their arguments", () => {
+    // n rows of 10 digits: n * 10 values.
+    const big = (values: number): TypeSpec => ({ kind: "array", of: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 10, max: 10 } }, len: { min: values / 10, max: values / 10 } });
+    const six = Array.from({ length: 6 }, () => big(100_000));
+    // Each argument alone is within the limit; six of them make 600,000 values per input.
+    const r = parseFamilies(text([fam(six)]), six, 300);
+    expect(r.families).toEqual([]);
+    expect(r.rejected[0]?.reason).toMatch(/one input could hold 600000 values across its arguments \(limit 200000\)/);
+    const two = [big(100_000), big(100_000)];
+    expect(parseFamilies(text([fam(two)]), two, 300).families).toHaveLength(1);
+  });
+
   it("throws ModelOutputError only when the answer itself is malformed", () => {
     expect(() => parseFamilies("no json here", specs, 10)).toThrow(ModelOutputError);
     expect(() => parseFamilies('{"families":"lots"}', specs, 10)).toThrow(/families/);

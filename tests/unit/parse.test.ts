@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { extractCode, extractExplanation, extractJson, parseJsonAnswer, stripThinking } from "@/lib/agent/parse";
+import { answerText, extractCode, extractExplanation, extractJson, parseJsonAnswer, stripThinking } from "@/lib/agent/parse";
 import { ModelOutputError } from "@/lib/errors";
 import { cpuClock } from "../helpers";
 
@@ -63,6 +63,11 @@ describe("model output parsing", () => {
     expect(cpu()).toBeLessThan(300);
     // A template that opens the trace in the prompt leaves only its closing tag: the answer is what follows the last one.
     expect(stripThinking("draft ```py\nwrong\n``` </think>FIX:\n```py\nright\n```")).toBe("FIX:\n```py\nright\n```");
+    // Think tags inside code are content: a fix that handles the literal tags keeps them, in fences and inline.
+    const fix = "EXPLANATION: strip `</think>` first.\n```python\ndef solve(s):\n    return s.replace('<think>', '').replace('</think>', '')\n```";
+    expect(stripThinking(fix)).toBe(fix);
+    expect(stripThinking("<think>plan</think>" + fix)).toBe(fix);
+    expect(answerText("```py\nx = '<think>'\n```\nDone.")).toBe("```py\nx = '<think>'\n```\nDone.");
     // Same results as before on ordinary text.
     expect(stripThinking("a<THINK>x</think>b<think>y</THINK>c<think>open")).toBe("abc<think>open");
     expect(extractExplanation("  Explanation: two.\n\nFIX:\n```py\nx\n```")).toBe("two.");
