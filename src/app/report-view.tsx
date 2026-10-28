@@ -20,6 +20,8 @@ type Props = {
 
 export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }: Props) {
   const [copied, setCopied] = useState("");
+  // A shared report can sit above the reader's own: its regions need names of their own (one name, one landmark).
+  const name = (label: string) => (onShare ? label : `Shared report: ${label.charAt(0).toLowerCase()}${label.slice(1)}`);
   const copy = async () => setCopied(await copyNote(onCopy));
   return (
     <section className="card result">
@@ -81,7 +83,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
               {fixSummary(r.fix)}
             </span>
           </div>
-          <FixView before={r.solution.code} after={r.fix.code} />
+          <FixView before={r.solution.code} after={r.fix.code} name={name} />
         </>
       )}
 
@@ -103,7 +105,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       )}
 
       <div className="label">Attack families</div>
-      <div className="scroll" tabIndex={0} role="region" aria-label="Attack families table">
+      <div className="scroll" tabIndex={0} role="region" aria-label={name("Attack families table")}>
         <table>
           <thead>
             <tr>
@@ -129,7 +131,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
       </div>
 
       <div className="label">Why Ultra here, Super there</div>
-      <div className="scroll" tabIndex={0} role="region" aria-label="Model routing per step table">
+      <div className="scroll" tabIndex={0} role="region" aria-label={name("Model routing per step table")}>
         <table>
           <thead>
             <tr>
@@ -193,7 +195,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareLink }:
 }
 
 /** The proposed fix as a diff against the submitted code (default), or in full. */
-function FixView({ before, after }: { before: string; after: string }) {
+function FixView({ before, after, name }: { before: string; after: string; name: (label: string) => string }) {
   const [full, setFull] = useState(false);
   // Quadratic in the number of lines: compute once per (before, after), not on every render.
   const diff = useMemo(() => lineDiff(before, after), [before, after]);
@@ -213,7 +215,7 @@ function FixView({ before, after }: { before: string; after: string }) {
     return (
       <>
         {toggle}
-        <pre className="code-out" tabIndex={0} role="region" aria-label="Proposed fix">
+        <pre className="code-out" tabIndex={0} role="region" aria-label={name("Proposed fix")}>
           {after}
         </pre>
       </>
@@ -222,7 +224,7 @@ function FixView({ before, after }: { before: string; after: string }) {
   return (
     <>
       {toggle}
-      <pre className="code-out diff" tabIndex={0} role="region" aria-label="Diff of the proposed fix against your code">
+      <pre className="code-out diff" tabIndex={0} role="region" aria-label={name("Diff of the proposed fix against your code")}>
         {diff.map((l, i) => (
           <div key={i} className={`dl ${l.op}`}>
             <span className="sign" aria-hidden="true">

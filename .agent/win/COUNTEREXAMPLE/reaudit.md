@@ -28,7 +28,17 @@ Not clean.
   - low: the form screenshot shows the old hero copy: regenerated with `pnpm screenshots` in this push;
   - low: WIN-CHECKLIST's "3 to 4 of 8" is "2 to 4 of 8", as in the README;
   - low: a keyless `pnpm start` answered every attack with a bare "Server unavailable."; the missing-sandbox error is now a ConfigError, so the API names the remedy (JUDGE0_URL, or ALLOW_LOCAL_EXECUTOR=1).
-- **UI and tests:** see below once in.
+- **UI and tests** (3 medium, 6 low); 44 axe states clean, keyboard and touch clean, the new double-click fix holds:
+  - medium: no automated accessibility check, and six a11y mutants (labels, `lang`, `aria-pressed`, the trace scroller, contrast) survived. `axe-core` is now a dev dependency and the e2e runs it on the form, a report and a shared report at 390 and 1280 px, light and dark, plus explicit checks for `aria-pressed` and the trace scroller. It found a real violation straight away: a shared report opened above the reader's own gave two regions the same name (`landmark-unique`). The shared report's regions are now named "Shared report: …";
+  - medium: the hashchange `view` bump had no test. An e2e check pastes a link while a share waits on a slow clipboard and expects the pasted link to stay in the address bar. The compress-branch checks (U04, U05) need a slowed CompressionStream and stay untested: accepted;
+  - medium: the in-place array element mutation and the reverse arm had no test (L36, L37 survived). `mutate.test.ts` now requires both; each mutant fails it;
+  - low: boundary survivors. Tests now pin the spend cap filled exactly (L28), the cost format at one cent (U20) and a judge batch exactly at the limit (L22). The rest (link, decode and hash caps, diff cap, a lone `\r`, semaphore floor, run and wall-clock budgets off by one, the exhaustive-integer limit, the depth early exit, ddmin chunk size, string measure and the shrink termination guard) shift a limit by one unit without changing a result: accepted;
+  - low: a double-tapped Enter on Attack cancelled the run it started (focus moves to Cancel). Cancel now ignores a keyboard activation within 600 ms of the start (`echoesStart`; unit test plus e2e);
+  - low: `isSingleClick` dropped a deliberate rapid click. Attack now ignores the second click of a double-click only within 600 ms of a cancel (`echoesCancel`);
+  - low: a share link pasted into a tab showing a report opened 7,800 px above the reader. The shared report is now scrolled into view (e2e check);
+  - low: "hundreds more on the fix": fixed in `52d5555`;
+  - low: e2e waits of 5 s are now 15 s, so a loaded machine does not fail them.
+- Checks: lint, typecheck, unit and integration tests, build, and e2e (11 steps, with axe).
 
 ## Round 18 (2026-10-28, `2f70b6f`, core and judge Sonnet audits; findings verified by the main session)
 

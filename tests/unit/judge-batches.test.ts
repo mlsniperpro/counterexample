@@ -14,6 +14,9 @@ describe("byValues", () => {
     expect(groups.flat()).toEqual(xs);
     expect(groups.map((g) => g.length)).toEqual([2, 1, 2]);
     expect(byValues([], 6)).toEqual([]);
+    // A batch that reaches the limit exactly stays one batch.
+    expect(byValues([[[1, 2, 3]], [[4, 5, 6]]], 6)).toHaveLength(1);
+    expect(byValues([[[1, 2, 3]], [[4, 5, 6, 7]]], 6)).toHaveLength(2);
   });
 });
 

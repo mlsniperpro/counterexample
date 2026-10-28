@@ -45,6 +45,11 @@ describe("type-aware mutation", () => {
     const arrays = Array.from({ length: 200 }, () => mutateValue([1, 2, 3], rng) as number[]);
     expect(arrays.some((a) => new Set(a).size < a.length)).toBe(true);
     expect(arrays.some((a) => a.length < 3)).toBe(true);
+    // Every arm is reached: an element changed in place (same length, one value off by one or negated), and the reverse.
+    const seed = [5, 3, 9];
+    const same = Array.from({ length: 2000 }, () => mutateValue(seed, rng) as number[]).filter((a) => a.length === 3);
+    expect(same.some((a) => a.filter((x, i) => x !== seed[i]).length === 1 && a.some((x, i) => x === seed[i]! + 1 || x === seed[i]! - 1 || x === -seed[i]!))).toBe(true);
+    expect(same.some((a) => a.join() === "9,3,5")).toBe(true);
   });
 
   it("leaves non-integer scalars alone", () => {

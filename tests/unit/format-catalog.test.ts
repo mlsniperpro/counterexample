@@ -11,6 +11,10 @@ describe("UI formatting", () => {
     expect(ms(1500)).toBe("1.5 s");
     expect(usd(0.001234)).toBe("$0.00123");
     expect(usd(1.5)).toBe("$1.500");
+    // Five decimals below one cent, three from one cent up.
+    expect(usd(0.005)).toBe("$0.00500");
+    expect(usd(0.0099)).toBe("$0.00990");
+    expect(usd(0.01)).toBe("$0.010");
     expect(usd(null)).toBe("unpriced");
     expect(Object.keys(VERDICT)).toHaveLength(6);
   });

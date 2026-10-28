@@ -12,7 +12,7 @@ import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
-import { ignoreHeldEnter, isSingleClick } from "./keys";
+import { echoesCancel, echoesStart, ignoreHeldEnter } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
 
@@ -42,6 +42,9 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [shareLink, setShareLink] = useState("");
   /** Bumped whenever the page shows something else (a run starts, a problem is picked, a shared link opens): async share work checks it before writing. */
   const view = useRef(0);
+  /** Set when a link is pasted into this tab, so the shared report it opens is scrolled into view. */
+  const revealShared = useRef(false);
+  const sharedBox = useRef<HTMLDivElement | null>(null);
   // A shared report link (#r=...) is decoded here in the browser; the fragment never reaches the server.
   // Also on hashchange: pasting a link into a tab that already shows the app only changes the hash.
   useEffect(() => {
@@ -56,9 +59,19 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         .catch((e: Error) => dispatchShare({ type: "failed", message: e.message, key: hash }));
     };
     open();
-    window.addEventListener("hashchange", open);
-    return () => window.removeEventListener("hashchange", open);
+    // A link pasted into a tab that already shows a report opens far above where the reader is: bring it into view.
+    const pasted = () => {
+      revealShared.current = true;
+      open();
+    };
+    window.addEventListener("hashchange", pasted);
+    return () => window.removeEventListener("hashchange", pasted);
   }, []);
+  useEffect(() => {
+    if (!revealShared.current || (!shared && !shareError)) return;
+    revealShared.current = false;
+    sharedBox.current?.scrollIntoView({ block: "start" });
+  }, [shared, shareError]);
   const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
   const goButton = useRef<HTMLButtonElement | null>(null);
   const cancelButton = useRef<HTMLButtonElement | null>(null);
@@ -95,6 +108,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     abort.current = null;
     ac?.abort(reason);
   }
+
+  /** When the last run started and the last cancel happened (event timestamps), to tell a repeated activation from a new one. */
+  const startedAt = useRef(-Infinity);
+  const cancelledAt = useRef(-Infinity);
 
   function cancel() {
     dispatch({ type: "cancel" });
@@ -215,7 +232,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       )}
 
       {/* The note's live region stays mounted and only its text changes: a region inserted together with its text is often not announced. */}
-      <div className={shared ? "shared" : undefined}>
+      <div className={shared ? "shared" : undefined} ref={sharedBox}>
         <div className={shared ? "row between" : undefined}>
           <p className="small muted live" role="status">
             {shared && (
@@ -284,12 +301,20 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
-          <button className="go" ref={goButton} onClick={(e) => isSingleClick(e) && void run()} disabled={running} onKeyDown={ignoreHeldEnter}>
+          <button className="go" ref={goButton} onClick={(e) => {
+              if (echoesCancel(e, e.timeStamp - cancelledAt.current)) return;
+              startedAt.current = e.timeStamp;
+              void run();
+            }} disabled={running} onKeyDown={ignoreHeldEnter}>
             {running ? "Attacking…" : "Attack this solution"}
           </button>
           {/* A held Enter repeats: on Cancel it would cancel the run it started, on Attack start one run after another. Other repeated keys (Tab) pass. */}
           {running && (
-            <button className="ghost cancel" ref={cancelButton} onClick={cancel} onKeyDown={ignoreHeldEnter}>
+            <button className="ghost cancel" ref={cancelButton} onClick={(e) => {
+                if (echoesStart(e, e.timeStamp - startedAt.current)) return;
+                cancelledAt.current = e.timeStamp;
+                cancel();
+              }} onKeyDown={ignoreHeldEnter}>
               Cancel
             </button>
           )}

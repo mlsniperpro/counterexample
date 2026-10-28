@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 10:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 19 is fully fixed and pushed: the UI/tests findings are in this push (axe in the e2e, which caught a duplicate-landmark violation, now fixed; double-tapped Enter; pasted share link scrolled into view; mutate and boundary tests). Checks: lint, typecheck, 551/551 tests, build, e2e (11 steps).
+- Next: retake the screenshots (copy changed), then round 20 with 4 auditors on this HEAD.
+
 STATE 2026-10-28 10:05 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 19 core, security and judge findings are fixed in this push (the root fix: `fanOut` caps nested oneOf alternatives at 16). Checks: lint, typecheck, 549/549 tests, build, e2e. The usage limit paused the audits 05:50 to 09:38.
 - The round-19 UI/tests audit is still running on `58dbebe`; fix it, then retake screenshots (`pnpm dev --port 3125` + `BASE_URL=http://localhost:3125 pnpm screenshots`), then run round 20.

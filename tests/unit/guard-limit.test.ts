@@ -57,6 +57,12 @@ describe("Guard", () => {
     expect(once(g, "a", DAY + 86_400_000, true)).toBe(true);
   });
 
+  it("admits a reservation that exactly fills the daily spend cap, and not one cent more", () => {
+    const g = new Guard(cfg({ RATE_LIMIT_PER_HOUR: 100, DAILY_SPEND_CAP_USD: 1 }));
+    expect(g.admit("a", DAY, true, 1.01)).toMatchObject({ ok: false, status: 503 });
+    expect(g.admit("a", DAY + 1, true, 1)).toMatchObject({ ok: true });
+  });
+
   it("caps daily model spend for live attacks only", () => {
     const g = new Guard(cfg({ DAILY_SPEND_CAP_USD: 0.5 }));
     expect(once(g, "a", DAY, true, { costUsd: 0.6, unpricedCalls: 0 })).toBe(true);

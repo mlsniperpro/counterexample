@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ignoreHeldEnter, isSingleClick } from "@/app/keys";
+import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter } from "@/app/keys";
 
 describe("ignoreHeldEnter", () => {
   const press = (key: string, repeat: boolean) => {
@@ -17,11 +17,20 @@ describe("ignoreHeldEnter", () => {
   });
 });
 
-describe("isSingleClick", () => {
-  it("passes a single click and a keyboard activation, not the second click of a double-click", () => {
-    expect(isSingleClick({ detail: 1 })).toBe(true);
-    expect(isSingleClick({ detail: 0 })).toBe(true);
-    expect(isSingleClick({ detail: 2 })).toBe(false);
-    expect(isSingleClick({ detail: 3 })).toBe(false);
+describe("echoesCancel / echoesStart (a repeated activation, not a new one)", () => {
+  it("drops the second click of a double-click on Cancel, and only right after a cancel", () => {
+    expect(echoesCancel({ detail: 2 }, 100)).toBe(true);
+    expect(echoesCancel({ detail: 3 }, ECHO_MS - 1)).toBe(true);
+    // A single click, a keyboard activation, or rapid clicks long after any cancel all start a run.
+    expect(echoesCancel({ detail: 1 }, 100)).toBe(false);
+    expect(echoesCancel({ detail: 0 }, 100)).toBe(false);
+    expect(echoesCancel({ detail: 2 }, ECHO_MS)).toBe(false);
+    expect(echoesCancel({ detail: 2 }, Infinity)).toBe(false);
+  });
+
+  it("drops a quick second Enter that lands on Cancel as the run starts, never a click", () => {
+    expect(echoesStart({ detail: 0 }, 60)).toBe(true);
+    expect(echoesStart({ detail: 0 }, ECHO_MS)).toBe(false);
+    expect(echoesStart({ detail: 1 }, 60)).toBe(false);
   });
 });

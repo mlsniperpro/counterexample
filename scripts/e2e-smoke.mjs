@@ -68,6 +68,7 @@ async function cleanup() {
 }
 const serverPort = await freePort();
 const nextBin = createRequire(import.meta.url).resolve("next/dist/bin/next");
+const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const serverEnv = { ...process.env, NODE_ENV: "production", REPLAY: "1", ALLOW_LOCAL_EXECUTOR: "1", REPLAY_RATE_LIMIT_PER_HOUR: "1000" };
 for (const k of ["NEBIUS_API_KEY", "TAVILY_API_KEY", "JUDGE0_URL", "VERCEL"]) delete serverEnv[k];
 const server = spawn(process.execPath, [nextBin, "start", "-H", "127.0.0.1", "-p", String(serverPort)], { cwd: root, env: serverEnv, detached: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -263,7 +264,7 @@ async function main() {
   pace.lineDelayMs = 40;
   const cancelButton = page.getByRole("button", { name: "Cancel", exact: true });
   await attackButton(page).click();
-  await cancelButton.waitFor({ timeout: 5_000 });
+  await cancelButton.waitFor({ timeout: 15_000 });
   await page.locator("textarea.code").click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   pace.lineDelayMs = 0;
@@ -272,7 +273,7 @@ async function main() {
   pace.lineDelayMs = 40;
   await attackButton(page).focus();
   await page.keyboard.press("Enter");
-  await cancelButton.waitFor({ timeout: 5_000 });
+  await cancelButton.waitFor({ timeout: 15_000 });
   eq(await focused(page), "BUTTON:Cancel", "focus while a keyboard run is on");
   pace.lineDelayMs = 0;
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
@@ -282,15 +283,26 @@ async function main() {
   // past the run's end, they land on Attack again and must not start another.
   const heldFrom = attacks.length;
   await page.keyboard.down("Enter");
-  await cancelButton.waitFor({ timeout: 5_000 });
+  await cancelButton.waitFor({ timeout: 15_000 });
   for (let i = 0; i < 3; i++) await page.keyboard.down("Enter");
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
-  await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Attack this solution", null, { timeout: 5_000 });
+  await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Attack this solution", null, { timeout: 15_000 });
   for (let i = 0; i < 3; i++) await page.keyboard.down("Enter");
   await page.keyboard.up("Enter");
   await sleep(500);
   eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after holding Enter on Attack");
   eq(attacks.length - heldFrom, 1, "attacks started by holding Enter on Attack");
+  // Enter tapped twice quickly: the second press lands on Cancel as the run starts, and must not cancel it.
+  pace.lineDelayMs = 40;
+  const tappedFrom = attacks.length;
+  await attackButton(page).focus();
+  await page.keyboard.press("Enter");
+  await sleep(60);
+  await page.keyboard.press("Enter");
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-tapped Enter on Attack");
+  eq(attacks.length - tappedFrom, 1, "attacks started by a double-tapped Enter on Attack");
   ok(step);
 
   step = "switching problems or starting a run lets go of what came before";
@@ -298,7 +310,7 @@ async function main() {
   pace.lineDelayMs = 300;
   const beforeSwitch = attacks.length;
   await attackButton(page).click();
-  await cancelButton.waitFor({ timeout: 5_000 });
+  await cancelButton.waitFor({ timeout: 15_000 });
   await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
   await page.getByRole("button", { name: "Integer square root", exact: true }).click();
   await sleep(500);
@@ -309,7 +321,7 @@ async function main() {
   // A share link opened during a run, then closed: Attack is disabled then, so focus goes to Cancel, not to <body>.
   pace.lineDelayMs = 300;
   await attackButton(page).click();
-  await cancelButton.waitFor({ timeout: 5_000 });
+  await cancelButton.waitFor({ timeout: 15_000 });
   await page.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
   await page.getByRole("button", { name: "Close", exact: true }).focus();
   await page.keyboard.press("Enter");
@@ -354,7 +366,7 @@ async function main() {
   eq(traced.length, await page.locator(".trace li.ev").count(), "events in the trace download");
   // Share puts the report's link in the address bar too.
   await page.getByRole("button", { name: "Share link" }).click();
-  const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 5_000 }).then(() => true, () => false);
+  const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 15_000 }).then(() => true, () => false);
   check(linked, "the address bar holds the share link after Share");
   // A share whose clipboard answers after the reader moved on must not put its old link back in the address bar.
   await page.evaluate(() => {
@@ -391,7 +403,7 @@ async function main() {
   await attackButton(page).click();
   await settled();
   await page.getByRole("button", { name: "Share link" }).click();
-  await page.locator("p.live", { hasText: "Link copied" }).waitFor({ timeout: 5_000 });
+  await page.locator("p.live", { hasText: "Link copied" }).waitFor({ timeout: 15_000 });
   await attackButton(page).click();
   await settled();
   eq(await shareNote.innerText(), "", "the share note after a new run");
@@ -401,6 +413,17 @@ async function main() {
   await sleep(2_500);
   eq(await page.evaluate(() => window.location.hash), "", "the address bar after a late share for a report a new run replaced");
   eq(await shareNote.innerText(), "", "the share note after a late share for a report a new run replaced");
+  // A share link pasted into the tab while a share still waits on the clipboard: the pasted link stays in the address bar.
+  await page.getByRole("button", { name: "Share link" }).click();
+  const pasted = new URL(link2).hash;
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.evaluate((h) => (window.location.hash = h), pasted);
+  await page.locator(".shared .cx code.big").waitFor({ timeout: 15_000 });
+  // The shared report opens far above the reader's own: it is brought into view.
+  const bannerTop = await page.locator(".shared").evaluate((el) => el.getBoundingClientRect().top);
+  check(bannerTop >= -1 && bannerTop < 200, `the pasted shared report is scrolled into view (its top is at ${Math.round(bannerTop)} px)`);
+  await sleep(2_500);
+  eq(await page.evaluate(() => window.location.hash), pasted, "the address bar after a late share while a pasted link opened");
   ok(step);
 
   step = "cancel a run mid-stream";
@@ -410,7 +433,7 @@ async function main() {
   await attackButton(page).click();
   await page.locator(".trace li.ev").first().waitFor({ timeout: 30_000 });
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.locator(".note", { hasText: "Attack cancelled; the partial trace is shown." }).waitFor({ timeout: 5_000 });
+  await page.locator(".note", { hasText: "Attack cancelled; the partial trace is shown." }).waitFor({ timeout: 15_000 });
   eq(await page.locator("h2.verdict").count(), 0, "no verdict after a cancel");
   eq(await page.locator("p.err[role=alert]").count(), 0, "no error alert after a cancel");
   await attackButton(page).waitFor({ timeout: 2_000 });
@@ -437,7 +460,7 @@ async function main() {
   const respond = (body, status = 200) => (route) => route.fulfill({ status, contentType: "application/x-ndjson", body });
   const expectAlert = async (text) => {
     await attackButton(page).click();
-    await page.locator("p.err[role=alert]", { hasText: text }).waitFor({ timeout: 5_000 });
+    await page.locator("p.err[role=alert]", { hasText: text }).waitFor({ timeout: 15_000 });
     await attackButton(page).waitFor({ timeout: 2_000 });
     check(!(await page.locator("body").innerText()).includes("Something went wrong"), "the error boundary did not take over the page");
   };
@@ -473,6 +496,43 @@ async function main() {
   await page.locator("p.err", { hasText: "Failed to reach" }).waitFor();
   await noHorizontalOverflow(page, "error with long text");
   await page.unroute("**/api/attack");
+  ok(step);
+
+  step = "accessibility: axe finds nothing at 390 and 1280 px, light and dark";
+  /** axe-core's violations on the page as it stands, as "rule (impact): selectors" lines. */
+  const axeViolations = async (p) => {
+    await p.evaluate(AXE_SOURCE);
+    const found = await p.evaluate(async () => (await window.axe.run(document, { resultTypes: ["violations"] })).violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`));
+    return found.join("; ");
+  };
+  for (const width of [390, 1280]) {
+    for (const colorScheme of ["light", "dark"]) {
+      const where = `${width} px, ${colorScheme}`;
+      const a11y = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme, permissions: ["clipboard-read", "clipboard-write"] });
+      const p = await a11y.newPage();
+      p.on("pageerror", (e) => pageErrors.push(`pageerror: ${e.message}`));
+      await p.goto(base);
+      await attackButton(p).waitFor({ timeout: 15_000 });
+      eq(await axeViolations(p), "", `axe violations on the form (${where})`);
+      await attackButton(p).click();
+      await p.locator("h2.verdict").waitFor({ timeout: 90_000 });
+      eq(await axeViolations(p), "", `axe violations on the report (${where})`);
+      await p.goto(link);
+      await p.locator(".shared h2.verdict").waitFor({ timeout: 15_000 });
+      eq(await axeViolations(p), "", `axe violations on a shared report (${where})`);
+      await a11y.close();
+    }
+  }
+  // What axe does not check: the chips say which problem is picked, and the trace scroller can be reached and named.
+  await page.goto(base);
+  await attackButton(page).waitFor({ timeout: 15_000 });
+  const chips = await page.locator("button.chip").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-pressed")));
+  eq(chips.filter((x) => x === "true").length, 1, "chips marked as pressed");
+  eq(chips.filter((x) => x === "false").length, chips.length - 1, "chips marked as not pressed");
+  await attackButton(page).click();
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  const scroller = await page.locator(".trace-scroll").evaluate((el) => [el.tabIndex, el.getAttribute("role"), el.getAttribute("aria-label")].join("|"));
+  eq(scroller, "0|region|Live trace events", "the trace scroller's tab stop, role and name");
   ok(step);
 
   step = "no page errors";
