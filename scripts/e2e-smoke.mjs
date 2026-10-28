@@ -307,6 +307,14 @@ async function main() {
   eq(await focused(page), "BUTTON:Cancel", "focus after closing a shared report during a run");
   await cancelButton.click();
   pace.lineDelayMs = 0;
+  // Picking a problem while a shared report is open closes the report along with its link.
+  const reader = await ctx.newPage();
+  await reader.goto(link2);
+  await reader.locator(".shared", { hasText: "Shared report for" }).waitFor({ timeout: 15_000 });
+  await reader.getByRole("button", { name: "Binary search", exact: true }).click();
+  eq(await reader.locator(".shared").count(), 0, "shared reports open after picking a problem");
+  eq(await reader.evaluate(() => window.location.hash), "", "the share fragment after picking a problem");
+  await reader.close();
   // A run started on a page opened from a share link drops the link from the address bar.
   await shared.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
   await shared.locator(".shared .cx code.big").waitFor({ timeout: 15_000 });
@@ -339,6 +347,15 @@ async function main() {
   await page.getByRole("button", { name: "Share link" }).click();
   const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 5_000 }).then(() => true, () => false);
   check(linked, "the address bar holds the share link after Share");
+  // A share whose clipboard answers after the reader moved on must not put its old link back in the address bar.
+  await page.evaluate(() => {
+    const write = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = (t) => new Promise((resolve) => setTimeout(() => resolve(write(t)), 1_500));
+  });
+  await page.getByRole("button", { name: "Share link" }).click();
+  await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  await sleep(2_500);
+  eq(await page.evaluate(() => window.location.hash), "", "the address bar after a late share for a report no longer shown");
   // Every control the reader can change reaches the request.
   const otherLanguage = demoLanguage === "python" ? "javascript" : "python";
   // One option at a time, so that two options wired to each other's fields cannot pass.

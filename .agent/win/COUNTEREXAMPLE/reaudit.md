@@ -29,8 +29,16 @@ Not clean.
   - low: the oracle prompt's signature spells a graph parameter as `<name>_n, <name>_edges`;
   - low: Python `async def` now gets the same clear runtime error as JavaScript;
   - low: an answer holding only a closing `</think>` (the trace opened in the prompt) is cut after its last closing tag.
-- **UI and tests:** pending.
-- Checks: lint, typecheck, 528/528 tests, build, and e2e (10 steps).
+- **UI and tests** (3 low; 33 mutants, 26 killed). axe found 0 violations on 112 states, and 10 keyboard runs were clean. Fixed:
+  - the held-Enter guard swallowed every repeated key on Cancel (a held Tab got stuck) and was missing on Attack (a 12 s hold started 4 attacks). Both buttons now ignore only a repeated Enter (`ignoreHeldEnter`, unit-tested);
+  - a late clipboard answer after Share wrote an old link back into the address bar once the reader had moved on. A view counter now drops it (an e2e check with a 1.5 s clipboard);
+  - test gaps from surviving mutants:
+    - `pick()` closing the shared report (e2e on a fresh page);
+    - the across-midnight refund (a new guard test that fails without the same-day check);
+    - small-scope dedupe on overlapping values;
+    - "1 changed line" in the singular.
+- Screenshots retaken on the final copy ("hundreds of inputs").
+- Checks: lint, typecheck, 532/532 tests, build, and e2e (10 steps).
 
 ## Round 14 (2026-10-27, `b67762a`/`985e3d2`, 4 parallel Sonnet audits; findings verified by the main session)
 

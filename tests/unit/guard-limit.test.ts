@@ -96,6 +96,19 @@ describe("Guard", () => {
     expect(g.spentUsd(late)).toBeCloseTo(0.2);
   });
 
+  it("settles an attack that ran across UTC midnight without refunding yesterday's reservation from today's spend", () => {
+    const g = new Guard(cfg({ DAILY_SPEND_CAP_USD: 1, MAX_CONCURRENT_ATTACKS: 4 }));
+    const midnight = Date.UTC(2026, 9, 25); // the UTC midnight after DAY
+    const evening = g.admit("a", midnight - 30_000, true, 0.6);
+    expect(evening.ok).toBe(true);
+    // Just after midnight, still within its lease: another attack reserves today's money first.
+    const morning = g.admit("b", midnight + 10_000, true, 0.5);
+    expect(morning.ok).toBe(true);
+    if (evening.ok) g.done(evening.ticket, { costUsd: 0.75, unpricedCalls: 0 }, midnight + 30_000);
+    // Today counts the morning reservation and what the evening attack spent; its 0.6 was yesterday's to refund.
+    expect(g.spentUsd(midnight + 30_000)).toBeCloseTo(0.5 + 0.75);
+  });
+
   it("prices the worst case from the call budget, the token caps and the dearest model", () => {
     const prices = { ultra: { in: 1, out: 3 }, fast: { in: 0.3, out: 0.9 } };
     const perUltraCall = (RESERVE_PROMPT_TOKENS * 1 + RESERVE_COMPLETION_TOKENS * 3) / 1e6;

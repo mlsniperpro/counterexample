@@ -227,6 +227,14 @@ describe("small-scope with graphs that have no small instances", () => {
     expect(xs).toEqual(expect.arrayContaining([0, 1, -1, 24, -24, 1000, -1000, 999, -999, null]));
   });
 
+  it("never repeats an input, even when the values of a spec overlap", () => {
+    for (const spec of [{ kind: "string", alphabet: "aab", len: { min: 0, max: 3 } }, { kind: "oneOf", options: [I(0, 5), I(3, 8)] }] as TypeSpec[]) {
+      const xs = smallScopeInputs([spec], 300).map((a) => JSON.stringify(a));
+      expect(new Set(xs).size).toBe(xs.length);
+    }
+    expect(smallScopeInputs([{ kind: "string", alphabet: "aab", len: { min: 0, max: 3 } }], 300)).toHaveLength(15);
+  });
+
   it("stops a sequence list at its limit, shortest first", () => {
     expect(sequences(["a", "b"], 0, 3, 5)).toEqual([[], ["a"], ["b"], ["a", "a"], ["a", "b"]]);
     expect(sequences(["a", "b"], 2, 3, 100)).toHaveLength(4 + 8);

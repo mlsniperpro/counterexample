@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 528 tests when counted on 2026-10-28 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 532 tests when counted on 2026-10-28 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and network access (BLOCKED.md).
 - [x] **Creativity:**
@@ -207,3 +207,8 @@ Legend:
     - holding Enter on Attack no longer cancels the run;
     - picking a chip closes the shared report;
     - tests pin the top-level oneOf values and the float tolerance.
+- [x] Round 15 (audit of `c90b859`; fixed in `92831bb`, `1afd683` and the UI commit after them; details in `reaudit.md`):
+  - core: a suite time bomb after the 2026-11-09 model removal (preflight tests on a fixed clock, and no key means the check is skipped; 528/528 pass with the clock at 2026-12-05); removed ids match without case; graph signature in the oracle prompt; Python async; orphan `</think>`;
+  - security: `sortJson` and `smallestFirst` serialise once; the re-attack setup, dedupe and judging yield to the event loop;
+  - UI: Enter-only repeat guard on both buttons; stale share writes dropped; tests for `pick()`, the midnight refund, small-scope dedupe and plurals;
+  - judge: UI copy says "hundreds of inputs (thousands of runs)", with screenshots retaken; bench-sourced batch counts; official Sandboxes limits; the preflight owner step; unverifiable dates removed.

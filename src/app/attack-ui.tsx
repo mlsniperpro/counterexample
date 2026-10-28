@@ -12,12 +12,14 @@ import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
+import { ignoreHeldEnter } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
 const CUSTOM = "custom";
+
 
 export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const first = problems[0];
@@ -71,6 +73,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }, [running]);
   const abort = useRef<AbortController | null>(null);
   const lastRun = useRef(0);
+  /** Bumped whenever the page shows something else (a run starts, a problem is picked): async share work checks it before writing. */
+  const view = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
   const traceEnd = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -96,6 +100,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }
 
   function pick(id: string) {
+    view.current++;
     // The chip keeps focus: a run ended by this pick must not pull it to the Attack button.
     refocusGo.current = false;
     dispatch({ type: "reset" });
@@ -114,6 +119,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   }
 
   async function run() {
+    view.current++;
     abortRun();
     refocusGo.current = true;
     const ac = new AbortController();
@@ -140,6 +146,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   };
   const shareReport = async () => {
     if (!report) return;
+    const shown = view.current;
     let enc: Awaited<ReturnType<typeof encodeReport>>;
     try {
       enc = await encodeReport(report, fragmentBudget(window.location.origin, window.location.pathname));
@@ -160,14 +167,18 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       );
       return;
     }
+    if (view.current !== shown) return;
     const link = `${window.location.origin}${window.location.pathname}${enc.fragment}`;
     setShareLink(link);
+    let copied = true;
     try {
       await navigator.clipboard.writeText(link);
-      setShareNote("Link copied. The report is inside the link itself; nothing is stored on the server.");
     } catch {
-      setShareNote("Copy this link (the report is inside it; nothing is stored on the server):");
+      copied = false;
     }
+    // The page moved on while the clipboard answered: this link belongs to a report no longer shown.
+    if (view.current !== shown) return;
+    setShareNote(copied ? "Link copied. The report is inside the link itself; nothing is stored on the server." : "Copy this link (the report is inside it; nothing is stored on the server):");
     window.history.replaceState(null, "", enc.fragment);
   };
   const closeShared = () => {
@@ -269,12 +280,12 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
-          <button className="go" ref={goButton} onClick={run} disabled={running}>
+          <button className="go" ref={goButton} onClick={run} disabled={running} onKeyDown={ignoreHeldEnter}>
             {running ? "Attacking…" : "Attack this solution"}
           </button>
-          {/* Enter held on Attack repeats once focus has moved to Cancel: a repeated key must not cancel the run it started. */}
+          {/* A held Enter repeats: on Cancel it would cancel the run it started, on Attack start one run after another. Other repeated keys (Tab) pass. */}
           {running && (
-            <button className="ghost cancel" ref={cancelButton} onClick={cancel} onKeyDown={(e) => e.repeat && e.preventDefault()}>
+            <button className="ghost cancel" ref={cancelButton} onClick={cancel} onKeyDown={ignoreHeldEnter}>
               Cancel
             </button>
           )}

@@ -21,6 +21,12 @@ describe("ReportView markup", () => {
     expect(html).toContain('<div class="dl same"><span class="sign" aria-hidden="true"> </span>def solve(a, t):</div>');
   });
 
+  it("counts changed lines in the singular and the plural", () => {
+    // The fixture's fix is "def solve(a, t):\n    return 0\n": one added line, then a replaced one (two changed lines).
+    expect(render(fullReport({ solution: { language: "python", code: "def solve(a, t):\n", entry: "solve" } }))).toContain("1 changed line against your code");
+    expect(render(fullReport({ solution: { language: "python", code: "def solve(a, t):\n    return -1\n", entry: "solve" } }))).toContain("2 changed lines against your code");
+  });
+
   it("cuts the original arguments at 120 characters with an ellipsis", () => {
     const long = Array.from({ length: 60 }, (_, i) => 1000 + i);
     const cx = fullReport().counterexample!;
