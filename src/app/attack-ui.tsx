@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
-import { decodeReport, encodeReport, fragmentBudget, isShareFragment, toShared } from "@/lib/share";
+import { decodeReport, encodeReport, fragmentBudget, toShared } from "@/lib/share";
 import { attackRun } from "./attack-run";
 import { fmtArgs, ms, toMarkdown } from "./format";
 import { splitCode } from "./inline-code";
@@ -37,7 +37,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const [statement, setStatement] = useState("");
   const [ultraOnly, setUltraOnly] = useState(false);
   const [researchWeb, setResearchWeb] = useState(false);
-  const [{ shared, key: sharedKey, error: shareError }, dispatchShare] = useReducer(shareReducer, initialShare);
+  const [{ shared, key: sharedKey, error: shareError, failures: shareFailures }, dispatchShare] = useReducer(shareReducer, initialShare);
   const [shareNote, setShareNote] = useState("");
   const [shareLink, setShareLink] = useState("");
   /** Bumped whenever the page shows something else (a run starts, a problem is picked, a shared link opens): async share work checks it before writing. */
@@ -74,7 +74,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
     revealShared.current = false;
     // The error for a bad link sits above the report's place: scroll to it, or the reader sees the page jump to the form.
     (shareError ? shareErrorBox : sharedBox).current?.scrollIntoView({ block: "start" });
-  }, [shared, shareError]);
+  }, [shared, shareError, shareFailures]);
   const [{ events, report, executor, running, error, note, status }, dispatch] = useReducer(runReducer, initialRun);
   const goButton = useRef<HTMLButtonElement | null>(null);
   const cancelButton = useRef<HTMLButtonElement | null>(null);
@@ -102,7 +102,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
 
   /** Drop a share fragment from the address bar once the page shows something else. */
   function clearShareHash() {
-    if (isShareFragment(window.location.hash)) window.history.replaceState(null, "", window.location.pathname);
+    if (window.location.hash.startsWith("#r=")) window.history.replaceState(null, "", window.location.pathname);
   }
 
   /** Abort the in-flight request, if any. The reducer has already disowned the run, so it cannot touch the page. */
@@ -229,7 +229,8 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
       </header>
 
       {shareError && (
-        <p className="err share-err" role="alert" ref={shareErrorBox}>
+        // Keyed on the failure count: a second bad link is a new alert node, so it is announced again.
+        <p key={shareFailures} className="err share-err" role="alert" ref={shareErrorBox}>
           {shareError}
         </p>
       )}

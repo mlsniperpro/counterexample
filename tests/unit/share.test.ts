@@ -20,6 +20,14 @@ async function realReport(): Promise<SharedReport> {
   return real;
 }
 
+describe("decodeReport on links of another shape", () => {
+  it("says a versioned link is of another format, and a cut-short one is incomplete", async () => {
+    const { decodeReport } = await import("@/lib/share");
+    await expect(decodeReport("#r=2.abc")).rejects.toThrow(/a format this page does not read/);
+    for (const h of ["#r=1", "#r=", "#r=abc"]) await expect(decodeReport(h)).rejects.toThrow(/incomplete or damaged/);
+  });
+});
+
 describe("share links (report in the URL fragment)", () => {
   it("round-trips a real report, without its trace or oracle code, well under the cap", async () => {
     const r = await realReport();

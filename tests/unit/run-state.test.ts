@@ -155,4 +155,17 @@ describe("focus when a run ends", () => {
     expect(focusIsIdle(el("BUTTON"), cancel)).toBe(false);
     expect(focusIsIdle(el("BUTTON"), null)).toBe(false);
   });
+
+  it("announces a start, and drops that note when the run ends without a verdict, so a retry is announced again", () => {
+    expect(START_NOTE).toBe("Attack started. The verdict will be announced when it is ready.");
+    const started = runReducer(initialRun, { type: "start", runId: 1 });
+    expect(started.status).toBe(START_NOTE);
+    const failed = runReducer(started, { type: "finish", runId: 1, outcome: { thrown: new TypeError("fetch failed") } });
+    expect(failed.status).toBe("");
+    expect(failed.error).not.toBe("");
+    const errored = play({ type: "start", runId: 2 }, msg(2, { type: "error", error: "Sandbox exploded" }), { type: "finish", runId: 2, outcome: { complete: true } });
+    expect(errored.status).toBe("");
+    const cut = play({ type: "start", runId: 3 }, { type: "finish", runId: 3, outcome: { complete: false } });
+    expect(cut.status).toBe("");
+  });
 });

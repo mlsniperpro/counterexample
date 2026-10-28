@@ -9,7 +9,14 @@ const decoding = (key: string): ShareAction => ({ type: "decoding", key });
 describe("shareReducer (the shared-report banner)", () => {
   it("opens a report with its link as identity, and clears an earlier error", () => {
     const s = play(decoding("#r=1.x"), { type: "failed", message: "bad", key: "#r=1.x" }, decoding("#r=1.a"), { type: "opened", report, key: "#r=1.a" });
-    expect(s).toEqual({ shared: report, key: "#r=1.a", error: "", pending: "" });
+    expect(s).toEqual({ shared: report, key: "#r=1.a", error: "", pending: "", failures: 1 });
+  });
+
+  it("counts failures, so a second bad link with the same message is a new error to show and announce", () => {
+    const once = play(decoding("#r=1.x"), { type: "failed", message: "damaged", key: "#r=1.x" });
+    const twice = play(decoding("#r=1.x"), { type: "failed", message: "damaged", key: "#r=1.x" }, decoding("#r=1.y"), { type: "failed", message: "damaged", key: "#r=1.y" });
+    expect(twice.error).toBe(once.error);
+    expect(twice.failures).toBe(once.failures + 1);
   });
 
   it("drops the previously shown report when the next link cannot be opened, so the error is not shown beside a stale report", () => {

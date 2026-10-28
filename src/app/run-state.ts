@@ -93,7 +93,8 @@ export function runReducer(s: RunState, a: RunAction): RunState {
         return seen;
     }
   }
-  const done = { ...s, runId: 0, running: false };
+  // No verdict is coming: the start note goes (the alert announces any error), so the next start is announced again.
+  const done = { ...s, runId: 0, running: false, status: "" };
   // The server's own error line says more than how the connection then ended.
   if (s.error) return done;
   if ("thrown" in a.outcome) {

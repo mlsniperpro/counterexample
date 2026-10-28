@@ -303,6 +303,34 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-tapped Enter on Attack");
   eq(attacks.length - tappedFrom, 1, "attacks started by a double-tapped Enter on Attack");
+  // Space tapped twice the same way.
+  pace.lineDelayMs = 40;
+  const spacedFrom = attacks.length;
+  await attackButton(page).focus();
+  await page.keyboard.press(" ");
+  await sleep(60);
+  await page.keyboard.press(" ");
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-tapped Space on Attack");
+  eq(attacks.length - spacedFrom, 1, "attacks started by a double-tapped Space on Attack");
+  // A double-click on Attack's right edge, where Cancel appears: one run, not cancelled.
+  pace.lineDelayMs = 40;
+  const edgeFrom = attacks.length;
+  const box = await attackButton(page).boundingBox();
+  await page.mouse.dblclick(box.x + box.width - 4, box.y + box.height / 2);
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-click on Attack's right edge");
+  eq(attacks.length - edgeFrom, 1, "attacks started by a double-click on Attack's right edge");
+  // A deliberate click on Cancel shortly after the start (past the 300 ms tap window) does cancel.
+  pace.lineDelayMs = 300;
+  await attackButton(page).click();
+  await cancelButton.waitFor({ timeout: 15_000 });
+  await sleep(400);
+  await cancelButton.click();
+  await page.locator(".note", { hasText: "Attack cancelled" }).waitFor({ timeout: 15_000 });
+  pace.lineDelayMs = 0;
   ok(step);
 
   step = "switching problems or starting a run lets go of what came before";
@@ -514,9 +542,15 @@ async function main() {
       check((await alert.innerText()).includes(says), `the alert for ${hash} says "${says}" (got "${await alert.innerText()}")`);
       const top = await alert.evaluate((el) => el.getBoundingClientRect().top);
       check(top >= -1 && top < 200, `the alert for ${hash} is scrolled into view (its top is at ${Math.round(top)} px)`);
-      await p.goto(`${base}/`);
-      await attackButton(p).waitFor({ timeout: 15_000 });
     }
+    // A second bad link that fails the same way, pasted without a reload: shown again, in view.
+    await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await p.evaluate(() => (window.location.hash = "#r=1.also-not-a-report"));
+    await p.waitForFunction(() => (document.querySelector("p.share-err")?.getBoundingClientRect().top ?? -1e9) > -2, null, { timeout: 15_000 }).catch(() => check(false, "a repeated bad link's alert is scrolled into view"));
+    await p.goto(`${base}/`);
+    await attackButton(p).waitFor({ timeout: 15_000 });
+    // The status region is a polite live region.
+    eq(await p.locator("p.sr-only[role=status]").getAttribute("aria-live"), "polite", "the status region's aria-live");
     // The status check fails: the badge says so instead of claiming a mode.
     await p.route("**/api/problems", (route) => route.fulfill({ status: 500, body: "down" }));
     await p.reload();

@@ -28,7 +28,12 @@ Not clean (core found medium items).
   - high: the `distinct` retry loop multiplied under an outer array (14 s for 10,000 pairs of a const). A distinct array of a const holds one element (round 21 core), one input's draws are capped, and a short distinct array now gives up after 2n + 8 misses (test under 500 ms);
   - low: a ConfigError echoed `JUDGE0_URL` or `JUDGE0_AUTH` values to API callers; it now names the variable only (test);
   - low: an attacker with a /48 can rotate /64s for fresh rate-limit buckets. The spend cap and concurrency cap still bind: accepted (fairness, not cost).
-- **UI and tests:** below once in.
+- **UI and tests** (3 medium, 4 low; 0 axe violations in 9 more states at 320 to 1280 px; announcements delivered once each):
+  - medium: the status region kept "Attack started…" after a failed run, and a retry was then not announced. A run that ends without a verdict now clears it (the alert announces the error), with a reducer test; the e2e checks the region's `aria-live`;
+  - medium: a second bad link failing the same way was neither scrolled into view nor announced. The share state counts failures, and the scroll and the alert node key on that count (reducer test, and an e2e paste without reload);
+  - medium: the e2e did not exercise three echo-guard branches, and nothing pinned the windows. The e2e now double-taps Space, double-clicks Attack's right edge, and cancels deliberately at 400 ms; the unit tests pin 600 and 300 ms;
+  - low: `#r=2.` stayed in the address bar, and a cut-short `#r=1` was called "a newer version". Any `#r=` link is cleared, and a cut-short one is called incomplete (test);
+  - low (accepted): an ignored echo gives no feedback (by design: a click cancels from 300 ms, a key from 600 ms); the forced-colors chip grows by its thicker border; CSS-only features have no test; the statement box is named by its placeholder (axe passes).
 
 ## Round 20 (2026-10-28, `d15cb74`, 4 parallel Sonnet audits; findings verified by the main session)
 

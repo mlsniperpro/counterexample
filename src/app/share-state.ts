@@ -9,6 +9,8 @@ export type ShareState = {
   error: string;
   /** The link being decoded, if any. Decoding is async: a result for any other link (one cleared by a run that started meanwhile) is dropped. */
   pending: string;
+  /** Links that failed to open so far: a second bad link with the same message is a new error, to show and announce again. */
+  failures: number;
 };
 
 export type ShareAction =
@@ -20,16 +22,16 @@ export type ShareAction =
   /** Closed, or the page now shows something else (a run started). */
   | { type: "clear" };
 
-export const initialShare: ShareState = { shared: null, key: "", error: "", pending: "" };
+export const initialShare: ShareState = { shared: null, key: "", error: "", pending: "", failures: 0 };
 
 export function shareReducer(s: ShareState, a: ShareAction): ShareState {
   switch (a.type) {
     case "decoding":
       return { ...s, pending: a.key };
     case "opened":
-      return a.key === s.pending ? { shared: a.report, key: a.key, error: "", pending: "" } : s;
+      return a.key === s.pending ? { ...s, shared: a.report, key: a.key, error: "", pending: "" } : s;
     case "failed":
-      return a.key === s.pending ? { ...s, shared: null, error: `Could not open the shared report: ${a.message}`, pending: "" } : s;
+      return a.key === s.pending ? { ...s, shared: null, error: `Could not open the shared report: ${a.message}`, pending: "", failures: s.failures + 1 } : s;
     case "clear":
       return { ...s, shared: null, error: "", pending: "" };
   }

@@ -18,6 +18,11 @@ describe("ignoreHeldEnter", () => {
 });
 
 describe("echoesCancel / echoesStart (a repeated activation, not a new one)", () => {
+  it("uses the documented windows: 600 ms for keys and click bursts, 300 ms for a single click or tap", () => {
+    expect(ECHO_MS).toBe(600);
+    expect(TAP_ECHO_MS).toBe(300);
+  });
+
   it("drops a second click, tap-free key press or click burst on Attack right after a cancel, not a deliberate single click", () => {
     expect(echoesCancel({ detail: 2 }, 100)).toBe(true);
     expect(echoesCancel({ detail: 3 }, ECHO_MS - 1)).toBe(true);
