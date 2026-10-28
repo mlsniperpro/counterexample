@@ -23,7 +23,12 @@ Not clean.
   - low: the attack route took any content type, so a cross-site form could post without a preflight. It now takes `application/json` only (415 otherwise; test);
   - low (accepted): ticks of 0.6 to 1.0 s at the legal maximum in sync helpers outside the stages; the spend reservation's token estimate for token-dense Unicode (not measurable without the tokenizer).
 - **Judge** (7 low, none medium: clean under the criterion; fresh clone, full bench, e2e, the sandbox via `pnpm sandbox`, and the official docs all match): fixed the round count, the checklist's rounds 21 to 23, Token Factory named in the video's voice-over, the bench's running time and `--only` in the README, the EvalPlus wording, the graph and text limits, and that edited built-ins in replay must keep `solve`.
-- **UI and tests:** not audited separately this round (the round-22 UI fixes were verified by mutants; round 24 audits UI again).
+- **UI and tests** (7 medium, 8 low; 0 axe violations in 40 states; every flow and 16 hostile links readable; a full bench on `66a5f5c` gives the same verdicts as the fixture):
+  - medium: the report hid `research.error` and empty research (a shared report has no trace). It now says "Research did not complete: …" or "The searches found no facts to use." (unit test);
+  - medium (a11y): a second shared link of the same problem was silent (the banner text depended on the title only). The banner now names the verdict and is keyed on the link;
+  - medium (test gaps, all now covered by the e2e): two Share clicks give two announcements; Copy report puts the Markdown report on the clipboard; a refusing clipboard gives "Copy this link…"; a report too large for a link is downloaded and says so; the shared banner is a status region; the executor badge, the model calls' "why" lines and the examples list are on the page;
+  - low: a fixed length past the cap lowers its minimum too (test);
+  - low (accepted): the verdict below the fold on a phone after a run; text-spacing overflow of a long stage label; a chip re-click discards edited code; Copy report omits research and families; a compile-error report lists untested families; the "Your own needs live mode" warning untested; a refused re-run clears the earlier report, and its retry time is in seconds.
 
 ## Round 22 (2026-10-28, `876e650`, 4 parallel Sonnet audits, paused 17:00 to 19:30 by the usage limit; findings verified by the main session)
 

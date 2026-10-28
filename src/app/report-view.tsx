@@ -106,6 +106,9 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
               </li>
             ))}
           </ul>
+          {/* A failed or unconfigured search is said here, not left as an empty section (a shared report has no trace). */}
+          {r.research.error && <p className="muted small research-error">Research did not complete: {r.research.error}</p>}
+          {!r.research.error && r.research.facts.length === 0 && <p className="muted small">The searches found no facts to use.</p>}
           {r.research.influencedFamilies.length > 0 && <p className="muted small">Shaped generator families: {r.research.influencedFamilies.join(", ")}</p>}
         </>
       )}

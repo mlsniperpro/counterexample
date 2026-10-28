@@ -214,6 +214,10 @@ async function main() {
   await attackButton(page).waitFor();
   eq(await page.locator("p.err[role=alert]").count(), 0, "no error alert after a clean run");
   const firstCx = await page.locator(".cx code.big").innerText();
+  // The claims the page makes: the sandbox it ran in, why each model was chosen, and the problem's examples.
+  check((await page.locator(".badges .badge").allInnerTexts()).some((t) => /local|judge0/i.test(t)), "the executor badge names where the code ran");
+  check((await page.locator(".trace .why").count()) > 0 && (await page.locator(".trace .why").first().innerText()).trim().length > 0, "model calls in the trace say why that model was chosen");
+  check((await page.locator("ul.examples li").count()) > 0, "the problem's examples are listed");
   await noHorizontalOverflow(page, "report at 390 px");
   ok(step);
 
@@ -229,6 +233,7 @@ async function main() {
   eq(await shared.locator(".shared h2.verdict").innerText(), "Broken: minimal counterexample found", "shared verdict");
   eq(await shared.locator(".shared .cx code.big").innerText(), firstCx, "shared counterexample");
   check((await shared.locator(".shared > .row p").innerText()).includes("decoded in your browser"), "the shared banner says it was decoded locally");
+  eq(await shared.locator(".shared > .row p").getAttribute("role"), "status", "the shared banner's role (opening a link is announced)");
   await noHorizontalOverflow(shared, "shared report at 390 px");
   ok(step);
 
@@ -455,16 +460,6 @@ async function main() {
   await sleep(2_500);
   eq(await page.evaluate(() => window.location.hash), "", "the address bar after a late share for a report a new run replaced");
   eq(await shareNote.innerText(), "", "the share note after a late share for a report a new run replaced");
-  // Copy twice: the same "Copied" note twice is two announcements (a new node each time), not one.
-  await page.evaluate(() => {
-    window.__notes = 0;
-    const region = [...document.querySelectorAll("section.result")].at(-1)?.querySelectorAll("p.live")[1];
-    new MutationObserver((ms) => ms.forEach((m) => (window.__notes += m.addedNodes.length))).observe(region, { childList: true, subtree: true });
-  });
-  for (let i = 0; i < 2; i++) {
-    await page.getByRole("button", { name: "Copy report" }).click();
-    await page.waitForFunction((n) => window.__notes >= n, i + 1, { timeout: 15_000 }).catch(() => check(false, `copy ${i + 1} announces a note`));
-  }
   // A share link pasted into the tab while a share still waits on the clipboard: the pasted link stays in the address bar.
   await page.getByRole("button", { name: "Share link" }).click();
   const pasted = new URL(link2).hash;
@@ -476,6 +471,34 @@ async function main() {
   check(bannerTop >= -1 && bannerTop < 200, `the pasted shared report is scrolled into view (its top is at ${Math.round(bannerTop)} px)`);
   await sleep(2_500);
   eq(await page.evaluate(() => window.location.hash), pasted, "the address bar after a late share while a pasted link opened");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  // Copy twice: the same "Copied" note twice is two announcements (a new node each time), not one.
+  await page.evaluate(() => {
+    window.__notes = 0;
+    const region = [...document.querySelectorAll("section.result")].at(-1)?.querySelectorAll("p.live")[1];
+    new MutationObserver((ms) => ms.forEach((m) => (window.__notes += m.addedNodes.length))).observe(region, { childList: true, subtree: true });
+  });
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole("button", { name: "Copy report" }).click();
+    await page.waitForFunction((n) => window.__notes >= n, i + 1, { timeout: 15_000 }).catch(() => check(false, `copy ${i + 1} announces a note`));
+  }
+  // What was copied is the report, as Markdown.
+  await sleep(1_700);
+  check((await page.evaluate(() => navigator.clipboard.readText())).startsWith("# Counterexample report: "), "Copy report puts the Markdown report on the clipboard");
+  // Share twice: two announcements as well.
+  await page.evaluate(() => {
+    window.__shares = 0;
+    const region = [...document.querySelectorAll("section.result")].at(-1)?.querySelectorAll("p.live")[0];
+    new MutationObserver((ms) => ms.forEach((m) => (window.__shares += m.addedNodes.length))).observe(region, { childList: true, subtree: true });
+  });
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole("button", { name: "Share link" }).click();
+    await page.waitForFunction((n) => window.__shares >= n, i + 1, { timeout: 15_000 }).catch(() => check(false, `share ${i + 1} announces a note`));
+  }
+  // A clipboard that refuses: the note says to copy the link by hand, not that it was copied.
+  await page.evaluate(() => (navigator.clipboard.writeText = () => Promise.reject(new Error("denied"))));
+  await page.getByRole("button", { name: "Share link" }).click();
+  await page.locator("p.live", { hasText: "Copy this link" }).waitFor({ timeout: 15_000 });
   ok(step);
 
   step = "cancel a run mid-stream";
@@ -543,6 +566,17 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 10_000 });
   check((await page.locator(".cx p.muted").innerText()).includes("…"), "the long original arguments are cut with an ellipsis");
   await noHorizontalOverflow(page, "report with long text");
+  await page.unroute("**/api/attack");
+  // A report too large for a link (incompressible code) is downloaded as JSON instead, and the note says so.
+  const big = longTextReport();
+  big.solution.code = Array.from({ length: 4000 }, (_, i) => ((i * 2654435761) >>> 0).toString(36)).join(" ");
+  await page.route("**/api/attack", respond([{ type: "mode", mode: "replay", executor: "Local" }, { type: "report", report: big }].map((l) => JSON.stringify(l)).join("\n") + "\n"));
+  await attackButton(page).click();
+  await page.locator("h2.verdict").waitFor({ timeout: 10_000 });
+  const download = page.waitForEvent("download", { timeout: 15_000 });
+  await page.getByRole("button", { name: "Share link" }).click();
+  check((await download).suggestedFilename().startsWith("report-"), "a report too large for a link is downloaded");
+  await page.locator("p.live", { hasText: "downloaded as JSON instead" }).waitFor({ timeout: 15_000 });
   await page.unroute("**/api/attack");
   // An error line ends the stream (it is terminal, like a report), so a long error is checked in its own run.
   await page.route("**/api/attack", respond([{ type: "mode", mode: "replay", executor: "Local" }, { type: "error", error: `Failed to reach ${LONG_URL}` }].map((l) => JSON.stringify(l)).join("\n") + "\n"));

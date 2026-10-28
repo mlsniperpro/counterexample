@@ -5,7 +5,7 @@ import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
 import { decodeReport, encodeReport, fragmentBudget, toShared } from "@/lib/share";
 import { attackRun } from "./attack-run";
-import { fmtArgs, ms, toMarkdown } from "./format";
+import { fmtArgs, ms, toMarkdown, VERDICT } from "./format";
 import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
 import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
@@ -246,9 +246,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         <div className={shared ? "row between" : undefined}>
           <p className="small muted live" role="status">
             {shared && (
-              <>
-                Shared report for <b>{shared.problem.title}</b>, decoded in your browser from the link. Nothing was sent to the server, and nothing in it was re-run or verified here: a link can say anything, so re-run the attack to check it.
-              </>
+              // Keyed on the link: a second shared report of the same problem is a new node, so it is announced too.
+              <span key={sharedKey}>
+                Shared report for <b>{shared.problem.title}</b> ({VERDICT[shared.verdict]}), decoded in your browser from the link. Nothing was sent to the server, and nothing in it was re-run or verified here: a link can say anything, so re-run the attack to check it.
+              </span>
             )}
           </p>
           {shared && (

@@ -113,3 +113,13 @@ describe("ReportView markup", () => {
     expect(done).not.toContain("may not be minimal");
   });
 });
+
+describe("ReportView research section", () => {
+  it("says when research did not complete, and when it found nothing, instead of an empty section", () => {
+    const base = fullReport();
+    const failed = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [], error: "no research client configured (set TAVILY_API_KEY)" } });
+    expect(failed).toContain("Research did not complete: no research client configured (set TAVILY_API_KEY)");
+    const empty = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [] } });
+    expect(empty).toContain("The searches found no facts to use.");
+  });
+});
