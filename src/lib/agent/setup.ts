@@ -1,4 +1,5 @@
 import { exactIntegersSupported } from "../core/compare";
+import { ConfigError } from "../errors";
 import { FIXTURES, RESEARCH_RESULTS } from "../../fixtures/replay";
 import { Judge0Executor } from "../exec/judge0";
 import { LocalExecutor } from "../exec/local";
@@ -44,7 +45,8 @@ export function makeExecutor(env: Env = process.env): Executor {
   const j = Judge0Executor.fromEnv(env);
   if (j) return j;
   if (env.NODE_ENV === "production" && env.ALLOW_LOCAL_EXECUTOR !== "1") {
-    throw new Error("No sandbox configured: set JUDGE0_URL (the local executor is dev-only).");
+    // A ConfigError, so the API answers with this remedy instead of a bare "Server unavailable."
+    throw new ConfigError("no sandbox configured: set JUDGE0_URL, or ALLOW_LOCAL_EXECUTOR=1 to run code on this machine for a local demo (the local executor is not isolated).");
   }
   return new LocalExecutor();
 }

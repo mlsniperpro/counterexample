@@ -160,6 +160,9 @@ describe("conforms / argsConform", () => {
     const intervals: TypeSpec = { kind: "array", of: { kind: "tuple", items: [{ kind: "int", min: -20, max: 20 }, { kind: "int", min: -20, max: 20 }] }, len: { min: 0, max: 5 }, sorted: "asc" };
     expect(conforms([[2, 2], [10, 10]], intervals as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
     expect(conforms([[10, 10], [2, 2]], intervals as Exclude<TypeSpec, { kind: "graph" }>)).toBe(false);
+    // Strings by code point, as Python: U+FFFF sorts before an emoji (UTF-16 units would put the emoji first).
+    expect(["\u{1F600}", "\uffff"].sort(compareJson)).toEqual(["\uffff", "\u{1F600}"]);
+    expect(conforms("\u{1F600}\u{1F600}a", { kind: "string", alphabet: "\u{1F600}a", len: { min: 0, max: 3 } } as Exclude<TypeSpec, { kind: "graph" }>)).toBe(true);
     // Generated sorted inputs are sorted in the same order.
     const rng = mulberry32(7);
     for (let i = 0; i < 50; i++) {

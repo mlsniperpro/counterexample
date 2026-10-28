@@ -7,6 +7,29 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 19 (2026-10-28, `58dbebe`, 4 parallel Sonnet audits, paused 05:50 to 09:38 by the usage limit; findings verified by the main session)
+
+Not clean.
+- **Security** (2 high, 1 medium, 1 low). One root cause for three of them: nested `oneOf` multiplied the cost of checking a value, and small-scope, a model family checked against the problem's spec, and shrinking each counted values only. Fixed at the root:
+  - high: small-scope conform-checked up to 20,000 combinations at 25,600+ steps each (27 to 33 s in one call; a full attack stalled 37 s). high: a cheap family checked against a costly problem spec (2.2 s per family, 8 stalls of 2 to 4 s). low: shrinking spent 6 times the CPU. Fix: `fanOut` caps the alternatives a value can have, across nested `oneOf`s, at 16 (`parseTypeSpec` refuses more), so checking costs at most 16 times the values every budget already counts; small-scope also weights each parameter's size by its fan-out. The audit's small-scope shapes now take 6 to 22 ms (test under 500 ms CPU);
+  - medium: `extractCode`'s two adjacent space runs (`[ \t]*` before the tag, `[ \t\r]*` after) split a long run of spaces every way: 2.7 s at 40,000 spaces, 63 s at 200,000. The tag and its spaces are now one optional group (test: both whitespace shapes under 300 ms CPU).
+- **Core** (1 medium, 4 low):
+  - medium: the same `extractCode` regex (fixed above);
+  - low: a method named as the entry was refused even when a top-level `solve` wraps it, and a nested function (no class) was called a method. The refusal now needs a class and no top-level `solve`;
+  - low: a quoted faulty line in its own block was taken as the fix. `extractCode` now takes the last block in the language that defines a function;
+  - low: a draft fence closed by `</think>` at the end of a line (not alone on it) still hid the trace. A `</think>` that ends a line now ends the open fence; a fix with such a line is cut there, the rarer failure;
+  - low: strings compared and measured in UTF-16 units, not code points as Python does (astral alphabets only). `compareJson` and `conforms` now use code points.
+- **Judge** (1 medium, 7 low):
+  - medium: SUBMISSION's Tavily answer said research runs when the code calls a risky API; in auto mode that only adds a suggestion. Both places now say research runs when the statement cites sources or the user ticks "Research the web";
+  - low: "hundreds more" re-attack inputs is "hundreds to over a thousand more" (738 to 1,290 measured);
+  - low: "17 rounds" in SUBMISSION is now 19;
+  - low: the README's "Your own code" now says a pasted problem needs a live key and what replay mode reports for a class Solution;
+  - low: stale network claims (README live section, SUBMISSION, BLOCKED) now say only the keys were missing from 2026-10-27;
+  - low: the form screenshot shows the old hero copy: regenerated with `pnpm screenshots` in this push;
+  - low: WIN-CHECKLIST's "3 to 4 of 8" is "2 to 4 of 8", as in the README;
+  - low: a keyless `pnpm start` answered every attack with a bare "Server unavailable."; the missing-sandbox error is now a ConfigError, so the API names the remedy (JUDGE0_URL, or ALLOW_LOCAL_EXECUTOR=1).
+- **UI and tests:** see below once in.
+
 ## Round 18 (2026-10-28, `2f70b6f`, core and judge Sonnet audits; findings verified by the main session)
 
 Not clean.

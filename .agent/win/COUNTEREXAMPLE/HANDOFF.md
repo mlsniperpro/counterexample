@@ -1,5 +1,10 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-28 10:05 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 19 core, security and judge findings are fixed in this push (the root fix: `fanOut` caps nested oneOf alternatives at 16). Checks: lint, typecheck, 549/549 tests, build, e2e. The usage limit paused the audits 05:50 to 09:38.
+- The round-19 UI/tests audit is still running on `58dbebe`; fix it, then retake screenshots (`pnpm dev --port 3125` + `BASE_URL=http://localhost:3125 pnpm screenshots`), then run round 20.
+- A bench run on 58dbebe gave the same verdicts (timings inflated by the parallel audits, so the fixture was kept).
+
 STATE 2026-10-28 05:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - In this push, the fixes for the round-16 UI audit, the round-17 security audit, and the round-18 core and judge audits: lint, typecheck, 548/548 tests, build, and e2e. Details in reaudit.md.
 - **Owner step added (high):** `main` holds only BRIEF/AGENTS/.agent, so PR #1 must be merged (or `counterexample` made the default branch) before the repo goes public. It is in BLOCKED.md and the SUBMISSION checklist; the owner merges.

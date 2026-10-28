@@ -48,16 +48,19 @@ describe("parseFamilies", () => {
 
   it("refuses a family whose oneOf options multiply the work of checking an input, though its values are few", () => {
     const ints = (k: number): TypeSpec => ({ kind: "oneOf", options: Array.from({ length: 16 }, (_, i) => ({ kind: "int", min: k * 100 + i, max: k * 100 + i })) });
-    const nested: TypeSpec = { kind: "oneOf", options: Array.from({ length: 16 }, (_, k) => ints(k)) };
-    // 10,000 values, each tried against 16 x 16 options: 2.56 million checks (this stalled the server for 5 s).
-    const args: TypeSpec[] = [{ kind: "array", of: nested, len: { min: 10_000, max: 10_000 } }];
-    const r = parseFamilies(text([fam(args)]), args, 300);
+    // Nested: each value has 16 x 16 alternatives to try (10,000 of them stalled the server for 5 s).
+    const nested: TypeSpec[] = [{ kind: "array", of: { kind: "oneOf", options: Array.from({ length: 16 }, (_, k) => ints(k)) }, len: { min: 10_000, max: 10_000 } }];
+    const r = parseFamilies(text([fam(nested)]), nested, 300);
     expect(r.families).toEqual([]);
-    expect(r.rejected[0]?.reason).toMatch(/checking one input could take 2560000 steps, because of oneOf options \(limit 200000\)/);
-    // The same shape with 700 values fits, and a family of them stays within the per-family budget of checks.
-    const fits: TypeSpec[] = [{ kind: "array", of: nested, len: { min: 700, max: 700 } }];
+    expect(r.rejected[0]?.reason).toMatch(/nested oneOf gives a value 256 alternatives to try \(limit 16\)/);
+    // Flat, but long: two arguments of 6,500 values with 16 alternatives each is 208,000 checking steps.
+    const half: TypeSpec = { kind: "array", of: ints(0), len: { min: 6_500, max: 6_500 } };
+    const long: TypeSpec[] = [half, half];
+    expect(parseFamilies(text([fam(long)]), long, 300).rejected[0]?.reason).toMatch(/checking one input could take 208000 steps, because of oneOf options \(limit 200000\)/);
+    // 700 of them fit, and a family of them stays within the per-family budget of checks.
+    const fits: TypeSpec[] = [{ kind: "array", of: ints(0), len: { min: 700, max: 700 } }];
     expect(parseFamilies(text([fam(fits)]), fits, 300).families).toHaveLength(1);
-    expect(inputsWithinBudget(fits, 300)).toBe(Math.floor(SPEC_LIMITS.maxValuesPerFamily / (700 * 256)));
+    expect(inputsWithinBudget(fits, 300)).toBe(Math.floor(SPEC_LIMITS.maxValuesPerFamily / (700 * 16)));
   });
 
   it("throws ModelOutputError only when the answer itself is malformed", () => {

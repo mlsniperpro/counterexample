@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rejectionOf } from "../helpers";
 import { makeExecutor, makeProvider, makeResearch, resolveMode } from "@/lib/agent/setup";
-import { ModelOutputError, ReplayMissError, UpstreamError } from "@/lib/errors";
+import { ConfigError, ModelOutputError, ReplayMissError, UpstreamError } from "@/lib/errors";
 import { DEFAULT_REASONING_MODEL, MAX_TOKENS_FAST, MAX_TOKENS_REASONING } from "@/lib/models/config";
 import { NebiusProvider } from "@/lib/models/nebius";
 import { RecordingProvider, ReplayProvider } from "@/lib/models/replay";
@@ -191,7 +191,9 @@ describe("executor selection", () => {
   it("prefers Judge0, refuses the local executor in production", () => {
     expect(makeExecutor({ JUDGE0_URL: "https://j.example" }).name).toBe("judge0");
     expect(makeExecutor({ NODE_ENV: "development" }).name).toBe("local");
-    expect(() => makeExecutor({ NODE_ENV: "production" })).toThrow(/JUDGE0_URL/);
+    expect(() => makeExecutor({ NODE_ENV: "production" })).toThrow(/JUDGE0_URL, or ALLOW_LOCAL_EXECUTOR=1/);
+    // A ConfigError, which the API reports with its message (a plain Error became a bare "Server unavailable.").
+    expect(() => makeExecutor({ NODE_ENV: "production" })).toThrow(ConfigError);
     expect(makeExecutor({ NODE_ENV: "production", ALLOW_LOCAL_EXECUTOR: "1" }).name).toBe("local");
   });
 });

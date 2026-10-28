@@ -115,6 +115,11 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
       await expect(entryFor(py, "python", null)).rejects.toThrow(/a class Solution: methods are not supported yet/);
       const js = "function isPos(x) { return x > 0; }\nclass Solution {\n  maxOf(nums) {\n    return Math.max(...nums);\n  }\n}\n";
       await expect(entryFor(js, "javascript", "maxOf")).rejects.toThrow(/"maxOf", a method inside a class/);
+      // A top-level wrapper that calls the method is attacked, whatever the model named.
+      const wrapped = "class Solution:\n    def twoSum(self, nums):\n        return 0\n\ndef solve(nums):\n    return Solution().twoSum(nums)\n";
+      expect((await entryFor(wrapped, "python", "twoSum")).entry).toBe("solve");
+      // A nested function is not a method: with no class, the usual fallback applies.
+      expect((await entryFor("def main(nums):\n    def solve(i):\n        return i\n    return solve(0)\n", "python", "solve")).entry).toBe("main");
       // A top-level solve next to a class is still attacked.
       expect((await entryFor("class Solution:\n    pass\n\ndef solve(a, b):\n    return a + b\n", "python", null)).entry).toBe("solve");
     });

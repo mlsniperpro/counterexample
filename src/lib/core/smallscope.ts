@@ -1,4 +1,4 @@
-import { argsConform, type GraphSpec, type TypeSpec } from "./spec";
+import { argsConform, fanOut, type GraphSpec, type TypeSpec } from "./spec";
 
 /**
  * Bounded-exhaustive ("small scope") inputs: every combination of small
@@ -243,7 +243,9 @@ export function smallScope(specs: TypeSpec[], cap: number): SmallScope {
     standIn ||= stand.length > 0;
     return stand;
   });
-  const perCombo = units.reduce((a, unit) => a + unit.reduce((m: number, parts) => Math.max(m, size(parts)), 0), 0);
+  // Checking a combination costs its size times the alternatives a oneOf makes `conforms` try, so that is what the
+  // enumeration budget counts (the same as its size when the specs have no oneOf).
+  const perCombo = units.reduce((a, unit, i) => a + (specs[i] ? fanOut(specs[i]) : 1) * unit.reduce((m: number, parts) => Math.max(m, size(parts)), 0), 0);
   const { combos, space, sampled, radices } = spread(units, Math.max(1, Math.min(MAX_ENUMERATED, Math.floor(MAX_ENUMERATED_VALUES / Math.max(1, perCombo)))));
   const seen = new Set<string>();
   const all: unknown[][] = [];

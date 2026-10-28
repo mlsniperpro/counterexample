@@ -64,9 +64,14 @@ export function parseJsonAnswer<T>(text: string, schema: z.ZodType<T>, what: str
 /** The first fenced code block, preferring one tagged with the language. */
 export function extractCode(text: string, language: "python" | "javascript"): string {
   const tags = language === "python" ? ["python", "py", "python3", "py3"] : ["javascript", "js", "node", "mjs"];
-  // "``` python" (a space before the tag) is still tagged python.
-  const blocks = [...text.matchAll(/```[ \t]*([\w+-]*)[ \t\r]*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
-  const block = blocks.find((b) => tags.includes(b.tag)) ?? blocks[0];
+  // "``` python" (a space before the tag) is still tagged python. The spaces before the tag sit in an optional group
+  // that needs the tag: two adjacent space runs could split a long run of spaces every way (quadratic backtracking).
+  const blocks = [...text.matchAll(/```(?:[ \t]*([\w+-]+))?[ \t\r]*\n([\s\S]*?)```/g)].map((m) => ({ tag: (m[1] ?? "").toLowerCase(), body: m[2] ?? "" }));
+  // A block in the language that defines a function: the last one, since an explanation may quote the faulty line in
+  // a block of its own before the fixed program.
+  const defines = language === "python" ? /^[ \t]*(?:async[ \t]+)?def[ \t]/m : /\bfunction\b|=>/;
+  const tagged = blocks.filter((b) => tags.includes(b.tag));
+  const block = tagged.filter((b) => defines.test(b.body)).at(-1) ?? tagged[0] ?? blocks[0];
   if (!block || !block.body.trim()) throw new ModelOutputError("no code block found in model output");
   return block.body.trimEnd() + "\n";
 }
@@ -105,8 +110,9 @@ function atLineStart(text: string, i: number): boolean {
 
 /**
  * Index just past the fence that closes a block opened before `from`: the next "```" at the start of a line, or the end
- * of the text. A line that is only "</think>" also ends it (before that line): a draft in the reasoning whose fence
- * never closed would otherwise run on into the answer and hide the end of the trace. No code has such a line.
+ * of the text. A "</think>" that ends a line also ends it (just before the tag): a draft in the reasoning whose fence
+ * never closed would otherwise run on into the answer and hide the end of the trace. Code almost never has such a
+ * line (a string holding the tag ends with its quote); a fix that does is cut there, which is the rarer failure.
  */
 function fenceEnd(text: string, from: number): number {
   let end = text.length;
@@ -116,7 +122,7 @@ function fenceEnd(text: string, from: number): number {
       break;
     }
   }
-  const tag = /^[ \t]*<\/think>[ \t]*$/m.exec(text.slice(from, end));
+  const tag = /<\/think>[ \t]*$/m.exec(text.slice(from, end));
   return tag ? from + tag.index : end;
 }
 

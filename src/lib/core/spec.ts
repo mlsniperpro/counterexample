@@ -194,6 +194,19 @@ export function sortJson(xs: unknown[]): void {
   else xs.sort(compareJson);
 }
 
+/** Strings by code point, as Python orders them (JavaScript's < compares UTF-16 units, which puts an emoji before U+FFFF). */
+function compareCodePoints(a: string, b: string): number {
+  for (let i = 0, j = 0; i < a.length && j < b.length; ) {
+    const x = a.codePointAt(i) as number;
+    const y = b.codePointAt(j) as number;
+    if (x !== y) return x - y;
+    i += x > 0xffff ? 2 : 1;
+    j += y > 0xffff ? 2 : 1;
+  }
+  // Equal up to the shorter one: the shorter sorts first (after an equal prefix, the UTF-16 lengths order them the same way).
+  return a.length - b.length;
+}
+
 /** Rank of a JSON type when two values of different types are compared: numbers, then strings, then lists, then the rest. */
 const typeRank = (v: unknown): number => (typeof v === "number" ? 0 : typeof v === "string" ? 1 : Array.isArray(v) ? 2 : 3);
 
@@ -204,7 +217,7 @@ const typeRank = (v: unknown): number => (typeof v === "number" ? 0 : typeof v =
  */
 export function compareJson(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
-  if (typeof a === "string" && typeof b === "string") return a < b ? -1 : a > b ? 1 : 0;
+  if (typeof a === "string" && typeof b === "string") return compareCodePoints(a, b);
   if (Array.isArray(a) && Array.isArray(b)) {
     for (let i = 0; i < a.length && i < b.length; i++) {
       const c = compareJson(a[i], b[i]);
@@ -234,7 +247,8 @@ export function conforms(v: unknown, spec: Exclude<TypeSpec, GraphSpec>): boolea
     case "string":
       return (
         typeof v === "string" &&
-        inRange(v.length, spec.len) &&
+        // Length in code points, as generation and Python count it (an emoji is one character, two UTF-16 units).
+        inRange([...v].length, spec.len) &&
         [...v].every((c) => spec.alphabet.includes(c))
       );
     case "tuple": {
@@ -401,6 +415,24 @@ export function checkCost(spec: TypeSpec): number {
   }
 }
 
+/**
+ * How many alternatives `conforms` may try for one value: the leaf options of the oneOfs it passes through, multiplied
+ * when they nest. Capped at SPEC_LIMITS.maxOptions, so checking a value costs at most that many times its size and
+ * every budget counted in values (a family's, small-scope's, shrinking's) also bounds the checking.
+ */
+export function fanOut(spec: TypeSpec): number {
+  switch (spec.kind) {
+    case "array":
+      return fanOut(spec.of);
+    case "tuple":
+      return Math.max(1, ...spec.items.map(fanOut));
+    case "oneOf":
+      return spec.options.reduce((a, x) => a + fanOut(x), 0);
+    default:
+      return 1;
+  }
+}
+
 /** The cost one input of these argument specs counts against the per-input and per-family limits: its values, or the checks it takes, whichever is more. */
 function inputCost(args: TypeSpec[]): number {
   return Math.max(
@@ -453,5 +485,7 @@ export function parseTypeSpec(raw: unknown, path = "spec"): TypeSpec {
     throw new ModelOutputError(`${path}: one input could hold ${maxValues(r.data)} values (limit ${SPEC_LIMITS.maxValuesPerInput})`);
   }
   if (hasNestedGraph(r.data, true)) throw new ModelOutputError(`${path}: graph is only allowed as a top-level argument`);
+  const alternatives = fanOut(r.data);
+  if (alternatives > SPEC_LIMITS.maxOptions) throw new ModelOutputError(`${path}: nested oneOf gives a value ${alternatives} alternatives to try (limit ${SPEC_LIMITS.maxOptions}); list them in one oneOf`);
   return r.data;
 }

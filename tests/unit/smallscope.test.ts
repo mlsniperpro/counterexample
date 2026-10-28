@@ -272,3 +272,16 @@ describe("small-scope with graphs that have no small instances", () => {
     }
   });
 });
+
+describe("small-scope with oneOf options that are slow to check", () => {
+  it("counts the alternatives a oneOf makes conforms try, so enumerating stays fast", () => {
+    // 15 options rejected only by their distinct check, then one that accepts: 27 s per call when nested 16 x 16.
+    const opt = (distinct: boolean): TypeSpec => ({ kind: "array", of: { kind: "int", min: 0, max: 5 }, len: { min: 0, max: 781 }, distinct });
+    const spec: TypeSpec = { kind: "oneOf", options: [...Array.from({ length: 15 }, () => opt(true)), opt(false)] };
+    const cpu = cpuClock();
+    const r = smallScope([spec], 300);
+    expect(cpu()).toBeLessThan(500);
+    expect(r.inputs.length).toBeGreaterThan(0);
+    expect(r.inputs.every((x) => argsConform(x, [spec]))).toBe(true);
+  });
+});

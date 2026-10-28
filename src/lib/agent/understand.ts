@@ -49,11 +49,12 @@ function definesFunction(code: string, language: Solution["language"], name: str
   return re.test(code);
 }
 
-/** Whether the code defines `name` as an indented method (inside a class) rather than at the top level. */
+/** Whether the code defines `name` as an indented method in code that has a class, rather than at the top level. */
 function definesMethod(code: string, language: Solution["language"], name: string): boolean {
   const n = escapeRe(name);
   const re = language === "python" ? new RegExp(String.raw`^[ \t]+(?:async\s+)?def\s+${n}\s*\(`, "m") : new RegExp(String.raw`^[ \t]+(?:static\s+)?(?:async\s+)?${n}\s*\([^)]*\)\s*\{`, "m");
-  return re.test(code);
+  // Indented alone is also a nested function or an object's method: only a class makes it one the harness cannot call.
+  return re.test(code) && /^[ \t]*(?:export\s+(?:default\s+)?)?class\s+[A-Za-z_$]/m.test(code);
 }
 
 /**
@@ -65,7 +66,10 @@ function resolveEntry(code: string, language: Solution["language"], named: strin
   if (named && definesFunction(code, language, named)) return { entry: named };
   // A method (LeetCode's class Solution) is not callable as a function: falling back to another top-level function,
   // often a helper defined above the class, would attack the wrong code and blame it for a bug.
-  const method = named && definesMethod(code, language, named) ? named : !definesFunction(code, language, "solve") && /^\s*(?:export\s+)?class\s+Solution\b/m.test(code) ? "Solution" : undefined;
+  // A top-level solve (often a wrapper that calls the method) is still attacked: the refusal is only for code with no
+  // function the harness can call in its place.
+  const hasSolve = definesFunction(code, language, "solve");
+  const method = hasSolve ? undefined : named && definesMethod(code, language, named) ? named : /^\s*(?:export\s+)?class\s+Solution\b/m.test(code) ? "Solution" : undefined;
   if (method) {
     throw new ModelOutputError(
       `the solution is ${method === "Solution" ? "a class Solution" : `"${method}", a method inside a class`}: methods are not supported yet, so write it as a top-level function${language === "python" ? " (without self)" : ""}`,

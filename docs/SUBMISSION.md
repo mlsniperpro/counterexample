@@ -72,10 +72,10 @@ Paste everything between the two rules into the "About the project" field (Devpo
 
 Paste a problem and a solution (your interview answer, or code an AI wrote) and press **Attack**.
 
-1. **Understand.** The problem becomes a typed spec of its parameters and constraints. When the statement relies on outside facts, or the code calls an API with a well-known trap (JavaScript's `sort()` without a comparator, Python's banker's `round()`), **Tavily** fetches the official sources and every fact is cited in the trace.
+1. **Understand.** The problem becomes a typed spec of its parameters and constraints. When the statement relies on outside facts, or the user ticks **Research the web**, **Tavily** fetches the official sources: the problem's constraints, and the documentation of APIs the code calls that have a well-known trap (JavaScript's `sort()` without a comparator, Python's banker's `round()`). Every fact is cited in the trace. When the code calls such an API and research is off, the trace suggests turning it on.
 2. **Build an oracle.** **Nemotron 3 Ultra** writes a slow but obviously-correct brute force. It must reproduce the statement's examples before it is trusted; otherwise the verdict is "oracle unreliable" and no bug is claimed.
 3. **Attack.** **Nemotron 3 Super** designs adversarial input *generators* (not test cases) in a typed JSON DSL: bounds, duplicates, overflow, worst-case sizes, deep chains. They run alongside deterministic families: bounded-exhaustive small inputs and EvalPlus-style mutants.
-4. **Run.** The solution and the oracle run on dozens to hundreds of inputs per attack, and the fix on hundreds more (thousands of sandbox runs in all), in a sandbox (any Judge0-compatible API, or our own hardened sandbox).
+4. **Run.** The solution and the oracle run on dozens to hundreds of inputs per attack, and the fix on hundreds to over a thousand more (thousands of sandbox runs in all), in a sandbox (any Judge0-compatible API, or our own hardened sandbox).
 5. **Confirm and shrink.** A mismatch counts only once it reproduces alone on a fresh run. Delta debugging then shrinks it to a minimal counterexample, for example `solve([2, 5], 6)`: expected 3, got -1.
 6. **Explain and fix.** Ultra explains the bug in two sentences and proposes a fix. The whole attack is **re-run on the fix** before it is called fixed.
 7. **Report.** A live trace shows every model call (which model, why, tokens, cost, latency) and every run. A "Why Ultra here, Super there" panel shows the cost of each step, and a share link carries the report in the URL.
@@ -110,8 +110,8 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 - **False alarms are worse than misses.** A correct binary search looked broken under a loaded sandbox. We now confirm every mismatch alone in a fresh process before claiming it. A failure that only appears after earlier calls is reported as "order-dependent" (the solution keeps state), never as flaky.
 - **Judge0 has one time limit per submission.** We size batches so every input keeps its full limit inside the 15 s CPU cap, and blame a timeout on an input only after it times out alone.
 - **Exact answers.** Integers past 2^53 lose digits in JavaScript, so an overflow in the last digit would go unnoticed. We compare them by their exact digits.
-- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (17 rounds by 28 October) found and fixed more than 150 issues.
-- **No keys in the build environment.** The Token Factory API and docs were unreachable from our build sandbox, so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
+- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (19 rounds by 28 October) found and fixed more than 150 issues.
+- **No keys in the build environment.** The build sandbox had no Token Factory or Tavily key (and at first no network route to Token Factory), so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
 
 ## Accomplishments that we're proud of
 
@@ -151,7 +151,7 @@ NVIDIA Nemotron 3 Ultra (nvidia/Nemotron-3-Ultra-550b-a55b) writes the brute-for
 **How does the project use Tavily? (Best Use of Tavily)**
 
 ```
-Tavily runs a research stage when the problem statement relies on external facts or the code calls an API with a documented trap. It searches the problem's official sources (constraints) and the documentation of risky APIs, such as JavaScript's sort() without a comparator or Python's round(). Every fact keeps its URL, a generator family may cite only facts from this run's research, and the report shows which attack families the research shaped. Example: MDN's note that sort() compares numbers as strings becomes a family of two-digit intervals that breaks a merge-intervals solution.
+Tavily runs a research stage when the problem statement relies on external facts (it cites a judge, the docs or a URL) or the user ticks "Research the web"; when the code calls an API with a documented trap and research is off, the trace suggests turning it on. It searches the problem's official sources (constraints) and the documentation of risky APIs, such as JavaScript's sort() without a comparator or Python's round(). Every fact keeps its URL, a generator family may cite only facts from this run's research, and the report shows which attack families the research shaped. Example: MDN's note that sort() compares numbers as strings becomes a family of two-digit intervals that breaks a merge-intervals solution.
 ```
 
 **Feedback on Token Factory, AI Cloud and NVIDIA tools (required).** Paste from `docs/FEEDBACK.md`, section by section.

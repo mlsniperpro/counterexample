@@ -61,6 +61,9 @@ describe("model output parsing", () => {
     const open = "```" + "\n".repeat(128_000);
     expect(() => extractJson(open)).toThrow(ModelOutputError);
     expect(() => extractCode(open, "python")).toThrow(ModelOutputError);
+    // A long run of spaces after the fence: two adjacent space runs in the pattern split it every way (2.7 s at 40,000).
+    expect(() => extractCode("```" + " ".repeat(40_000) + "x", "python")).toThrow(ModelOutputError);
+    expect(() => extractCode("```" + "\t ".repeat(40_000) + "x", "python")).toThrow(ModelOutputError);
     expect(cpu()).toBeLessThan(300);
     // A blank line after the opening fence still belongs to the block.
     expect(extractJson('```json\n\n{"a": 1}\n```')).toEqual({ a: 1 });
@@ -82,6 +85,9 @@ describe("model output parsing", () => {
     expect(stripThinking(draft)).toBe("```python\ndef solve(x):\n    return x + 1\n```");
     expect(extractCode(stripThinking(draft), "python")).toBe("def solve(x):\n    return x + 1\n");
     expect(stripThinking(draft.replace("<think>\n", ""))).toBe("```python\ndef solve(x):\n    return x + 1\n```");
+    // The same when the closing tag ends a line of the draft rather than standing alone.
+    const atEnd = "<think>\n```python\ndef solve(x): return 1\n\nhmm.</think>\nEXPLANATION: off by one.\n```python\ndef solve(x): return 2\n```";
+    expect(extractCode(stripThinking(atEnd), "python")).toBe("def solve(x): return 2\n");
     // A stray closing tag before a complete pair still ends the prompt-opened trace.
     expect(stripThinking("trace</think>answer<think>x</think>")).toBe("answer");
     // Think tags inside code are content: a fix that handles the literal tags keeps them, in fences and inline.
@@ -106,6 +112,10 @@ describe("model output parsing", () => {
     expect(extractExplanation("**EXPLANATION:** off by one.\n\n**FIX:**\n```py\nx\n```")).toBe("off by one.");
     expect(extractExplanation("**Explanation**: off by one.")).toBe("off by one.");
     expect(extractExplanation("### Explanation:\noff by one.\n### Fix:\n```py\nx\n```")).toBe("off by one.");
+    // A quoted faulty line in its own block does not stand in for the fixed program after it.
+    const quoted = "EXPLANATION: The bug is here:\n```python\nmid = (lo + hi) >> 1\n```\nFIX:\n```python\ndef solve(a, t):\n    return 0\n```";
+    expect(extractCode(quoted, "python")).toBe("def solve(a, t):\n    return 0\n");
+    expect(extractCode("```js\nx >> 1\n```\n```js\nconst solve = (a) => a;\n```", "javascript")).toBe("const solve = (a) => a;\n");
     // A sentence that merely starts with the word keeps it.
     expect(extractExplanation("Explanations differ here.")).toBe("Explanations differ here.");
   });
