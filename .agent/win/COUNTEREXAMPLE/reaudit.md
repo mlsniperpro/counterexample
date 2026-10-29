@@ -7,6 +7,19 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 31 (2026-10-29, `68d1c6a`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (core 1 medium, UI 3 medium test gaps). Security was clean (no findings); the judge is recorded when it reports. Fixed in `330b588` (core) and the next push (UI).
+- **Core** (1 medium, 3 low; 604 tests, FC_NUM_RUNS=1000, bench problems, deep answers):
+  - medium: round 30's switch to float mode happened only after the oracle had returned a fraction, so a batch of perfect squares was still judged exactly and a correct bisection sqrt was reported broken; the switch was also sticky, so a verdict could depend on which inputs ran first. **Decision:** comparison is per pair, with no state: in exact mode, a pair where either side holds a non-integer number gets the standard float tolerance (1e-6, absolute below 1 and relative above), and two integers or big-integer markers must match exactly. The judge's switch is removed. Tests with real processes: the bisection agrees on perfect squares alone and in any company, a bisection to 1e-2 and an `isqrt` off by one are mismatches; unit tests keep 2^52 against 2^52 + 2 a mismatch in exact mode (float mode tolerates it). Three earlier assertions encoded the old 1e-9 and 1e-12 gaps and were moved to values beyond 1e-6 (1.5 against 1.501, 0.3 against 0.3001, 50000.5 against 50000);
+  - low (accepted): float mode's tolerance is absolute below magnitude 1 (1e-7 against 0 agrees), the usual "absolute or relative error" rule; a `/` against `//` bug shows only on inputs below about 5e5 (small-scope and random inputs reach those).
+- **Security** (0 findings; the hardened sandbox with about 30 more syscalls probed, `memfd_secret` counted in RSS and capped by RLIMIT_MEMLOCK, the route, guard, share links, parsing bounds and 109 commits of history all held).
+- **UI and tests** (3 medium test gaps, 3 low; axe in 486 states with zero violations, big integers exact everywhere, 43 unit and several e2e mutants):
+  - medium: the research citations (fact text and source link) were tested nowhere; the e2e now checks that the first run's trace and report cite each fact with an https link, and a unit test pins the fact and its link;
+  - medium: "Show full fix" was never checked to show the fix; the e2e now checks that the full view holds the corrected loop and not the submitted one;
+  - medium: the stat tiles other than "inputs attacked" were unpinned; the unit test pins sandbox runs, model calls and the shrink's family name;
+  - low (accepted): "Your own" keeping the code box, the share link's read-only and select-on-focus, the code box at 14 px (iOS may zoom on focus), no `color-scheme` declaration (native scrollbars stay light in dark mode).
+
 ## Round 30 (2026-10-29, `e17f6d6`, 4 parallel Sonnet audits; the security, UI and judge audits were stopped by the usage limit before they reported)
 
 Not clean (core 1 medium). Fixed in the next push; round 31 re-audits everything on it.

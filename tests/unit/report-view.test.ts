@@ -142,6 +142,9 @@ describe("ReportView content (each number and text in its place)", () => {
 
   it("puts each count in its column: inputs attacked, tested per family, calls and tokens per stage, and why", () => {
     expect(html).toMatch(/<b>3<\/b><span>inputs attacked<\/span>/);
+    expect(html).toMatch(/<b>5<\/b><span>sandbox runs<\/span>/);
+    expect(html).toMatch(/<b>2<\/b><span>model calls<\/span>/);
+    expect(html).toContain("(family single-element)");
     expect(html).toContain("<td>4</td>");
     expect(html).not.toContain("<td>7</td>");
     expect(html).toMatch(/Correctness first<\/div><\/td><td>.*?<\/td><td>2<\/td><td>351<\/td>/);
@@ -198,5 +201,12 @@ describe("ReportView for every verdict", () => {
     const stats = fullReport().stats;
     expect(render(fullReport({ stages: [stage] }))).toContain("(the time to first counterexample includes it).");
     expect(render(fullReport({ stages: [stage], stats: { ...stats, timeToFirstCounterexampleMs: null } }))).toContain("latency is simulated.</p>");
+  });
+});
+
+describe("ReportView research citations", () => {
+  it("shows each research fact with a link to its source", () => {
+    const html = render(fullReport({ research: { queries: ["q"], facts: [{ fact: "Arrays may hold one element.", url: "https://leetcode.com/problems/binary-search/" }], influencedFamilies: [] } }));
+    expect(html).toContain('<li>Arrays may hold one element. <a href="https://leetcode.com/problems/binary-search/" target="_blank" rel="noreferrer">source</a></li>');
   });
 });

@@ -228,6 +228,12 @@ async function main() {
   check((await page.locator(".badges .badge").allInnerTexts()).some((t) => /local|judge0/i.test(t)), "the executor badge names where the code ran");
   check((await page.locator(".trace .why").count()) > 0 && (await page.locator(".trace .why").first().innerText()).trim().length > 0, "model calls in the trace say why that model was chosen");
   check((await page.locator("ul.examples li").count()) > 0, "the problem's examples are listed");
+  // Every research fact is cited, in the live trace and in the report, with a link to its https source.
+  const traceSources = await page.locator(".trace .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+  const reportSources = await page.locator(".result .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+  check(traceSources.length > 0 && traceSources.every((h) => h.startsWith("https://")), `the trace cites each research fact's source (${traceSources.join(", ")})`);
+  check(reportSources.length > 0 && reportSources.every((h) => h.startsWith("https://")), `the report cites each research fact's source (${reportSources.join(", ")})`);
+  check((await page.locator(".result .facts li").first().innerText()).replace(/\s*source$/, "").trim().length > 10, "the report shows the research fact's text");
   await noHorizontalOverflow(page, "report at 390 px");
   ok(step);
 
@@ -268,6 +274,9 @@ async function main() {
   check((await shared.evaluate(() => navigator.clipboard.readText())).startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
   await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).click();
   await shared.locator(".shared").getByRole("button", { name: "Show changes only" }).waitFor();
+  // The full view is the corrected solution, not the submitted code: the binary-search fix loops while lo <= hi.
+  const fullFix = await shared.locator(".shared pre.code-out").innerText();
+  check(fullFix.includes("while lo <= hi") && !fullFix.includes("while lo < hi"), `"Show full fix" shows the fix (${fullFix.slice(0, 80)})`);
   // Make a second, different report and open its link in the same tab (a hash change, not a reload).
   await page.getByRole("button", { name: "Integer square root", exact: true }).click();
   await attackButton(page).click();
