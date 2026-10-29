@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 07:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 29 is fixed (security in `f08b791`, core and UI in this push): lint, typecheck, 603/603 tests, build, e2e (12 steps). Exact mode now tolerates rounding between non-integers (1e-9); float inference only from outputs written with a decimal point.
+- Next: round 30 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z.
+
 STATE 2026-10-29 07:00 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 28 is fixed (security in `b5d1ca5`, core and UI in this push): lint, typecheck, 602/602 tests, build, e2e (12 steps); the sandbox image is rebuilt with `socketpair` denied and passes preflight and bench problems. The trace-follow feature was removed (decision in reaudit.md round 28).
 - Next: round 29 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z.

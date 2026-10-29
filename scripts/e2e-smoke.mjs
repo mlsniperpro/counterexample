@@ -431,6 +431,21 @@ async function main() {
   ok(step);
 
   step = "the form sends what it shows, and the report's tools work";
+  // Mid-run, the trace is a bounded scroller that shows the newest event as each one arrives.
+  pace.lineDelayMs = 150;
+  await attackButton(page).click();
+  await page.waitForFunction(() => {
+    const el = document.querySelector(".trace-scroll");
+    return el && el.scrollHeight - el.clientHeight > 100;
+  }, null, { timeout: 60_000 });
+  check(await page.getByRole("button", { name: "Cancel" }).isVisible(), "the trace overflows its box while the run is still going");
+  const traceCount = await page.locator(".trace-scroll li").count();
+  await page.waitForFunction((n) => document.querySelectorAll(".trace-scroll li").length > n, traceCount, { timeout: 30_000 });
+  await page.waitForTimeout(100);
+  const midBehind = await page.locator(".trace-scroll").evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+  check(midBehind <= 2, `mid-run, the trace shows its newest event (${midBehind} px short)`);
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   const bodies = [];
   await page.route("**/api/attack", (route) => {
     bodies.push(route.request().postDataJSON());
@@ -766,10 +781,25 @@ async function main() {
   const chips = await page.locator("button.chip").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-pressed")));
   eq(chips.filter((x) => x === "true").length, 1, "chips marked as pressed");
   eq(chips.filter((x) => x === "false").length, chips.length - 1, "chips marked as not pressed");
+  // The picked chip looks picked, and "Your own" says it is pressed once picked.
+  const [onBg, offBg] = await page.evaluate(() => [getComputedStyle(document.querySelector("button.chip.on")).backgroundColor, getComputedStyle(document.querySelector("button.chip:not(.on)")).backgroundColor]);
+  check(onBg !== offBg, `the picked chip is filled differently from the others (${onBg} against ${offBg})`);
+  await page.getByRole("button", { name: "Your own", exact: true }).click();
+  eq(await page.getByRole("button", { name: "Your own", exact: true }).getAttribute("aria-pressed"), "true", '"Your own" pressed once picked');
+  await page.locator("button.chip").first().click();
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   const scroller = await page.locator(".trace-scroll").evaluate((el) => [el.tabIndex, el.getAttribute("role"), el.getAttribute("aria-label")].join("|"));
   eq(scroller, "0|region|Live trace events", "the trace scroller's tab stop, role and name");
+  // Keyboard focus on each scroll region is visible (WCAG 2.4.7); axe does not check focus styles.
+  for (const sel of [".trace-scroll", ".scroll", "pre.code-out"]) {
+    const el = page.locator(sel).first();
+    // A key press first: Chromium shows :focus-visible for script focus only after keyboard use, as a Tab user would have.
+    await page.keyboard.press("Shift");
+    await el.focus();
+    const outline = await el.evaluate((n) => [getComputedStyle(n).outlineStyle, parseFloat(getComputedStyle(n).outlineWidth)]);
+    check(outline[0] !== "none" && outline[1] >= 1, `${sel} shows a focus outline (${outline.join(" ")})`);
+  }
   ok(step);
 
   step = "no page errors";

@@ -7,6 +7,22 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 29 (2026-10-29, `df31d50`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (core 2 medium, UI 1 medium). The judge was clean; security's one finding is rated low here (below). Fixed in `f08b791` (security) and the next push.
+- **Security** (1 finding, rated low by the main session; pipes, pty pairs, inotify and the shared temp dirs tried under the documented flags; route guards, share links, the float regexes on 8,000-character statements, and the full history held):
+  - low, fixed: unread inotify event queues held about 85 MB of kernel memory per run that the RSS-based limit does not count. The auditor rated it medium, by analogy with `socketpair`. It is rated low here because, unlike `socketpair` (about 900 MB per run, other runs OOM-killed), it is bounded by per-user kernel limits (128 instances, 16,384 queued events each), like the pipe buffers accepted in round 28, and four concurrent runs reached 388 MB of the container's 2 GB with no run killed. It was cheap to close: the filter denies `inotify_init`, `inotify_init1` and `inotify_add_watch` (test; image rebuilt; preflight passes in both languages).
+- **Core** (2 medium, 2 low; full bench verdicts identical, FC_NUM_RUNS=1000, regex cost at most 0.14 ms):
+  - medium: round 28's float inference turned an explicit "exact" into "float" on words in the return type or the statement ("int (the decimal value)", "floating-point is not accurate enough"), and float mode compares integers from 2^50 with a tolerance, so a Fibonacci overflow at n=79 was missed;
+  - medium: the tolerance phrases it recognised were too narrow, so the common wordings ("within 10-5", "0.0001", "to 3 decimal digits") still gave the original false bug on a correct mean;
+  - both fixed by a sounder rule: only an example output that holds a fraction or is written with a decimal point (2.0) switches a problem to float mode; no wording does. Exact mode itself now takes two non-integer numbers within 1e-9 relative for one answer (a sum in another order), while integers, big or small, and markers stay exact. Tests: the Fibonacci, "decimal value" and "floating-point" cases stay exact and catch the low-digit bug; one-ulp float differences agree; real differences, off-by-one integers and big integers in their low digits still mismatch. One earlier assertion (`0.3` against `0.1 + 0.2` is a mismatch in exact mode) encoded the old rule and was replaced by `0.3` against `0.3000001`;
+  - low, fixed: a reviver overflowing the stack on JSON nested thousands deep is caught in the float check; low (accepted): the README does not describe float mode's 2^50 boundary beyond the code comment.
+- **Judge** (2 low; fresh clone with 602 tests, 12 e2e steps, full bench rows identical to the fixture, every README and VIDEO figure, constant and sandbox syscall reproduced, sponsor docs match): low, fixed: the bench time now says 12 minutes idle, 15 loaded; WIN-CHECKLIST says where rounds before 4b are detailed.
+- **UI and tests** (1 medium, 4 low; axe in 102 states with zero violations, a full contrast sweep, keyboard, touch at 320 px, hostile links, 48 mutants):
+  - medium: nothing tested that the trace shows the newest event during a run, or that it scrolls at all. The e2e now paces a run, waits until the trace overflows while Cancel is shown, and checks it shows the newest event after the next one arrives; the mutant that scrolls only when the report arrives fails it;
+  - low, fixed: the e2e checks that the picked chip is filled differently, that "Your own" reads pressed once picked, and that the trace, table and diff regions show a focus outline; unit tests pin the `usd` boundary and the live research text in full;
+  - low (accepted): absurd numbers in a crafted share link print in exponent notation (the banner says a link can say anything).
+
 ## Round 28 (2026-10-29, `f158efa`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (security 1 medium, core 1 medium, UI 3 medium). The judge was clean. Fixed in `b5d1ca5` (security) and the next push.

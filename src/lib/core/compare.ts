@@ -163,6 +163,30 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
     return sa.every((x, i) => x === sb[i]);
   }
   if (mode === "unordered_nested") return canonNested(a) === canonNested(b);
+  return canon(a) === canon(b) || roundingApart(a, b);
+}
+
+/** Relative gap within which two non-integer numbers are one answer computed in two orders, even in exact mode. */
+const ROUNDING_GAP = 1e-9;
+
+/**
+ * Whether two values differ only by floating-point rounding: the same shape, and every pair of numbers either equal or
+ * finite with at least one not an integer and within ROUNDING_GAP of each other (1.6666666666666665 against
+ * 1.6666666666666667, a mean summed in another order). Integers, and markers carrying exact digits, must match
+ * exactly, so an off-by-one or an overflow in the low digits is still a mismatch.
+ */
+function roundingApart(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") {
+    if (a === b) return true;
+    if (!Number.isFinite(a) || !Number.isFinite(b) || (Number.isInteger(a) && Number.isInteger(b))) return false;
+    return Math.abs(a - b) <= ROUNDING_GAP * Math.max(1, Math.abs(a), Math.abs(b));
+  }
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => roundingApart(x, b[i]));
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const ka = Object.keys(a).sort();
+    const kb = Object.keys(b).sort();
+    return ka.length === kb.length && ka.every((k, i) => k === kb[i] && roundingApart(a[k], b[k]));
+  }
   return canon(a) === canon(b);
 }
 

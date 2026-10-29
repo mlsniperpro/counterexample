@@ -27,6 +27,7 @@ describe("the research option's explanation", () => {
   it("never claims a web search it cannot promise: replay runs none, live needs a Tavily key, an unknown mode says both", () => {
     expect(researchHint("replay")).toMatch(/^In replay mode no web search runs: research shows hand-written stand-in results/);
     expect(researchHint("replay")).not.toMatch(/searches the web/);
+    expect(researchHint("live")).toBe("With TAVILY_API_KEY set on the server, research searches the web (Tavily) for the problem's official constraints and the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources; without it, no search runs and the report says so.");
     expect(researchHint("live")).toMatch(/^With TAVILY_API_KEY set on the server, research searches the web \(Tavily\) for the problem's official constraints .*; without it, no search runs and the report says so\.$/);
     for (const m of ["unknown", null] as const) expect(researchHint(m)).toMatch(/^On a live server with a Tavily key, research searches the web .*; otherwise no web search runs \(replay mode shows hand-written stand-in results/);
   });

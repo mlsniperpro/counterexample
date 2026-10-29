@@ -67,7 +67,10 @@ describe("outputsEqual", () => {
     expect(outputsEqual([1e9, 0.3], [1e9 + 1e-3, 0.1 + 0.2], "float")).toBe(true);
     expect(outputsEqual(1, 1.001, "float")).toBe(false);
     expect(outputsEqual([1, 2], [1], "float")).toBe(false);
-    expect(outputsEqual(0.3, 0.1 + 0.2, "exact")).toBe(false);
+    // Exact mode lets non-integers differ only by rounding (1e-9 relative), far below float mode's 1e-6.
+    expect(outputsEqual(0.3, 0.1 + 0.2, "exact")).toBe(true);
+    expect(outputsEqual(0.3, 0.3000001, "exact")).toBe(false);
+    expect(outputsEqual(0.3, 0.3000001, "float")).toBe(true);
   });
 
   it("treats null and a missing value the same (JSON has no undefined)", () => {
@@ -226,5 +229,20 @@ describe("parseExact", () => {
     };
     expect(parseExact(text)).toEqual(JSON.parse(text, exactReviver));
     expect(time(() => parseExact(text)) * 3).toBeLessThan(time(() => JSON.parse(text, exactReviver)));
+  });
+});
+
+describe("exact mode and floating-point rounding", () => {
+  it("takes two non-integer numbers within 1e-9 for one answer, and keeps integers, big or small, exact", () => {
+    expect(outputsEqual(1.6666666666666665, 1.6666666666666667)).toBe(true);
+    expect(outputsEqual([0.1 + 0.2, 2], [0.3, 2])).toBe(true);
+    expect(outputsEqual({ mean: 2.0000000000000004 }, { mean: 2 })).toBe(true);
+    // A real difference, an integer off by one, a big integer in its low digits, and a shape change are all mismatches.
+    expect(outputsEqual(1.5, 1.5000001)).toBe(false);
+    expect(outputsEqual(3, 4)).toBe(false);
+    expect(outputsEqual(2 ** 52, 2 ** 52 + 1)).toBe(false);
+    expect(outputsEqual(JSON.parse("[9007199254740993]", exactReviver), JSON.parse("[9007199254740992]", exactReviver))).toBe(false);
+    expect(outputsEqual([0.3], [0.3, 0.3])).toBe(false);
+    expect(outputsEqual(Number.NaN, 0.5)).toBe(false);
   });
 });

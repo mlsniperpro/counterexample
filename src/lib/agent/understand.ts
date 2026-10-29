@@ -245,15 +245,11 @@ export function hasFraction(v: unknown): boolean {
   return false;
 }
 
-/** A return type that names a floating-point answer. */
-const FLOAT_RETURN = /\b(float|floats|double|doubles|decimal|real number)\b/i;
-/** A statement that accepts answers within a tolerance, or asks for a floating-point one. */
-const FLOAT_STATEMENT = /\b(?:within (?:an? )?(?:absolute|relative|1e-\d+|10\^-?\{?-?\d+\}?)|absolute or relative error|relative or absolute error|tolerance|floating[- ]point|decimal places|as a float)\b|\b1e-\d+\b|10\^\{?-\d+\}?/i;
-/** Stands for an integral number written as a float (2.0, 1e3) in a model's JSON. */
+/** Stands for an integral number written with a decimal point (2.0) in a model's JSON. */
 const FLOAT_LITERAL = Object.freeze({ floatLiteral: true });
-/** JSON.parse reviver: an integral number whose source text is written as a float becomes FLOAT_LITERAL. */
+/** JSON.parse reviver: an integral number written with a decimal point becomes FLOAT_LITERAL (an exponent alone, 1e18, does not: integers are written that way too). */
 function floatLiteralReviver(_key: string, value: unknown, ctx?: { source?: string }): unknown {
-  return typeof value === "number" && Number.isInteger(value) && ctx?.source && /[.eE]/.test(ctx.source) ? FLOAT_LITERAL : value;
+  return typeof value === "number" && Number.isInteger(value) && ctx?.source && ctx.source.includes(".") ? FLOAT_LITERAL : value;
 }
 function holdsFloatLiteral(v: unknown): boolean {
   if (v === FLOAT_LITERAL) return true;
@@ -285,23 +281,24 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   const examples = all.filter((e) => !hasUnsafeInteger(e.args));
   const dropped = all.length - examples.length;
   if (examples.length === 0) throw new ModelOutputError("problem spec: every example passes an integer beyond 2^53, which no program receives exactly, so the oracle could not be checked");
-  // Exact comparison of floating-point answers flags a correct solution that sums in another order (1.6666666666666665
-  // against 1.6666666666666667), so an exact spec compares as floats when an example output holds a fraction or is
-  // written as a float (2.0, 2500.00000), or when the return type or the statement says the answer is a float or has a
-  // tolerance. Float mode still compares integers below 2^50 exactly, so an integer answer loses nothing.
-  const floatWritten = (extractJson(stripThinking(text), floatLiteralReviver) as { examples?: { output?: unknown }[] }).examples?.some((e) => holdsFloatLiteral(e?.output)) ?? false;
+  // An exact spec compares as floats when an example output holds a fraction or is written with a decimal point (2.0,
+  // 2500.00000): float answers then keep a tolerance. Exact mode itself already lets two non-integer numbers differ by
+  // rounding (a mean summed in another order), so the float problem whose examples are all whole is covered there, and
+  // nothing in the wording of a statement or a return type turns an integer problem's exact comparison off.
+  let floatWritten = false;
+  try {
+    floatWritten = (extractJson(stripThinking(text), floatLiteralReviver) as { examples?: { output?: unknown }[] }).examples?.some((e) => holdsFloatLiteral(e?.output)) ?? false;
+  } catch {
+    // A reviver overflows the stack on JSON nested thousands deep, where the plain parse above worked: not written as floats.
+  }
   const floatReason =
     a.compare !== "exact"
       ? undefined
       : examples.some((e) => hasFraction(e.output))
         ? "The examples return non-integer numbers"
         : floatWritten
-          ? "The examples write their outputs as floats"
-          : FLOAT_RETURN.test(a.returns)
-            ? "The return type is a float"
-            : FLOAT_STATEMENT.test(statement)
-              ? "The statement accepts answers within a tolerance"
-              : undefined;
+          ? "The examples write their outputs with a decimal point"
+          : undefined;
   const compare = floatReason ? "float" : a.compare;
   const notes = [
     note,

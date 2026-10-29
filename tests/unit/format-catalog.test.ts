@@ -17,6 +17,8 @@ describe("UI formatting", () => {
     expect(usd(0.01)).toBe("$0.010");
     // A nonzero cost below five decimals is not shown as $0.00000.
     expect(usd(0.000001)).toBe("<$0.00001");
+    expect(usd(0.0000049)).toBe("<$0.00001");
+    expect(usd(0.000005)).toBe("$0.00001");
     expect(usd(0)).toBe("$0.00000");
     expect(usd(null)).toBe("unpriced");
     expect(Object.keys(VERDICT)).toHaveLength(6);

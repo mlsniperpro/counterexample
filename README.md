@@ -147,7 +147,7 @@ Soak run: 1071 attacks on 357 mutants (of all 40 benchmark solutions), 3 seed(s)
 pnpm install
 pnpm test                 # unit (incl. fast-check properties), integration, replay end to end
 pnpm dev                  # http://localhost:3000, replay mode without keys
-pnpm bench                # fixture-mode benchmark, about 12 minutes (Python 3 and Node 22+ needed for the local executor); `--only <problem>` runs one problem
+pnpm bench                # fixture-mode benchmark, about 12 minutes on an idle 4-core machine, 15 on a loaded one (Python 3 and Node 22+ needed for the local executor); `--only <problem>` runs one problem
 ```
 
 Live mode: copy `.env.example` to `.env.local` and set `NEBIUS_API_KEY` (plus `TAVILY_API_KEY` for research). The app, `pnpm preflight` and `pnpm bench` all read `.env.local` (then `.env`); a variable set in the shell wins. Confirm the model ids against Token Factory's model list first.

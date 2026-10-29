@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 602 tests when counted on 2026-10-29 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 603 tests when counted on 2026-10-29 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and `TAVILY_API_KEY` (BLOCKED.md); Token Factory itself was reachable from the build session from 2026-10-27.
 - [x] **Creativity:**
@@ -70,7 +70,7 @@ Legend:
 - [x] Security: sandbox env isolation tested; per-run uid, process cap and kill-all-after-run in the container (Docker-tested, `break-it.md`); constant-time token auth; share links schema-validated (http(s) links only); no SSRF (URLs from env only).
 - [x] Scalability statement with measured load (README "Load and limits").
 
-## Audit findings (all fixed; details in `.agent/win/COUNTEREXAMPLE/reaudit.md`)
+## Audit findings (all fixed or recorded as accepted; details for round 4b on are in `.agent/win/COUNTEREXAMPLE/reaudit.md`, earlier rounds are summarised here)
 
 - [x] Round 2: 10 code-review findings fixed in `f19cb63` (per-family validation, spend-cap bypass, slot leaks, and more).
 - [x] Round 3: 10 code-review findings fixed in `0993b4e` (share-link validation, `hashchange`, citation filter, and more).
@@ -226,3 +226,4 @@ Legend:
 - [x] Round 26 (audit of `657c696`; details in `reaudit.md`): unread results re-run with runs cut to what fits, flagged by the parser; integer keys refused; an unstable oracle named; placeholder and field-border contrast; a mode-aware research explanation; tests for the 404 link, Attack's disabled state and every report heading; the trace follows only at the bottom.
 - [x] Round 27 (audit of `5cd3d06`; details in `reaudit.md`): the trace follows by scroll direction, tested in the e2e; field-border contrast measured in the e2e; the research explanation conditional while the mode is unknown; a longer timeout for the slow stateful-oracle test.
 - [x] Round 28 (audit of `f158efa`; details in `reaudit.md`): `socketpair` denied in the sandbox (kernel buffers no RSS counts); float problems with whole example answers compared as floats; the trace back to showing the newest event (decision recorded); drawn-border check in the e2e; the research explanation names the Tavily key.
+- [x] Round 29 (audit of `df31d50`; details in `reaudit.md`): `inotify` denied in the sandbox; float inference narrowed to outputs written with a decimal point, and exact mode lets non-integers differ by rounding (1e-9) while integers stay exact; e2e checks the trace mid-run, the picked chip's look, the scroll regions' focus outlines and "Your own" pressed.

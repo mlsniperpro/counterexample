@@ -42,23 +42,23 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect((await run({ ...avg, compare: "unordered" })).problem.compare).toBe("unordered");
   });
 
-  it("compares as floats when every example answer is whole but the answer is a float: written 2.0, a float return type, or a tolerance", async () => {
+  it("compares as floats when an example output is written with a decimal point, and otherwise keeps the model's exact", async () => {
     const mean = { ...spec, returns: "the mean", examples: [{ args: [1, 3], output: 2 }] };
     const parse = (text: string, statement = "Return the mean of a and b.") => parseUnderstanding(text, statement, { code: "def add(a, b): return (a + b) / 2", language: "python" });
     const fenced = (o: unknown) => "```json\n" + JSON.stringify(o) + "\n```";
-    // Written as a float literal (JSON.stringify would write 2, so the text is edited).
+    // Written as 2.0 (JSON.stringify would write 2, so the text is edited).
     const written = await parse(fenced(mean).replace('"output":2', '"output":2.0'));
     expect(written.problem.compare).toBe("float");
-    expect(written.note).toMatch(/^The examples write their outputs as floats, so outputs are compared as floats/);
-    const typed = await parse(fenced({ ...mean, returns: "float: the arithmetic mean" }));
-    expect(typed.problem.compare).toBe("float");
-    expect(typed.note).toMatch(/The return type is a float/);
-    const tolerant = await parse(fenced(mean), "Return the mean. Answers within 1e-5 of the true value are accepted.");
-    expect(tolerant.problem.compare).toBe("float");
-    expect(tolerant.note).toMatch(/The statement accepts answers within a tolerance/);
-    // A whole answer with none of these stays exact; float mode would still compare small integers exactly.
-    expect((await parse(fenced(mean))).problem.compare).toBe("exact");
-    expect(outputsEqual(3, 4, "float")).toBe(false);
+    expect(written.note).toMatch(/^The examples write their outputs with a decimal point, so outputs are compared as floats/);
+    // An exponent alone is how integers are written too, and words in the return type or the statement change nothing:
+    // "int (the decimal value)" or "exactly: floating-point is not accurate enough" must keep an integer problem exact.
+    expect((await parse(fenced(mean).replace('"output":2', '"output":2e0'))).problem.compare).toBe("exact");
+    expect((await parse(fenced({ ...mean, returns: "int (the decimal value of F(n))" }))).problem.compare).toBe("exact");
+    expect((await parse(fenced(mean), "Return F(n) exactly: floating-point arithmetic is not accurate enough.")).problem.compare).toBe("exact");
+    // Exact mode still lets a float answer differ by rounding, and still catches an integer off by one in the low digits.
+    expect(outputsEqual(1.6666666666666665, 1.6666666666666667, "exact")).toBe(true);
+    const [fib] = parseLines('\x1eCX{"ok":true,"out":14472334024676221,"ms":1}\n').map((o) => (o.ok ? o.out : undefined));
+    expect(outputsEqual(fib, 14472334024676220, "exact")).toBe(false);
   });
 
   it("refuses a problem whose inputs hold more than the per-input value limit across all their parameters", async () => {
