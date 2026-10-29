@@ -207,7 +207,8 @@ describe("the big-integer prefilter", () => {
     const spy = vi.spyOn(JSON, "parse");
     try {
       parseLines(lines.map((l) => `\x1eCX${l}\n`).join(""));
-      return spy.mock.calls.filter(([t]) => typeof t === "string" && t.includes('"ms"')).map(([, reviver]) => reviver !== undefined);
+      // Exact parsing rewrites unsafe integer literals as marker strings before a plain parse (or, before, used a reviver).
+      return spy.mock.calls.filter(([t]) => typeof t === "string" && t.includes('"ms"')).map(([t, reviver]) => reviver !== undefined || (t as string).includes("\\u0000int:"));
     } finally {
       spy.mockRestore();
     }

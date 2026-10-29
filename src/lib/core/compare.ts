@@ -28,6 +28,60 @@ export function exactReviver(_key: string, value: unknown, ctx?: { source?: stri
   return value;
 }
 
+/**
+ * `JSON.parse(text, exactReviver)` without the reviver, which is called on every value and made one process's
+ * 1,000,000 characters of results take about 450 ms instead of about 50: integer literals that are not safe
+ * integers are rewritten, outside strings, as marker strings, and the rest is a plain parse. A literal with a
+ * fraction or an exponent stays a number, as it does under the reviver. Text that is not JSON still throws.
+ */
+export function parseExact(text: string): unknown {
+  const parts: string[] = [];
+  let last = 0;
+  const n = text.length;
+  const digit = (c: number) => c >= 48 && c <= 57;
+  for (let i = 0; i < n; i++) {
+    const c = text.charCodeAt(i);
+    if (c === 34) {
+      // Skip the string: a backslash escapes the next character.
+      for (i++; i < n; i++) {
+        const d = text.charCodeAt(i);
+        if (d === 92) i++;
+        else if (d === 34) break;
+      }
+      continue;
+    }
+    if (c !== 45 && !digit(c)) continue;
+    // One whole number token: -?digits(.digits)?([eE][+-]?digits)?
+    let j = c === 45 ? i + 1 : i;
+    const intStart = j;
+    while (j < n && digit(text.charCodeAt(j))) j++;
+    const intEnd = j;
+    let integer = true;
+    if (j < n && text.charCodeAt(j) === 46) {
+      integer = false;
+      for (j++; j < n && digit(text.charCodeAt(j)); ) j++;
+    }
+    if (j < n && (text.charCodeAt(j) === 101 || text.charCodeAt(j) === 69)) {
+      integer = false;
+      j++;
+      if (j < n && (text.charCodeAt(j) === 43 || text.charCodeAt(j) === 45)) j++;
+      while (j < n && digit(text.charCodeAt(j))) j++;
+    }
+    // 16 digits is the shortest unsafe integer; a leading zero is left for JSON.parse to refuse.
+    if (integer && intEnd - intStart >= 16 && text.charCodeAt(intStart) !== 48) {
+      const literal = text.slice(i, j);
+      if (!Number.isSafeInteger(Number(literal))) {
+        parts.push(text.slice(last, i), JSON.stringify(BIG + literal));
+        last = j;
+      }
+    }
+    i = j - 1;
+  }
+  if (last === 0) return JSON.parse(text);
+  parts.push(text.slice(last));
+  return JSON.parse(parts.join(""));
+}
+
 let exactSupported: boolean | undefined;
 
 /**

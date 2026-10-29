@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { clipText, displayable, exactIntegersSupported, exactReviver, OUTPUT_TEXT_CAP, outputsEqual, showValue } from "@/lib/core/compare";
+import { clipText, displayable, exactIntegersSupported, exactReviver, OUTPUT_TEXT_CAP, outputsEqual, parseExact, showValue } from "@/lib/core/compare";
 import { jsonValueArb } from "../arbitraries";
-import { cpuClock } from "../helpers";
+import { cpuClock, runs } from "../helpers";
 
 describe("outputsEqual", () => {
   it("is reflexive in every mode", () => {
@@ -188,5 +188,41 @@ describe("huge integer-valued floats", () => {
     expect(cpu()).toBeLessThan(500);
     // Below 2^64 the exact digits still decide: two doubles 256 apart past 2^53 differ.
     expect(outputsEqual(2 ** 60, 2 ** 60 + 256)).toBe(false);
+  });
+});
+
+describe("parseExact", () => {
+  /** JSON text with integer literals of any size, floats, and strings full of digits, quotes and escapes. */
+  const bigInt = fc.bigInt({ min: -(10n ** 330n), max: 10n ** 330n }).map((b) => b.toString());
+  const tricky = fc.constantFrom('"12345678901234567"', '"a\\\\"', '"\\"9007199254740993"', '"-9223372036854775808"', '"\\u0000int:5"', "1.2345678901234567e+30", "-0.12345678901234567", "12345678901234567e2", "9007199254740993E-1", "true", "null", "1e400", "-0");
+  const leaf = fc.oneof(bigInt, fc.double({ noNaN: true, noDefaultInfinity: true }).map((x) => JSON.stringify(x)), fc.string().map((x) => JSON.stringify(x)), tricky);
+  const { value } = fc.letrec((tie) => ({
+    value: fc.oneof({ depthSize: "small" }, leaf, fc.array(tie("value"), { maxLength: 5 }).map((xs) => `[${xs.join(", ")}]`), fc.array(fc.tuple(fc.string(), tie("value")), { maxLength: 4 }).map((kv) => `{${kv.map(([k, v]) => `${JSON.stringify(k)}:${v}`).join(",")}}`)),
+  }));
+
+  it("reads every JSON text exactly as JSON.parse with exactReviver does", () => {
+    fc.assert(
+      fc.property(value, (text) => {
+        expect(parseExact(text)).toEqual(JSON.parse(text, exactReviver));
+      }),
+      { numRuns: runs(500) },
+    );
+  });
+
+  it("refuses what JSON.parse refuses, and keeps the record's float timing a number", () => {
+    for (const bad of ["01234567890123456789", "[12345678901234567890", "{1}", "9007199254740993 x", ""]) expect(() => parseExact(bad)).toThrow();
+    expect(parseExact('{"ok":true,"out":[90071992547409930],"ms":0.12345678901234567}')).toEqual({ ok: true, out: ["\u0000int:90071992547409930"], ms: 0.12345678901234567 });
+  });
+
+  it("parses 1,000,000 characters of big-integer results several times faster than the reviver", () => {
+    const tower = (d: number): string => (d === 0 ? "[1]" : `[${tower(d - 1)}]`);
+    const text = `{"ok":true,"out":[1234567890123456789,${Array.from({ length: 480 }, () => tower(250)).join(",")}],"ms":0.5}`;
+    const time = (f: () => unknown) => {
+      const elapsed = cpuClock();
+      for (let i = 0; i < 4; i++) f();
+      return elapsed();
+    };
+    expect(parseExact(text)).toEqual(JSON.parse(text, exactReviver));
+    expect(time(() => parseExact(text)) * 3).toBeLessThan(time(() => JSON.parse(text, exactReviver)));
   });
 });

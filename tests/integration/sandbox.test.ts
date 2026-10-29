@@ -191,6 +191,22 @@ describe("sandbox isolation", () => {
     expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
   });
 
+  it("denies new namespaces, mounts and chroot, so a run cannot hold memory in a tmpfs of its own", async () => {
+    // unshare, setns, mount, pivot_root, chroot, by number; the filter says EACCES (13) before the kernel can say EPERM.
+    const py = [
+      "import ctypes, errno, platform",
+      "libc = ctypes.CDLL(None, use_errno=True)",
+      "nrs = {'x86_64': [272, 308, 165, 155, 161], 'aarch64': [97, 268, 40, 41, 51]}[platform.machine()]",
+      "for nr in nrs:",
+      "    r = libc.syscall(nr, 0, 0, 0, 0, 0)",
+      "    print(nr, 'denied' if r == -1 and ctypes.get_errno() == errno.EACCES else 'allowed')",
+    ].join("\n");
+    const p = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: py });
+    const lines = unb64(p.stdout).trim().split("\n");
+    expect(lines).toHaveLength(5);
+    expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
+  });
+
   it("denies submitted code every socket: metadata, a neighbouring sandbox, the internet and loopback", async () => {
     expect(await probeNetworkFilter()).toBe("blocked");
     const targets = [["169.254.169.254", 80], ["172.17.0.1", 2358], ["93.184.215.14", 80], ["127.0.0.1", Number(new URL(url).port)]];

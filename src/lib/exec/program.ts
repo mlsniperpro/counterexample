@@ -1,4 +1,4 @@
-import { exactReviver } from "../core/compare";
+import { parseExact } from "../core/compare";
 import type { Language, ChunkResult, RunOutcome } from "./types";
 
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -189,8 +189,8 @@ export function parseLines(stdout: string, maxRecords = Infinity): RunOutcome[] 
       continue;
     }
     try {
-      // The exact-integer reviver is several times slower than a plain parse, so it runs only when a long digit run could be a big integer.
-      const rec = JSON.parse(text, mayHoldBigInteger(text) ? exactReviver : undefined);
+      // Exact parsing costs a scan of the text, so it runs only when a long digit run could be a big integer.
+      const rec = mayHoldBigInteger(text) ? (parseExact(text) as { ok?: unknown; out?: unknown; ms?: unknown; message?: unknown }) : JSON.parse(text);
       if (rec.ok) out.push({ ok: true, out: rec.out, ms: Number(rec.ms) || 0 });
       else out.push({ ok: false, error: "runtime", message: String(rec.message ?? "error") });
     } catch {

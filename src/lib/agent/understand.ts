@@ -175,7 +175,7 @@ function resolveEntry(code: string, language: Solution["language"], names: strin
   // A top-level solve (often a wrapper that calls the method) is still attacked: the refusal is only for code with no
   // function the harness can call in its place.
   const hasSolve = definesFunction(code, language, "solve");
-  const method = hasSolve ? undefined : named && definesMethod(code, language, named) ? named : /^\s*(?:export\s+)?class\s+Solution\b/m.test(code) ? "Solution" : undefined;
+  const method = hasSolve ? undefined : named && definesMethod(code, language, named) ? named : /^[ \t]*(?:export[ \t]+)?class[ \t]+Solution\b/m.test(code) ? "Solution" : undefined;
   if (method) {
     throw new ModelOutputError(
       `the solution is ${method === "Solution" ? "a class Solution" : `"${method}", a method inside a class`}: methods are not supported yet, so write it as a top-level function${language === "python" ? " (without self)" : ""}`,
