@@ -438,8 +438,10 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
         if (found.some((h) => h.j.got.startsWith("timeout"))) sawTimeout = true;
         // The oracle judged none of this sub-batch (a brute-force oracle too slow for this family's sizes) and no hit yet:
         // the rest of the family is the same shape and would only burn the wall clock, so skip it. If no family is ever
-        // judged, the end-of-run check still reports oracle_unreliable.
-        else if (skipped === part.length && found.length === 0) {
+        // judged, the end-of-run check still reports oracle_unreliable. Only for families whose inputs are drawn
+        // independently: small-scope is enumerated shortest-first (its first inputs all share an empty first argument)
+        // and the examples are few and fixed, so an oracle that fails only on an empty input must not drop them.
+        else if (skipped === part.length && found.length === 0 && f.source !== "exhaustive" && f.source !== "examples") {
           ctx.tracer.emit("run", "warn", `${f.name}: the oracle could not judge any of the first ${st.tested} input(s) (it failed or timed out on them), so the rest of this family is skipped`);
           skipFamily = true;
         }

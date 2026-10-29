@@ -10,6 +10,7 @@ import type { ModelProvider, ModelRequest } from "@/lib/models/types";
 import type { Problem } from "@/lib/problems/types";
 import { extractJson } from "@/lib/agent/parse";
 import { isCompileFailure } from "@/lib/agent/stages";
+import { smallScopeInputs } from "@/lib/core/smallscope";
 
 const env = { NODE_ENV: "test" };
 const builtIn = (id: string) => BUILT_INS.find((b) => b.problem.id === id)!;
@@ -310,6 +311,41 @@ describe("agent failure paths (replay mode)", () => {
     // The long family was abandoned after its opening sub-batch, not judged in full.
     const long = r.families.find((f) => f.name === "long")!;
     expect(long.tested).toBeLessThan(20);
+  }, 90_000);
+
+  it("keeps the small-scope family when the oracle fails only on its empty first inputs (round 38)", async () => {
+    // Small-scope enumerates shortest-first, so its first inputs all share an empty array. An oracle that crashes on []
+    // (nums[0]) fails the whole opening probe; the probe-skip rule used to drop the entire family there and miss a bug
+    // that only small-scope reaches. Ordered families are never skipped now: only the [] inputs go unjudged.
+    const params: Problem["params"] = [
+      { name: "nums", type: { kind: "array", of: { kind: "int", min: -5, max: 5 }, len: { min: 0, max: 6 } } },
+      { name: "k", type: { kind: "int", min: 0, max: 1000000 } },
+    ];
+    const trig = smallScopeInputs(params.map((p) => p.type), 300)[150] as [number[], number];
+    const problem: Problem = {
+      id: "empty-crash",
+      title: "Weighted sum",
+      statement: "Return sum(nums) * k.",
+      params,
+      returns: "sum(nums) * k",
+      examples: [{ args: [[1, 2], 3], output: 9 }, { args: [[4], 2], output: 8 }],
+      compare: "exact",
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "empty-crash": {
+        oracle: "```python\ndef solve(nums, k):\n    first = nums[0]\n    return (sum(nums) - first + first) * k\n```",
+        generators: '{"families":[]}',
+      },
+    };
+    const solution = { language: "python" as const, entry: "solve", code: `def solve(nums, k):\n    r = sum(nums) * k\n    if nums == ${JSON.stringify(trig[0])} and k == ${trig[1]}:\n        r += 1\n    return r\n` };
+    const r = await attack({ problem, solution, research: "off" }, deps(fx));
+    expect(r.verdict).toBe("counterexample");
+    const small = r.families.find((f) => f.name === "small-scope")!;
+    expect(small.tested).toBeGreaterThan(100);
+    expect(small.mismatches).toBeGreaterThan(0);
+    expect(r.trace.some((e) => e.kind === "warn" && /small-scope: the oracle could not judge/.test(e.msg))).toBe(false);
   }, 90_000);
 
   it("cuts off a hanging model call at the wall-clock deadline", async () => {
