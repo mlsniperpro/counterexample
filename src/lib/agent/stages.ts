@@ -20,6 +20,13 @@ import { parseUnderstanding } from "./understand";
 
 /** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
 export const RUN_CHUNK = 64;
+/**
+ * The run stage judges a family in sub-batches that double from this up to RUN_CHUNK (4, 8, 16, 32, 64, 64, ...). A hit,
+ * or a family whose oracle fails on every input, then surfaces after a few inputs instead of after a whole 64-input
+ * chunk: a solution that times out on every input of a worst-case family, or a brute-force oracle too slow for that
+ * family's sizes, would otherwise spend 64 x the time limit per chunk and exhaust the wall clock before the hit is seen.
+ */
+export const RUN_FIRST_CHUNK = 4;
 const MUTANTS = 300;
 const SMALL_SCOPE = 300;
 const BASELINE = 100;
@@ -393,20 +400,47 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
     const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals - CONFIRM_HITS - 1);
     const batch = inputs.slice(0, room);
     if (batch.length < inputs.length) truncated = true;
-    for (let at = 0; at < batch.length && !hits.length; at += RUN_CHUNK) {
-      const chunk = batch.slice(at, at + RUN_CHUNK);
-      const judged = await ctx.judge.compare("run", solution, chunk);
-      tested.push(...chunk);
-      st.tested += chunk.length;
-      ctx.inputsTested += chunk.length;
-      st.oracleSkipped += judged.filter((j) => j.status === "oracle_error").length;
-      const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name, confirmed: false }] : []));
-      if (!found.length) continue;
-      const kept = await confirmHits(ctx, found, chunk);
-      st.mismatches += kept.length;
-      if (kept.length) {
-        hits = kept;
-        ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
+    // Each RUN_CHUNK window is judged in sub-batches that double from RUN_FIRST_CHUNK. Fast inputs run the whole window
+    // before the hits are confirmed, so the smallest hit across the window is still chosen (the demos are unchanged); the
+    // sub-batches only let two pathological cases bail out after a few inputs instead of after 64 x the time limit: a
+    // family whose inputs all time out (acted on at once), and one whose oracle fails on an opening sub-batch (skipped).
+    let skipFamily = false;
+    for (let at = 0; at < batch.length && !hits.length && !skipFamily; at += RUN_CHUNK) {
+      const window = batch.slice(at, at + RUN_CHUNK);
+      const found: Hit[] = [];
+      let ran = 0;
+      let sawTimeout = false;
+      for (let sub = 0, size = RUN_FIRST_CHUNK; sub < window.length && !sawTimeout && !skipFamily; sub += size, size = Math.min(size * 2, RUN_CHUNK)) {
+        const part = window.slice(sub, sub + size);
+        const judged = await ctx.judge.compare("run", solution, part);
+        tested.push(...part);
+        st.tested += part.length;
+        ctx.inputsTested += part.length;
+        ran += part.length;
+        const skipped = judged.filter((j) => j.status === "oracle_error").length;
+        st.oracleSkipped += skipped;
+        for (let i = 0; i < part.length; i++) {
+          const j = judged[i]!;
+          if (j.status === "mismatch") found.push({ args: part[i] as unknown[], j, family: f.name, confirmed: false });
+        }
+        // All of this sub-batch timed out or crashed in the solution: those are the hits, and each further input would
+        // cost another full time limit, so stop the window now and confirm what we have.
+        if (found.some((h) => h.j.got.startsWith("timeout"))) sawTimeout = true;
+        // The oracle judged none of this sub-batch (a brute-force oracle too slow for this family's sizes) and no hit yet:
+        // the rest of the family is the same shape and would only burn the wall clock, so skip it. If no family is ever
+        // judged, the end-of-run check still reports oracle_unreliable.
+        else if (skipped === part.length && found.length === 0) {
+          ctx.tracer.emit("run", "warn", `${f.name}: the oracle could not judge any of the first ${st.tested} input(s) (it failed or timed out on them), so the rest of this family is skipped`);
+          skipFamily = true;
+        }
+      }
+      if (found.length) {
+        const kept = await confirmHits(ctx, found, window.slice(0, ran));
+        st.mismatches += kept.length;
+        if (kept.length) {
+          hits = kept;
+          ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
+        }
       }
     }
     ctx.tracer.emit("run", st.mismatches ? "counterexample" : "info", `${f.name}: ${st.tested} inputs, ${st.mismatches} mismatch(es)`, {

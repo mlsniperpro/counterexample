@@ -248,6 +248,70 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.counterexample?.args[1]).toBe(0);
   });
 
+  it("reports the counterexample for a family whose inputs all time out, instead of exhausting the wall clock (round 34)", async () => {
+    // A correct sum that hangs once the array is long. A model family of only-long inputs (every one times out) used to
+    // cost 64 x the time limit per chunk, so the attack ended budget_exhausted before the hit was examined. The run
+    // stage now judges in doubling sub-batches, so the timeout is found and confirmed after a few inputs.
+    const problem: Problem = {
+      id: "hang-family",
+      title: "Sum (hangs when long)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 60 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 120,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "hang-family": {
+        oracle: "```python\ndef solve(xs):\n    return sum(xs)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":0,"max":9},"len":{"min":40,"max":60}}]}]}',
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    if len(xs) >= 25:\n        while True:\n            pass\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, { ...deps(fx), budgets: { maxShrinkEvals: 40 } });
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.got).toMatch(/^timeout/);
+    // The sub-batching stops the all-timing-out family after a few inputs, instead of running its full 300.
+    const long = r.families.find((f) => f.name === "long")!;
+    expect(long.tested).toBeLessThan(20);
+    expect(long.mismatches).toBeGreaterThan(0);
+  }, 90_000);
+
+  it("skips a family whose oracle times out on every input, instead of stalling the attack (round 34)", async () => {
+    // An exponential brute-force oracle times out on long arrays. A family of only-long inputs used to be judged in full
+    // (64 x the oracle time limit per chunk), stalling the attack. The run stage now skips a family once its oracle has
+    // failed on a whole opening sub-batch, so the correct solution still gets a verdict within budget.
+    const problem: Problem = {
+      id: "slow-oracle",
+      title: "Sum (slow oracle)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 30 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 120,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "slow-oracle": {
+        // 2^n recursion: fast on the 3-element example, times out on the 22-to-24-element family.
+        oracle: "```python\ndef solve(xs):\n    def f(i):\n        if i >= len(xs):\n            return 0\n        a = f(i + 1)\n        b = f(i + 1)\n        return xs[i] + a + (b - b)\n    return f(0)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":1,"max":9},"len":{"min":22,"max":24}}]}]}',
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, deps(fx));
+    // The correct solution is not blamed, and the attack does not run out of budget.
+    expect(r.verdict).not.toBe("budget_exhausted");
+    expect(["no_counterexample", "oracle_unreliable"]).toContain(r.verdict);
+    expect(r.trace.some((e) => e.kind === "warn" && /the oracle could not judge any of the first .* input\(s\).*rest of this family is skipped/.test(e.msg))).toBe(true);
+    // The long family was abandoned after its opening sub-batch, not judged in full.
+    const long = r.families.find((f) => f.name === "long")!;
+    expect(long.tested).toBeLessThan(20);
+  }, 90_000);
+
   it("cuts off a hanging model call at the wall-clock deadline", async () => {
     const hanging: ModelProvider = {
       name: "nebius",
