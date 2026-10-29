@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 10:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 30 is fixed in this push (float comparison from the oracle's answers): lint, typecheck, 604/604 tests, build, e2e. The usage limit and two worker restarts cost 08:00 to 10:30.
+- Next: round 31 on this HEAD while the final evidence runs (soak, bench, screenshots, FC 5000, fresh clone, Docker sandbox). The final status goes on PR #1 before 15:00Z either way: GATE: PASS if rounds 31 and 32 are clean, otherwise the open state stated plainly.
+
 STATE 2026-10-29 07:35 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 29 is fixed (security in `f08b791`, core and UI in this push): lint, typecheck, 603/603 tests, build, e2e (12 steps). Exact mode now tolerates rounding between non-integers (1e-9); float inference only from outputs written with a decimal point.
 - Next: round 30 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z.

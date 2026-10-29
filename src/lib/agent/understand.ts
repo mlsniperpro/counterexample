@@ -2,7 +2,7 @@ import { z } from "zod";
 import { checkInputValues, maxValues, parseTypeSpec, SPEC_LIMITS, type TypeSpec } from "../core/spec";
 import { ModelOutputError } from "../errors";
 import type { Problem, Solution } from "../problems/types";
-import { exactReviver } from "../core/compare";
+import { exactReviver, hasFraction } from "../core/compare";
 import { extractJson, parseJsonAnswer, stripThinking } from "./parse";
 
 const MAX_PARAMS = 6;
@@ -237,13 +237,7 @@ function hasUnsafeInteger(v: unknown): boolean {
   return false;
 }
 
-/** True when a JSON value holds a number that is not an integer (an average, a probability). */
-export function hasFraction(v: unknown): boolean {
-  if (typeof v === "number") return Number.isFinite(v) && !Number.isInteger(v);
-  if (Array.isArray(v)) return v.some(hasFraction);
-  if (v !== null && typeof v === "object") return Object.values(v).some(hasFraction);
-  return false;
-}
+export { hasFraction } from "../core/compare";
 
 /** Stands for an integral number written with a decimal point (2.0) in a model's JSON. */
 const FLOAT_LITERAL = Object.freeze({ floatLiteral: true });
@@ -265,7 +259,14 @@ function holdsFloatLiteral(v: unknown): boolean {
  * be valid or it is a ModelOutputError.
  */
 export function parseUnderstanding(text: string, statement: string, solution: Pick<Solution, "code" | "language">): { problem: Problem; entry: string; note?: string } {
-  const a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
+  let a: z.infer<typeof specAnswerSchema>;
+  try {
+    a = parseJsonAnswer(stripThinking(text), specAnswerSchema, "problem spec");
+  } catch (e) {
+    // JSON nested thousands deep overflows the schema's recursion: that is a malformed answer, not a crash.
+    if (e instanceof RangeError) throw new ModelOutputError("problem spec: the answer is nested too deeply to read");
+    throw e;
+  }
   const arity = a.params.reduce((n, p) => n + (typeof p.type === "object" && p.type !== null && (p.type as { kind?: unknown }).kind === "graph" ? 2 : 1), 0);
   const { entry, note } = resolveEntry(solution.code, solution.language, a.entry, arity);
   const bounds = a.params.map((p) => clampIntBounds(p.type));
@@ -287,7 +288,9 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   // nothing in the wording of a statement or a return type turns an integer problem's exact comparison off.
   let floatWritten = false;
   try {
-    floatWritten = (extractJson(stripThinking(text), floatLiteralReviver) as { examples?: { output?: unknown }[] }).examples?.some((e) => holdsFloatLiteral(e?.output)) ?? false;
+    // Only the examples kept (the first MAX_EXAMPLES, without unsafe integers in their arguments) count.
+    const written = (extractJson(stripThinking(text), floatLiteralReviver) as { examples?: { output?: unknown }[] }).examples ?? [];
+    floatWritten = all.some((e, i) => !hasUnsafeInteger(e.args) && holdsFloatLiteral(written[i]?.output));
   } catch {
     // A reviver overflows the stack on JSON nested thousands deep, where the plain parse above worked: not written as floats.
   }
@@ -302,7 +305,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   const compare = floatReason ? "float" : a.compare;
   const notes = [
     note,
-    floatReason ? `${floatReason}, so outputs are compared as floats (the model asked for "exact")` : undefined,
+    floatReason ? `${floatReason}, so outputs are compared as floats (the model did not ask for float)` : undefined,
     bounds.some((b) => b.clamped) ? "Integer bounds beyond 2^53 - 1 were lowered to 2^53 - 1, the largest integer every input can hold exactly" : undefined,
     fitted.lowered ? `The longest list was shortened so that one input holds at most ${SPEC_LIMITS.maxValuesPerInput.toLocaleString("en-US")} values` : undefined,
     bounds.some((b) => b.capped) ? `Sizes beyond the generator's limits were lowered to them (lengths ${SPEC_LIMITS.maxLen.toLocaleString("en-US")}, graphs ${SPEC_LIMITS.maxNodes.toLocaleString("en-US")} nodes and ${SPEC_LIMITS.maxEdges.toLocaleString("en-US")} edges), so the largest inputs are not tried` : undefined,

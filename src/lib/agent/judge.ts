@@ -1,4 +1,4 @@
-import { clipText, displayable, outputsEqual, showValue } from "../core/compare";
+import { clipText, type CompareMode, displayable, hasFraction, outputsEqual, showValue } from "../core/compare";
 import { jsonValues } from "../core/spec";
 import { ExecutorError } from "../errors";
 import type { Executor, Language, RunOutcome } from "../exec/types";
@@ -48,13 +48,23 @@ export class Judge {
    */
   private perRun = Infinity;
 
+  /**
+   * How outputs are compared: the problem's mode, until an exact problem's oracle returns a non-integer number. Then
+   * the answers are floats, and a correct approximation (a bisection to 1e-7 against math.sqrt) must not be called a
+   * bug, so the rest of the attack compares as floats (integers below 2^50 stay exact) and the trace says so. An
+   * integer problem's oracle never returns a fraction, so its comparison stays exact.
+   */
+  compareMode: CompareMode;
+
   constructor(
     private readonly problem: Problem,
     private readonly executor: Executor,
     private readonly budget: Budget,
     private readonly tracer: Tracer,
     private readonly signal?: AbortSignal,
-  ) {}
+  ) {
+    this.compareMode = problem.compare;
+  }
 
   async exec(stage: Stage, who: "solution" | "oracle" | "fix", program: Solution, inputs: unknown[][]): Promise<RunOutcome[]> {
     this.budget.useRuns(inputs.length);
@@ -115,6 +125,10 @@ export class Judge {
     else if (inputs.length >= this.perRun) this.perRun *= 2;
     const again = retry.length ? await this.compare(stage, target, retry.map((i) => inputs[i] as unknown[]), who) : [];
     const retried = new Map(retry.map((i, k) => [i, again[k] as Judgement]));
+    if (this.compareMode === "exact" && ora.some((o) => o.ok && hasFraction(o.out))) {
+      this.compareMode = "float";
+      this.tracer.emit(stage, "warn", "The oracle returns non-integer numbers, so outputs are compared as floats from here on (within 1e-6 relative; integers below 2^50 stay exact)");
+    }
     const out: Judgement[] = [];
     for (let i = 0; i < inputs.length; i++) {
       const r = retried.get(i);
@@ -126,7 +140,7 @@ export class Judge {
       const s = sol[i] as RunOutcome;
       if (!o.ok) out.push({ status: "oracle_error", got: showOutcome(s) });
       else {
-        const agree = s.ok && outputsEqual(s.out, o.out, this.problem.compare);
+        const agree = s.ok && outputsEqual(s.out, o.out, this.compareMode);
         out.push({ status: agree ? "agree" : "mismatch", expected: displayable(o.out), got: showOutcome(s) });
       }
       // Comparing and displaying results up to the parse caps costs up to about 0.6 s per chunk: one result per slice.

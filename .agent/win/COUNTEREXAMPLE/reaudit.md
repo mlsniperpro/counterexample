@@ -7,6 +7,15 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 30 (2026-10-29, `e17f6d6`, 4 parallel Sonnet audits; the security, UI and judge audits were stopped by the usage limit before they reported)
+
+Not clean (core 1 medium). Fixed in the next push; round 31 re-audits everything on it.
+- **Core** (1 medium, 5 low; full bench verdict counts identical, 200,000 random integer pairs through `parseExact` and `outputsEqual` with no divergence from BigInt equality, reflexivity and symmetry in all modes):
+  - medium: a float problem with a stated tolerance whose examples are whole (sqrt with 4 -> 2) and whose spec left `compare` out still compared exactly, so a correct bisection to 1e-7 was reported broken. The judge now decides from behaviour: once an exact problem's oracle returns a non-integer number, the rest of the attack compares as floats, and the trace says so. An integer problem's oracle never returns a fraction, so it stays exact (test with real processes: the bisection agrees, an `isqrt` off by one is still a mismatch);
+  - low, fixed: exact mode's rounding gap was 1e-9 with an absolute floor of 1e-9 below magnitude 1, which let a `/` against `//` bug on numbers from 5e8 pass; it is now 1e-12 relative with a 1e-15 floor near zero (summation-order differences are about 1e-16 relative). Tests: `500000000.5` against `500000000` is a mismatch, `0.1 + 0.2 - 0.3` against `0` is not;
+  - low, fixed: the float-literal check looks only at the examples kept (the first ten, without unsafe integers), and its note says "the model did not ask for float"; an answer nested about 1,500 deep is a model-output error, not a crash;
+  - low (accepted): the unordered modes do not tolerate one-ulp differences (float lists in unordered problems are rare); in float mode, a big integer in an example alongside a `3.0` is compared with float mode's tolerance.
+
 ## Round 29 (2026-10-29, `df31d50`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (core 2 medium, UI 1 medium). The judge was clean; security's one finding is rated low here (below). Fixed in `f08b791` (security) and the next push.

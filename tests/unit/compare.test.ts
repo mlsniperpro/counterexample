@@ -233,12 +233,15 @@ describe("parseExact", () => {
 });
 
 describe("exact mode and floating-point rounding", () => {
-  it("takes two non-integer numbers within 1e-9 for one answer, and keeps integers, big or small, exact", () => {
+  it("takes two numbers, one not an integer, within 1e-12 relative for one answer, and keeps integers, big or small, exact", () => {
     expect(outputsEqual(1.6666666666666665, 1.6666666666666667)).toBe(true);
     expect(outputsEqual([0.1 + 0.2, 2], [0.3, 2])).toBe(true);
     expect(outputsEqual({ mean: 2.0000000000000004 }, { mean: 2 })).toBe(true);
     // A real difference, an integer off by one, a big integer in its low digits, and a shape change are all mismatches.
     expect(outputsEqual(1.5, 1.5000001)).toBe(false);
+    // A / against // bug on large numbers is far beyond rounding: 500000000.5 is not 500000000.
+    expect(outputsEqual(500000000.5, 500000000)).toBe(false);
+    expect(outputsEqual(0.1 + 0.2 - 0.3, 0)).toBe(true);
     expect(outputsEqual(3, 4)).toBe(false);
     expect(outputsEqual(2 ** 52, 2 ** 52 + 1)).toBe(false);
     expect(outputsEqual(JSON.parse("[9007199254740993]", exactReviver), JSON.parse("[9007199254740992]", exactReviver))).toBe(false);

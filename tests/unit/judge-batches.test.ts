@@ -139,3 +139,26 @@ describe("Judge.compare with results past one run's total budget", () => {
     expect(budget.runs - afterFirst).toBeLessThanOrEqual(2 * 64 * 1.5);
   }, 60_000);
 });
+
+describe("Judge.compare when an exact problem's oracle returns floats", () => {
+  it("switches to float comparison once the oracle returns a non-integer, says so, and keeps integer problems exact", async () => {
+    const { makeDeps } = await import("@/lib/agent/setup");
+    const { executor } = makeDeps({ mode: "replay", env: { NODE_ENV: "test" } });
+    const problem = { ...getProblem("isqrt")!, compare: "exact" as const };
+    const tracer = new Tracer(0, () => 0);
+    const judge = new Judge(problem, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), tracer);
+    // A bisection to 1e-7 against math.sqrt: whole examples (4 -> 2), but the answers are floats.
+    judge.oracleCode = "import math\ndef solve(x):\n    return math.sqrt(x)\n";
+    const bisect = "def solve(x):\n    lo, hi = 0.0, max(1.0, float(x))\n    while hi - lo > 1e-7:\n        mid = (lo + hi) / 2\n        if mid * mid < x: lo = mid\n        else: hi = mid\n    return (lo + hi) / 2\n";
+    const out = await judge.compare("run", { language: "python", code: bisect, entry: "solve" }, [[1], [2], [10]]);
+    expect(out.map((j) => j.status)).toEqual(["agree", "agree", "agree"]);
+    expect(judge.compareMode).toBe("float");
+    expect(tracer.events.some((e) => /^The oracle returns non-integer numbers, so outputs are compared as floats from here on/.test(e.msg))).toBe(true);
+    // An integer problem's oracle never returns a fraction: an off-by-one stays a mismatch in exact mode.
+    const intJudge = new Judge(problem, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), new Tracer(0, () => 0));
+    intJudge.oracleCode = "import math\ndef solve(x):\n    return math.isqrt(x)\n";
+    const off = await intJudge.compare("run", { language: "python", code: "import math\ndef solve(x):\n    return math.isqrt(x) + (x == 10)\n", entry: "solve" }, [[1], [10]]);
+    expect(off.map((j) => j.status)).toEqual(["agree", "mismatch"]);
+    expect(intJudge.compareMode).toBe("exact");
+  }, 60_000);
+});

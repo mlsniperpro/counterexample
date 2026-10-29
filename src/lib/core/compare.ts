@@ -166,12 +166,13 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
   return canon(a) === canon(b) || roundingApart(a, b);
 }
 
-/** Relative gap within which two non-integer numbers are one answer computed in two orders, even in exact mode. */
-const ROUNDING_GAP = 1e-9;
+/** Relative gap (with a tiny absolute floor near zero) within which two numbers, one not an integer, are one answer computed in two orders, even in exact mode: summation-order differences are a few ulps (about 1e-16 relative), and a real bug such as / against // differs far more. */
+const ROUNDING_GAP = 1e-12;
+const ROUNDING_FLOOR = 1e-15;
 
 /**
  * Whether two values differ only by floating-point rounding: the same shape, and every pair of numbers either equal or
- * finite with at least one not an integer and within ROUNDING_GAP of each other (1.6666666666666665 against
+ * finite with at least one not an integer and within ROUNDING_GAP (relative) of each other (1.6666666666666665 against
  * 1.6666666666666667, a mean summed in another order). Integers, and markers carrying exact digits, must match
  * exactly, so an off-by-one or an overflow in the low digits is still a mismatch.
  */
@@ -179,7 +180,7 @@ function roundingApart(a: unknown, b: unknown): boolean {
   if (typeof a === "number" && typeof b === "number") {
     if (a === b) return true;
     if (!Number.isFinite(a) || !Number.isFinite(b) || (Number.isInteger(a) && Number.isInteger(b))) return false;
-    return Math.abs(a - b) <= ROUNDING_GAP * Math.max(1, Math.abs(a), Math.abs(b));
+    return Math.abs(a - b) <= ROUNDING_GAP * Math.max(Math.abs(a), Math.abs(b)) + ROUNDING_FLOOR;
   }
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => roundingApart(x, b[i]));
   if (isPlainObject(a) && isPlainObject(b)) {
@@ -230,4 +231,12 @@ function floatEq(a: unknown, b: unknown): boolean {
     return ka.length === kb.length && ka.every((k, i) => k === kb[i] && floatEq(fa[k], fb[k]));
   }
   return canon(a) === canon(b);
+}
+
+/** True when a JSON value holds a number that is not an integer (an average, a probability). */
+export function hasFraction(v: unknown): boolean {
+  if (typeof v === "number") return Number.isFinite(v) && !Number.isInteger(v);
+  if (Array.isArray(v)) return v.some(hasFraction);
+  if (v !== null && typeof v === "object") return Object.values(v).some(hasFraction);
+  return false;
 }
