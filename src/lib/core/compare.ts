@@ -166,21 +166,19 @@ export function outputsEqual(a: unknown, b: unknown, mode: CompareMode = "exact"
   return canon(a) === canon(b) || roundingApart(a, b);
 }
 
-/** Relative gap (with a tiny absolute floor near zero) within which two numbers, one not an integer, are one answer computed in two orders, even in exact mode: summation-order differences are a few ulps (about 1e-16 relative), and a real bug such as / against // differs far more. */
-const ROUNDING_GAP = 1e-12;
-const ROUNDING_FLOOR = 1e-15;
-
 /**
- * Whether two values differ only by floating-point rounding: the same shape, and every pair of numbers either equal or
- * finite with at least one not an integer and within ROUNDING_GAP (relative) of each other (1.6666666666666665 against
- * 1.6666666666666667, a mean summed in another order). Integers, and markers carrying exact digits, must match
- * exactly, so an off-by-one or an overflow in the low digits is still a mismatch.
+ * Whether two values are one answer once floating-point answers are allowed their usual tolerance: the same shape, and
+ * every pair of numbers either equal, or finite with at least one not an integer and within FLOAT_TOLERANCE (the
+ * judges' "absolute or relative error 1e-6") of each other. A float answer computed another way (a mean summed in
+ * another order, a bisection to 1e-7 against math.sqrt) then agrees, whatever the examples looked like, while two
+ * integers, and markers carrying exact digits, must match exactly, so an off-by-one or an overflow in the low digits
+ * is still a mismatch. Each pair is judged on its own values, so the verdict never depends on which inputs ran first.
  */
 function roundingApart(a: unknown, b: unknown): boolean {
   if (typeof a === "number" && typeof b === "number") {
     if (a === b) return true;
     if (!Number.isFinite(a) || !Number.isFinite(b) || (Number.isInteger(a) && Number.isInteger(b))) return false;
-    return Math.abs(a - b) <= ROUNDING_GAP * Math.max(Math.abs(a), Math.abs(b)) + ROUNDING_FLOOR;
+    return Math.abs(a - b) <= FLOAT_TOLERANCE * Math.max(1, Math.abs(a), Math.abs(b));
   }
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => roundingApart(x, b[i]));
   if (isPlainObject(a) && isPlainObject(b)) {
@@ -208,6 +206,9 @@ const isMarker = (x: unknown): x is string => typeof x === "string" && x.startsW
 
 const asFloat = (x: unknown): unknown => (isMarker(x) ? Number(x.slice(BIG.length)) : x);
 
+/** Absolute or relative tolerance for floating-point answers (relative from magnitude 1 up). */
+const FLOAT_TOLERANCE = 1e-6;
+
 /** Float mode compares integers below this exactly. */
 const EXACT_INT_BELOW = 2 ** 50;
 
@@ -222,7 +223,7 @@ function floatEq(a: unknown, b: unknown): boolean {
     // are spaced 0.25 or more apart, so two summation orders of a float answer can land on neighbouring integers: those
     // keep the tolerance.
     if (Number.isInteger(fa) && Number.isInteger(fb) && Math.max(Math.abs(fa), Math.abs(fb)) < EXACT_INT_BELOW) return fa === fb;
-    return Math.abs(fa - fb) <= 1e-6 * Math.max(1, Math.abs(fa), Math.abs(fb));
+    return Math.abs(fa - fb) <= FLOAT_TOLERANCE * Math.max(1, Math.abs(fa), Math.abs(fb));
   }
   if (Array.isArray(fa) && Array.isArray(fb)) return fa.length === fb.length && fa.every((x, i) => floatEq(x, fb[i]));
   if (isPlainObject(fa) && isPlainObject(fb)) {

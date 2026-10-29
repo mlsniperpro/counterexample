@@ -346,7 +346,7 @@ async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unkno
 /** Whether the oracle's answer to `x` after the earlier inputs (`inOrder`) is the one it gives alone. */
 async function oracleStable(ctx: AttackContext, inOrder: RunOutcome | undefined, x: unknown[]): Promise<boolean> {
   const [alone] = await ctx.judge.exec("run", "oracle", ctx.judge.oracle(), [x]);
-  return !!inOrder?.ok && !!alone?.ok && outputsEqual(inOrder.out, alone.out, ctx.judge.compareMode);
+  return !!inOrder?.ok && !!alone?.ok && outputsEqual(inOrder.out, alone.out, ctx.input.problem.compare);
 }
 
 async function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Promise<Generated> {
