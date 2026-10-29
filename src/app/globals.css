@@ -90,7 +90,7 @@ p, .facts li, .ev .why { overflow-wrap: anywhere; }
 .verdict { font-size: 1.15rem !important; margin: 0 !important; }
 .verdict.counterexample { color: var(--bad); }
 .verdict.no_counterexample { color: var(--good); }
-.label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 4px; }
+.label { font-weight: normal; line-height: inherit; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 4px; }
 .cx { border: 1px solid var(--bad); border-radius: 10px; padding: 12px; margin-top: 10px; }
 .cx .label { margin-top: 0; }
 .cx code.big { display: block; font-size: 1.05rem; overflow-wrap: anywhere; margin: 4px 0 8px; }

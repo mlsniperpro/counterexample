@@ -119,7 +119,8 @@ export function finish(ctx: AttackContext): Report {
     runs: budget.runs,
     inputsTested: ctx.inputsTested,
     wallMs: ctx.clock() - ctx.t0,
-    timeToFirstCounterexampleMs: ctx.ttfc,
+    // Only a report that shows a counterexample has a time to it (a solution that never loaded mismatches every example).
+    timeToFirstCounterexampleMs: report.counterexample ? ctx.ttfc : null,
     costUsd: models.costUsd,
     unpricedCalls: models.unpricedCalls,
     simulatedModelMs: models.simulatedMs,

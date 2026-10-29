@@ -283,6 +283,17 @@ describe("a solution that keeps state between calls", () => {
     entry: "solve",
   };
 
+  it("does not blame the solution when it is the oracle that keeps state between calls", async () => {
+    // The same memo, in the oracle this time: a correct solution then "fails" after earlier calls, but only because the
+    // oracle's answer changed. Those mismatches pass alone and are dropped; nothing is called order-dependent.
+    const fx: ReplayFixtures = { ...FIXTURES, "binary-search": { ...FIXTURES["binary-search"]!, oracle: "```python\n" + stateful.code + "```" } };
+    const r = await attack({ problem: bs.problem, solution: correct, research: "off" }, deps(fx));
+    expect(r.counterexample?.orderDependent).toBeUndefined();
+    expect(r.message).not.toMatch(/keeps state between calls/);
+    expect(r.trace.some((e) => /fail again in the original order/.test(e.msg))).toBe(false);
+    expect(r.trace.some((e) => /did not reproduce on a re-run/.test(e.msg))).toBe(true);
+  });
+
   it("reports an order-dependent counterexample that passes alone, never a flaky one", async () => {
     const r = await attack({ problem: bs.problem, solution: stateful, research: "off" }, deps());
     expect(r.verdict).toBe("counterexample");

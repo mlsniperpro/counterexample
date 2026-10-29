@@ -312,7 +312,11 @@ export function ranBefore(chunk: unknown[][], x: unknown[], batches = byValues(c
   return batch.slice(0, Math.max(0, batch.indexOf(x)));
 }
 
-/** Re-runs `chunk` in order as the run did; the smallest hit that fails again, after at least one earlier input (with the inputs it took to fail), or undefined. */
+/**
+ * Re-runs `chunk` in order as the run did; the smallest hit that fails again, after at least one earlier input (with
+ * the inputs it took to fail), or undefined. The oracle can keep state between calls too (a module-level memo), so
+ * the solution is blamed only when the oracle gives the same answer in order as it does alone.
+ */
 async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
   // The chunk's batches, once: per hit, they cost a pass over every value in the chunk.
   const batches = byValues(chunk, JUDGE_BATCH_VALUES);
@@ -320,9 +324,20 @@ async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unkno
   for (const h of sorted) {
     const j = again[chunk.indexOf(h.args)];
     const before = ranBefore(chunk, h.args, batches);
-    if (before.length > 0 && j && j.status === "mismatch") return { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } };
+    if (before.length > 0 && j && j.status === "mismatch" && (await oracleStable(ctx, before, h.args))) {
+      return { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } };
+    }
   }
   return undefined;
+}
+
+/** Whether the oracle answers `x` the same after `before` (in one process, as in the run) as it does alone. */
+async function oracleStable(ctx: AttackContext, before: unknown[][], x: unknown[]): Promise<boolean> {
+  const oracle = ctx.judge.oracle();
+  const [inOrder, alone] = await Promise.all([ctx.judge.exec("run", "oracle", oracle, [...before, x]), ctx.judge.exec("run", "oracle", oracle, [x])]);
+  const a = inOrder[before.length];
+  const b = alone[0];
+  return !!a?.ok && !!b?.ok && outputsEqual(a.out, b.out, ctx.input.problem.compare);
 }
 
 async function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Promise<Generated> {

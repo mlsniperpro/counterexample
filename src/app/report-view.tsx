@@ -56,7 +56,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
 
       {r.counterexample && (
         <div className="cx">
-          <div className="label">{cxHeading(r.counterexample)}</div>
+          <h3 className="label">{cxHeading(r.counterexample)}</h3>
           <code className="big">solve({fmtArgs(r.counterexample.args)})</code>
           <div className="cmp">
             <div>
@@ -77,25 +77,25 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
 
       {r.explanation && (
         <>
-          <div className="label">Why it fails</div>
+          <h3 className="label">Why it fails</h3>
           <p>{r.explanation}</p>
         </>
       )}
       {r.fix && (
         <>
-          <div className="label">
+          <h3 className="label">
             Proposed fix ·{" "}
             <span className={r.fix.verified ? "good" : "bad"}>
               {fixSummary(r.fix)}
             </span>
-          </div>
+          </h3>
           <FixView before={r.solution.code} after={r.fix.code} name={name} />
         </>
       )}
 
       {r.research && (
         <>
-          <div className="label">{researchHeading(r.setup.research)}</div>
+          <h3 className="label">{researchHeading(r.setup.research)}</h3>
           <ul className="facts">
             {r.research.facts.map((f, i) => (
               <li key={i}>
@@ -113,7 +113,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
         </>
       )}
 
-      <div className="label">Attack families</div>
+      <h3 className="label">Attack families</h3>
       <div className="scroll" tabIndex={0} role="region" aria-label={name("Attack families table")}>
         <table>
           <thead>
@@ -139,7 +139,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
         </table>
       </div>
 
-      <div className="label">Why Ultra here, Super there</div>
+      <h3 className="label">Why Ultra here, Super there</h3>
       <div className="scroll" tabIndex={0} role="region" aria-label={name("Model routing per step table")}>
         <table>
           <thead>
@@ -175,7 +175,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
           </tbody>
         </table>
       </div>
-      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: no model ran. A hand-written stand-in answered each step, so the model column names the model that step uses live; token counts are estimated from text length and latency is simulated.</p>}
+      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: no model ran. A hand-written stand-in answered each step, so the model column names the model that step uses live; token counts are estimated from text length and latency is simulated (the time to first counterexample includes it).</p>}
 
       <div className="stats">
         <div>
@@ -195,7 +195,10 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
           <span>model cost{r.stats.unpricedCalls ? ` (+${r.stats.unpricedCalls} unpriced)` : ""}</span>
         </div>
         <div>
-          <b>{r.stats.timeToFirstCounterexampleMs === null ? "–" : ms(r.stats.timeToFirstCounterexampleMs)}</b>
+          <b>
+            {r.stats.timeToFirstCounterexampleMs === null ? "–" : ms(r.stats.timeToFirstCounterexampleMs)}
+            {r.stats.timeToFirstCounterexampleMs !== null && r.stats.simulatedModelMs > 0 ? "*" : ""}
+          </b>
           <span>to first counterexample</span>
         </div>
       </div>

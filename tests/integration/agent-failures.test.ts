@@ -236,6 +236,8 @@ describe("agent failure paths (replay mode)", () => {
     const r = await attack({ problem: getProblem("isqrt")!, solution: { language: "javascript", code: "function solve(x) { return x +; }", entry: "solve" } }, deps());
     expect(r.verdict).toBe("compile_error");
     expect(r.message).toMatch(/^compile: .*SyntaxError/s);
+    // Every example "mismatched", but there is no counterexample, so there is no time to one.
+    expect(r.stats.timeToFirstCounterexampleMs).toBeNull();
   });
 
   it("finds a hanging solution and reports the timeout as the failure", async () => {

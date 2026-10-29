@@ -90,3 +90,20 @@ describe("ranBefore (what ran before an input in its own process)", () => {
     expect(ranBefore(big, big[3]!)).toEqual([big[2]]);
   });
 });
+
+describe("Judge.compare with results past one run's total budget", () => {
+  it("judges every large result again in a fresh run instead of calling it an oracle failure", async () => {
+    const { makeDeps } = await import("@/lib/agent/setup");
+    const { executor } = makeDeps({ mode: "replay", env: { NODE_ENV: "test" } });
+    const problem = { ...getProblem("binary-search")!, compare: "exact" as const, timeLimitMs: 5000 };
+    const judge = new Judge(problem, executor, new Budget(DEFAULT_BUDGETS, 0, () => 0), new Tracer(0, () => 0));
+    judge.oracleCode = "def solve(a):\n    return sorted(a)\n";
+    // 24 results of about 110,000 characters each: well past the 1,000,000 a run reads.
+    const inputs = Array.from({ length: 24 }, (_, i) => [Array.from({ length: 10_000 }, (_, k) => 999_999_999 - ((k * 7919 + i) % 1_000_000_000))]);
+    const correct = await judge.compare("run", { language: "python", code: "def solve(a):\n    return sorted(a)\n", entry: "solve" }, inputs);
+    expect(correct.map((j) => j.status)).toEqual(inputs.map(() => "agree"));
+    // A real difference past the budget is still found, in its place.
+    const wrong = await judge.compare("run", { language: "python", code: "def solve(a):\n    return sorted(a)[:-1] if a[0] % 7 == 0 else sorted(a)\n", entry: "solve" }, inputs);
+    expect(wrong.map((j) => j.status)).toEqual(inputs.map((x) => ((x[0] as number[])[0]! % 7 === 0 ? "mismatch" : "agree")));
+  }, 60_000);
+});

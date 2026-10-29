@@ -306,10 +306,14 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           <label className="toggle">
             <input type="checkbox" checked={ultraOnly} onChange={(e) => setUltraOnly(e.target.checked)} /> Ultra for everything (baseline)
           </label>
-          <label className="toggle" title="Search the web with Tavily for the problem's official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources">
-            <input type="checkbox" checked={researchWeb} onChange={(e) => setResearchWeb(e.target.checked)} /> Research the web (Tavily)
+          <label className="toggle">
+            <input type="checkbox" checked={researchWeb} onChange={(e) => setResearchWeb(e.target.checked)} aria-describedby="research-hint" /> Research the web (Tavily)
           </label>
         </div>
+        {/* Shown, not left in a tooltip, so touch and keyboard users read it too. */}
+        <p className="small muted" id="research-hint">
+          Research searches the web for the problem&apos;s official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources.
+        </p>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
           <button className="go" ref={goButton} onClick={(e) => {

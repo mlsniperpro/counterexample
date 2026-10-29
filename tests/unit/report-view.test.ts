@@ -57,10 +57,10 @@ describe("ReportView markup", () => {
     const research = { queries: ["q"], facts: [{ fact: "f", url: "https://example.com/" }], influencedFamilies: [] };
     const setup = fullReport().setup;
     const replay = render(fullReport({ research, setup: { ...setup, research: "replay" } }));
-    expect(replay).toContain('<div class="label">Research (hand-written stand-in for Tavily)</div>');
+    expect(replay).toContain('<h3 class="label">Research (hand-written stand-in for Tavily)</h3>');
     expect(replay).not.toContain("Research (Tavily)");
     const live = render(fullReport({ research, setup: { ...setup, research: "tavily" } }));
-    expect(live).toContain('<div class="label">Research (Tavily)</div>');
+    expect(live).toContain('<h3 class="label">Research (Tavily)</h3>');
     expect(live).not.toContain("hand-written stand-in for Tavily");
   });
 
@@ -84,7 +84,7 @@ describe("ReportView markup", () => {
     const stage = fullReport().stages[0]!;
     const sim = render(fullReport({ stages: [{ ...stage, latencyMs: 10, simulated: true }] }));
     expect(sim).toContain("10 ms*</td>");
-    expect(sim).toMatch(/<p class="muted small">\* Replay mode: no model ran\..*latency is simulated\.<\/p>/);
+    expect(sim).toMatch(/<p class="muted small">\* Replay mode: no model ran\..*latency is simulated \(the time to first counterexample includes it\)\.<\/p>/);
     const live = render(fullReport({ stages: [{ ...stage, latencyMs: 10, simulated: false }] }));
     expect(live).toContain("10 ms</td>");
     expect(live).not.toContain("10 ms*");
@@ -155,5 +155,32 @@ describe("ReportView content (each number and text in its place)", () => {
     expect(md).toContain("```python\ndef solve(a, t):\n    return 0\n```");
     expect(md).toContain("3 inputs, 5 sandbox runs, 2 model calls");
     expect(md).toContain("Provider: replay; executor: Local.");
+  });
+});
+
+describe("ReportView for every verdict", () => {
+  it("names each verdict in the heading, including that an unreliable oracle claims no bug", () => {
+    const heading = (verdict: ReturnType<typeof fullReport>["verdict"]) => render(fullReport({ verdict })).match(/<h2 class="verdict [a-z_]+">(.*?)<\/h2>/)![1];
+    expect(heading("counterexample")).toBe("Broken: minimal counterexample found");
+    expect(heading("no_counterexample")).toBe("Survived the attack");
+    expect(heading("oracle_unreliable")).toBe("Oracle unreliable: no bug claimed");
+    expect(heading("compile_error")).toBe("Solution does not compile");
+    expect(heading("budget_exhausted")).toBe("Budget exhausted");
+    expect(heading("error")).toBe("Error");
+  });
+
+  it("marks a replayed time to first counterexample as simulated, and shows a dash when there is none", () => {
+    const stats = fullReport().stats;
+    const tile = (html: string) => html.match(/<b>([^<]*)<\/b><span>to first counterexample<\/span>/)![1];
+    expect(tile(render(fullReport({ stats: { ...stats, timeToFirstCounterexampleMs: 7400, simulatedModelMs: 7000 } })))).toBe("7.4 s*");
+    expect(tile(render(fullReport({ stats: { ...stats, timeToFirstCounterexampleMs: 7400, simulatedModelMs: 0 } })))).toBe("7.4 s");
+    expect(tile(render(fullReport({ stats: { ...stats, timeToFirstCounterexampleMs: null, simulatedModelMs: 7000 } })))).toBe("–");
+  });
+
+  it("makes each report section a heading, so screen readers can jump between them", () => {
+    const headings = [...render().matchAll(/<h3 class="label">(.*?)<\/h3>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
+    expect(headings).toEqual(expect.arrayContaining(["Why it fails", "Attack families", "Why Ultra here, Super there"]));
+    expect(headings.some((h) => h.startsWith("Proposed fix"))).toBe(true);
+    expect(headings.length).toBeGreaterThanOrEqual(5);
   });
 });

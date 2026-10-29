@@ -2,6 +2,7 @@ import { clipText, displayable, outputsEqual, showValue } from "../core/compare"
 import { jsonValues } from "../core/spec";
 import { ExecutorError } from "../errors";
 import type { Executor, Language, RunOutcome } from "../exec/types";
+import { refusedForTotal } from "../exec/program";
 import type { Problem, Solution } from "../problems/types";
 import type { Budget } from "./budget";
 import type { Stage, Tracer } from "./trace";
@@ -90,8 +91,19 @@ export class Judge {
     if (inputs.length === 0) return [];
     const [sol, ora] = await Promise.all([this.exec(stage, who, target, inputs), this.exec(stage, "oracle", this.oracle(), inputs)]);
     if (sol.length < inputs.length || ora.length < inputs.length) throw new ExecutorError(`executor returned ${sol.length}/${ora.length} outcomes for ${inputs.length} inputs`);
+    // A result refused only because the run's earlier results used its total budget says nothing about either program:
+    // those inputs are judged again in fresh runs (each run reads at least its first result, so this ends; it charges
+    // the run budget like any run). Counting them as oracle failures called a correct solution's large outputs unjudgeable.
+    const retry = inputs.flatMap((_, i) => (refusedForTotal(sol[i] as RunOutcome) || refusedForTotal(ora[i] as RunOutcome) ? [i] : []));
+    const again = retry.length ? await this.compareBatch(stage, target, retry.map((i) => inputs[i] as unknown[]), who) : [];
+    const retried = new Map(retry.map((i, k) => [i, again[k] as Judgement]));
     const out: Judgement[] = [];
     for (let i = 0; i < inputs.length; i++) {
+      const r = retried.get(i);
+      if (r) {
+        out.push(r);
+        continue;
+      }
       const o = ora[i] as RunOutcome;
       const s = sol[i] as RunOutcome;
       if (!o.ok) out.push({ status: "oracle_error", got: showOutcome(s) });

@@ -183,6 +183,16 @@ function longTextReport() {
   };
 }
 
+/** A solution that never loaded: every example "mismatches", but there is no counterexample to time or show. */
+function compileErrorReport() {
+  const r = longTextReport();
+  delete r.counterexample;
+  delete r.explanation;
+  delete r.fix;
+  delete r.research;
+  return { ...r, verdict: "compile_error", message: "SyntaxError: invalid syntax", stats: { ...r.stats, timeToFirstCounterexampleMs: null, simulatedModelMs: 7000 } };
+}
+
 async function main() {
   // Wait for the server (or learn why it died).
   for (let i = 0; ; i++) {
@@ -449,6 +459,7 @@ async function main() {
   await settled();
   eq(JSON.stringify([bodies[1]?.problemId, bodies[1]?.routing, bodies[1]?.research, bodies[1]?.language]), JSON.stringify(["isqrt", "ultra-only", "auto", otherLanguage]), "request body with Ultra ticked and the language changed");
   await page.getByLabel("Ultra for everything (baseline)").uncheck();
+  check((await page.getByLabel("Research the web (Tavily)").getAttribute("aria-describedby")) === "research-hint" && (await page.locator("#research-hint").isVisible()), "the research option's explanation is shown and tied to its checkbox");
   await page.getByLabel("Research the web (Tavily)").check();
   await page.getByRole("button", { name: "Your own", exact: true }).click();
   await page.locator("textarea.statement-in").fill("Return x + 1.");
@@ -593,6 +604,9 @@ async function main() {
   // A report too large for a link (incompressible code) is downloaded as JSON instead, and the note says so.
   const big = longTextReport();
   big.solution.code = Array.from({ length: 4000 }, (_, i) => ((i * 2654435761) >>> 0).toString(36)).join(" ");
+  // The stream's report carries the oracle's code and may carry the trace; neither may reach the download.
+  big.oracle = { code: "def oracle(a, t):\n    return 0\n", attempts: 1 };
+  big.trace = [];
   await page.route("**/api/attack", respond([{ type: "mode", mode: "replay", executor: "Local" }, { type: "report", report: big }].map((l) => JSON.stringify(l)).join("\n") + "\n"));
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 10_000 });
@@ -685,6 +699,20 @@ async function main() {
       await p.goto(link);
       await p.locator(".shared h2.verdict").waitFor({ timeout: 15_000 });
       eq(await axeViolations(p), "", `axe violations on a shared report (${where})`);
+      // A report without a counterexample: its own verdict heading, no time to a counterexample, sections as headings.
+      await p.route("**/api/attack", respond([{ type: "mode", mode: "replay", executor: "Local" }, { type: "report", report: compileErrorReport() }].map((l) => JSON.stringify(l)).join("\n") + "\n"));
+      await p.goto(base);
+      await attackButton(p).click();
+      await p.locator("h2.verdict", { hasText: "Solution does not compile" }).waitFor({ timeout: 15_000 });
+      eq(await p.locator(".stats div", { hasText: "to first counterexample" }).locator("b").innerText(), "–", "a compile-error report's time to first counterexample");
+      eq((await p.getByRole("heading", { level: 3 }).allInnerTexts()).map((t) => t.toLowerCase()).join("|"), "attack families|why ultra here, super there", "a compile-error report's section headings");
+      eq(await axeViolations(p), "", `axe violations on a compile-error report (${where})`);
+      await p.unroute("**/api/attack");
+      // An unknown address gets the app's own 404 page: a status, a title that says so, and a main landmark.
+      const missing = await p.goto(`${base}/nope`);
+      eq(missing.status(), 404, "an unknown address's status");
+      check((await p.title()).startsWith("404"), "the 404 page's title says 404");
+      eq(await axeViolations(p), "", `axe violations on the 404 page (${where})`);
       await a11y.close();
     }
   }
