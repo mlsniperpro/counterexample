@@ -1,0 +1,5045 @@
+{
+  "summary": {
+    "attacks": 503,
+    "mutants": 503,
+    "seeds": 1,
+    "killed": 479,
+    "survived": 24,
+    "missed": 0,
+    "unsound": 0,
+    "errors": 0,
+    "wallSeconds": 697
+  },
+  "rows": [
+    {
+      "key": "binary-search/bug-a#L10c21:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "hi = mid + 1",
+      "verdict": "counterexample",
+      "wallMs": 20573,
+      "outcome": "killed",
+      "detail": "[[1,2],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L10c21:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "hi = mid",
+      "verdict": "counterexample",
+      "wallMs": 1324,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L10c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi = mid - 0",
+      "verdict": "counterexample",
+      "wallMs": 1215,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L11c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0",
+      "verdict": "counterexample",
+      "wallMs": 1851,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-a#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums) - 1",
+      "verdict": "counterexample",
+      "wallMs": 1553,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L2c26:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "lo, hi = 0, len(nums) + 1",
+      "verdict": "counterexample",
+      "wallMs": 1868,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L2c26:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "lo, hi = 0, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 2301,
+      "outcome": "killed",
+      "detail": "[[1,2],1]"
+    },
+    {
+      "key": "binary-search/bug-a#L2c29:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, len(nums) - 0",
+      "verdict": "counterexample",
+      "wallMs": 2528,
+      "outcome": "killed",
+      "detail": "[[1,2],1]"
+    },
+    {
+      "key": "binary-search/bug-a#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "no_counterexample",
+      "wallMs": 2137,
+      "outcome": "survived",
+      "detail": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "binary-search/bug-a#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 5019,
+      "outcome": "killed",
+      "detail": "[[9],9]"
+    },
+    {
+      "key": "binary-search/bug-a#L5c22:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if nums[mid] != target:",
+      "verdict": "counterexample",
+      "wallMs": 1746,
+      "outcome": "killed",
+      "detail": "[[9],9]"
+    },
+    {
+      "key": "binary-search/bug-a#L7c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 1434,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-a#L8c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 18317,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "binary-search/bug-a#L8c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 8292,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "binary-search/bug-a#L8c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 8319,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L10c21:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "hi = mid + 1",
+      "verdict": "counterexample",
+      "wallMs": 19823,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "binary-search/bug-b#L10c21:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "hi = mid",
+      "verdict": "no_counterexample",
+      "wallMs": 2104,
+      "outcome": "survived",
+      "detail": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "binary-search/bug-b#L10c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi = mid - 0",
+      "verdict": "no_counterexample",
+      "wallMs": 2219,
+      "outcome": "survived",
+      "detail": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "binary-search/bug-b#L11c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0",
+      "verdict": "counterexample",
+      "wallMs": 2206,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 1534,
+      "outcome": "killed",
+      "detail": "[[9],9]"
+    },
+    {
+      "key": "binary-search/bug-b#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 1407,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 12914,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-b#L5c22:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if nums[mid] != target:",
+      "verdict": "counterexample",
+      "wallMs": 1748,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-b#L7c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 1865,
+      "outcome": "killed",
+      "detail": "[[1,2],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L8c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 10471,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L8c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 17583,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-b#L8c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 18164,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L10c21:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "hi = mid + 1",
+      "verdict": "counterexample",
+      "wallMs": 18576,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L10c21:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "hi = mid",
+      "verdict": "counterexample",
+      "wallMs": 18076,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L10c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi = mid - 0",
+      "verdict": "counterexample",
+      "wallMs": 18148,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L11c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0",
+      "verdict": "counterexample",
+      "wallMs": 9265,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums) - 1",
+      "verdict": "counterexample",
+      "wallMs": 8632,
+      "outcome": "killed",
+      "detail": "[[-1,0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L2c26:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "lo, hi = 0, len(nums) + 1",
+      "verdict": "counterexample",
+      "wallMs": 8919,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-c#L2c26:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "lo, hi = 0, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 10631,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L2c29:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, len(nums) - 0",
+      "verdict": "counterexample",
+      "wallMs": 11918,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L3c14:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "while lo < hi:",
+      "verdict": "counterexample",
+      "wallMs": 9490,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 11976,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/bug-c#L5c22:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if nums[mid] != target:",
+      "verdict": "counterexample",
+      "wallMs": 2431,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/bug-c#L7c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 11370,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L10c21:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "hi = mid + 1",
+      "verdict": "counterexample",
+      "wallMs": 19405,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "binary-search/correct#L10c21:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "hi = mid",
+      "verdict": "counterexample",
+      "wallMs": 18469,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "binary-search/correct#L10c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi = mid - 0",
+      "verdict": "counterexample",
+      "wallMs": 19933,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "binary-search/correct#L11c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0",
+      "verdict": "counterexample",
+      "wallMs": 2499,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums) - 1",
+      "verdict": "counterexample",
+      "wallMs": 1708,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/correct#L2c26:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "lo, hi = 0, len(nums) + 1",
+      "verdict": "counterexample",
+      "wallMs": 1809,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/correct#L2c26:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "lo, hi = 0, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 1904,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L2c29:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, len(nums) - 0",
+      "verdict": "counterexample",
+      "wallMs": 1723,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L3c14:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "while lo < hi:",
+      "verdict": "counterexample",
+      "wallMs": 1659,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/correct#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 5399,
+      "outcome": "killed",
+      "detail": "[[9,10],9]"
+    },
+    {
+      "key": "binary-search/correct#L5c22:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if nums[mid] != target:",
+      "verdict": "counterexample",
+      "wallMs": 2120,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "binary-search/correct#L7c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "no_counterexample",
+      "wallMs": 1983,
+      "outcome": "survived",
+      "detail": "No mismatch on 1524 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "binary-search/correct#L8c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 19802,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L8c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 10978,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "binary-search/correct#L8c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 11125,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "coin-change/bug-a#L2c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count = 1",
+      "verdict": "counterexample",
+      "wallMs": 1652,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-a#L7c28:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "return count if amount != 0 else -1",
+      "verdict": "counterexample",
+      "wallMs": 2845,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-a#L7c31:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return count if amount == 1 else -1",
+      "verdict": "counterexample",
+      "wallMs": 2412,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-a#L7c39:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return count if amount == 0 else -0",
+      "verdict": "counterexample",
+      "wallMs": 2264,
+      "outcome": "killed",
+      "detail": "[[2],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L2c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp = [1] + [amount] * amount",
+      "verdict": "counterexample",
+      "wallMs": 2872,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L3c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(0, amount + 1):",
+      "verdict": "counterexample",
+      "wallMs": 2527,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L3c29:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "for a in range(1, amount - 1):",
+      "verdict": "counterexample",
+      "wallMs": 2846,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L3c29:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "for a in range(1, amount):",
+      "verdict": "counterexample",
+      "wallMs": 3138,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L3c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(1, amount + 0):",
+      "verdict": "counterexample",
+      "wallMs": 2909,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c18:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if c < a and dp[a - c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 3096,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c23:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if c <= a or dp[a - c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2255,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c31:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "if c <= a and dp[a + c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2629,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c36:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if c <= a and dp[a - c] < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2379,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c39:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if c <= a and dp[a - c] + 0 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2282,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L5c41:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if c <= a and dp[a - c] + 1 <= dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2690,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L6c29:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "dp[a] = dp[a + c] + 1",
+      "verdict": "counterexample",
+      "wallMs": 2434,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L6c34:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "dp[a] = dp[a - c]",
+      "verdict": "counterexample",
+      "wallMs": 2266,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L6c37:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[a] = dp[a - c] + 0",
+      "verdict": "counterexample",
+      "wallMs": 1993,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L7c37:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "return dp[amount] if dp[amount] <= amount else (0 if amount == 0 else -1)",
+      "verdict": "counterexample",
+      "wallMs": 1669,
+      "outcome": "killed",
+      "detail": "[[2],1]"
+    },
+    {
+      "key": "coin-change/bug-b#L7c52:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return dp[amount] if dp[amount] < amount else (1 if amount == 0 else -1)",
+      "verdict": "counterexample",
+      "wallMs": 1444,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-b#L7c64:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "return dp[amount] if dp[amount] < amount else (0 if amount != 0 else -1)",
+      "verdict": "counterexample",
+      "wallMs": 1760,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-b#L7c67:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return dp[amount] if dp[amount] < amount else (0 if amount == 1 else -1)",
+      "verdict": "counterexample",
+      "wallMs": 1438,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-b#L7c75:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return dp[amount] if dp[amount] < amount else (0 if amount == 0 else -0)",
+      "verdict": "counterexample",
+      "wallMs": 1883,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L3c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp = [1] + [INF] * amount",
+      "verdict": "counterexample",
+      "wallMs": 1484,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-c#L5c33:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "for a in range(amount, c + 1, -1):",
+      "verdict": "counterexample",
+      "wallMs": 1904,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L5c33:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "for a in range(amount, c, -1):",
+      "verdict": "counterexample",
+      "wallMs": 1705,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L5c36:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(amount, c - 0, -1):",
+      "verdict": "counterexample",
+      "wallMs": 1904,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L5c40:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(amount, c - 1, -0):",
+      "verdict": "counterexample",
+      "wallMs": 1802,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/bug-c#L6c21:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "dp[a] = max(dp[a], dp[a - c] + 1)",
+      "verdict": "counterexample",
+      "wallMs": 1820,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L6c36:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "dp[a] = min(dp[a], dp[a + c] + 1)",
+      "verdict": "counterexample",
+      "wallMs": 1849,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L6c41:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "dp[a] = min(dp[a], dp[a - c])",
+      "verdict": "counterexample",
+      "wallMs": 1649,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L6c44:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[a] = min(dp[a], dp[a - c] + 0)",
+      "verdict": "counterexample",
+      "wallMs": 1813,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/bug-c#L7c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0 if dp[amount] == INF else dp[amount]",
+      "verdict": "counterexample",
+      "wallMs": 1850,
+      "outcome": "killed",
+      "detail": "[[1],2]"
+    },
+    {
+      "key": "coin-change/bug-c#L7c29:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "return -1 if dp[amount] != INF else dp[amount]",
+      "verdict": "counterexample",
+      "wallMs": 1624,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/correct#L3c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp = [1] + [INF] * amount",
+      "verdict": "counterexample",
+      "wallMs": 1625,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "coin-change/correct#L4c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(0, amount + 1):",
+      "verdict": "no_counterexample",
+      "wallMs": 2051,
+      "outcome": "survived",
+      "detail": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "coin-change/correct#L4c29:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "for a in range(1, amount - 1):",
+      "verdict": "counterexample",
+      "wallMs": 1948,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L4c29:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "for a in range(1, amount):",
+      "verdict": "counterexample",
+      "wallMs": 1825,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L4c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for a in range(1, amount + 0):",
+      "verdict": "counterexample",
+      "wallMs": 1982,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L6c18:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if c < a and dp[a - c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 1920,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L6c23:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if c <= a or dp[a - c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 2048,
+      "outcome": "killed",
+      "detail": "[[3],1]"
+    },
+    {
+      "key": "coin-change/correct#L6c31:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "if c <= a and dp[a + c] + 1 < dp[a]:",
+      "verdict": "counterexample",
+      "wallMs": 1771,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L6c36:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if c <= a and dp[a - c] < dp[a]:",
+      "verdict": "no_counterexample",
+      "wallMs": 1925,
+      "outcome": "survived",
+      "detail": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "coin-change/correct#L6c39:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if c <= a and dp[a - c] + 0 < dp[a]:",
+      "verdict": "no_counterexample",
+      "wallMs": 2042,
+      "outcome": "survived",
+      "detail": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "coin-change/correct#L6c41:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if c <= a and dp[a - c] + 1 <= dp[a]:",
+      "verdict": "no_counterexample",
+      "wallMs": 1902,
+      "outcome": "survived",
+      "detail": "No mismatch on 1396 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "coin-change/correct#L7c29:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "dp[a] = dp[a + c] + 1",
+      "verdict": "counterexample",
+      "wallMs": 1741,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L7c34:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "dp[a] = dp[a - c]",
+      "verdict": "counterexample",
+      "wallMs": 2040,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L7c37:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[a] = dp[a - c] + 0",
+      "verdict": "counterexample",
+      "wallMs": 1819,
+      "outcome": "killed",
+      "detail": "[[1],1]"
+    },
+    {
+      "key": "coin-change/correct#L8c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return -0 if dp[amount] == INF else dp[amount]",
+      "verdict": "counterexample",
+      "wallMs": 1785,
+      "outcome": "killed",
+      "detail": "[[2],1]"
+    },
+    {
+      "key": "coin-change/correct#L8c29:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "return -1 if dp[amount] != INF else dp[amount]",
+      "verdict": "counterexample",
+      "wallMs": 1747,
+      "outcome": "killed",
+      "detail": "[[1],0]"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L4c10:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[1] = 0",
+      "verdict": "counterexample",
+      "wallMs": 3607,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L4c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[0] = 1",
+      "verdict": "counterexample",
+      "wallMs": 4437,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L6c20:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if dist[u] <= INF and dist[u] + w < dist[v]:",
+      "verdict": "counterexample",
+      "wallMs": 42104,
+      "outcome": "killed",
+      "detail": "[876,[[0,1,4428854],[1,2,8277862],[2,3,1895036],[3,4,9459078],[4,5,3233552],[5,6"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L6c26:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if dist[u] < INF or dist[u] + w < dist[v]:",
+      "verdict": "counterexample",
+      "wallMs": 6526,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0],[0,1,1]]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L6c42:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if dist[u] < INF and dist[u] + w <= dist[v]:",
+      "verdict": "counterexample",
+      "wallMs": 41616,
+      "outcome": "killed",
+      "detail": "[876,[[0,1,4428854],[1,2,8277862],[2,3,1895036],[3,4,9459078],[4,5,3233552],[5,6"
+    },
+    {
+      "key": "hard/dag-distances/bug-a#L8c23:rel >= to >",
+      "seed": 1,
+      "operator": "rel >= to >",
+      "after": "return [None if d > INF else d for d in dist]",
+      "verdict": "counterexample",
+      "wallMs": 5524,
+      "outcome": "killed",
+      "detail": "[2,[]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L4c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[0] = 1;",
+      "verdict": "counterexample",
+      "wallMs": 5491,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L4c8:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[1] = 0;",
+      "verdict": "counterexample",
+      "wallMs": 4795,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L5c48:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const order = edges.slice().sort((a, b) => a[1] - b[0]);",
+      "verdict": "counterexample",
+      "wallMs": 4277,
+      "outcome": "killed",
+      "detail": "[3,[[1,2,0],[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L5c55:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const order = edges.slice().sort((a, b) => a[0] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 42996,
+      "outcome": "killed",
+      "detail": "[876,[[0,1,4428854],[1,2,8277862],[2,3,1895036],[3,4,9459078],[4,5,3233552],[5,6"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L7c17:!== to ===",
+      "seed": 1,
+      "operator": "!== to ===",
+      "after": "if (dist[u] === INF && dist[u] + w < dist[v]) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 5481,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L7c25:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (dist[u] !== INF || dist[u] + w < dist[v]) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 6159,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0],[0,1,1]]]"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L7c40:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (dist[u] !== INF && dist[u] + w <= dist[v]) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 44914,
+      "outcome": "killed",
+      "detail": "[876,[[0,1,4428854],[1,2,8277862],[2,3,1895036],[3,4,9459078],[4,5,3233552],[5,6"
+    },
+    {
+      "key": "hard/dag-distances/bug-b#L9c37:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "return Array.from(dist, (d) => (d !== INF ? null : d));",
+      "verdict": "counterexample",
+      "wallMs": 4976,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L3c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[0] = 1;",
+      "verdict": "counterexample",
+      "wallMs": 4944,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L3c8:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[1] = 0;",
+      "verdict": "counterexample",
+      "wallMs": 4876,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L4c48:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const order = edges.slice().sort((a, b) => a[1] - b[0]);",
+      "verdict": "counterexample",
+      "wallMs": 4733,
+      "outcome": "killed",
+      "detail": "[3,[[1,2,0],[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L4c55:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const order = edges.slice().sort((a, b) => a[0] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 41717,
+      "outcome": "killed",
+      "detail": "[234,[[196,212,9644539],[101,221,7081824],[141,171,7612641],[76,160,5966907],[13"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L6c17:!== to ===",
+      "seed": 1,
+      "operator": "!== to ===",
+      "after": "if (dist[u] === null && (dist[v] === null || dist[u] + w < dist[v])) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 3095,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L6c26:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (dist[u] !== null || (dist[v] === null || dist[u] + w < dist[v])) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 2656,
+      "outcome": "killed",
+      "detail": "[3,[[1,2,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L6c38:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (dist[u] !== null && (dist[v] !== null || dist[u] + w < dist[v])) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 3183,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L6c47:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (dist[u] !== null && (dist[v] === null && dist[u] + w < dist[v])) dist[v] = dist[u] + w;",
+      "verdict": "counterexample",
+      "wallMs": 2756,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-js#L6c62:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (dist[u] !== null && (dist[v] === null || dist[u] + w <= dist[v])) dist[v] = dist[u] + w;",
+      "verdict": "no_counterexample",
+      "wallMs": 5417,
+      "outcome": "survived",
+      "detail": "No mismatch on 588 judged inputs across 9 families. That is evidence, not proof."
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L3c10:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[1] = 0",
+      "verdict": "counterexample",
+      "wallMs": 2569,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L3c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dist[0] = 1",
+      "verdict": "counterexample",
+      "wallMs": 2583,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L5c20:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if dist[u] is None and (dist[v] is None or dist[u] + w < dist[v]):",
+      "verdict": "counterexample",
+      "wallMs": 4131,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L5c32:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if dist[u] is not None or (dist[v] is None or dist[u] + w < dist[v]):",
+      "verdict": "counterexample",
+      "wallMs": 4749,
+      "outcome": "killed",
+      "detail": "[3,[[1,2,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L5c45:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if dist[u] is not None and (dist[v] is not None or dist[u] + w < dist[v]):",
+      "verdict": "counterexample",
+      "wallMs": 4916,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L5c53:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if dist[u] is not None and (dist[v] is None and dist[u] + w < dist[v]):",
+      "verdict": "counterexample",
+      "wallMs": 6808,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "hard/dag-distances/correct-py#L5c68:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if dist[u] is not None and (dist[v] is None or dist[u] + w <= dist[v]):",
+      "verdict": "no_counterexample",
+      "wallMs": 3126,
+      "outcome": "survived",
+      "detail": "No mismatch on 588 judged inputs across 9 families. That is evidence, not proof."
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L10c19:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "r = ways(i - 1)",
+      "verdict": "counterexample",
+      "wallMs": 2307,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L10c19:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "r = ways(i)",
+      "verdict": "counterexample",
+      "wallMs": 4159,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L10c22:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "r = ways(i + 0)",
+      "verdict": "counterexample",
+      "wallMs": 4578,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c13:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if i - 1 < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2778,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c13:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if i < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2899,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if i + 0 < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2794,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c18:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if i + 1 <= len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2724,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c27:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if i + 1 < len(s) or int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2709,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c40:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if i + 1 < len(s) and int(s[i:i - 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 2905,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L11c47:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if i + 1 < len(s) and int(s[i:i + 2]) < 26:",
+      "verdict": "counterexample",
+      "wallMs": 2437,
+      "outcome": "killed",
+      "detail": "[\"26\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L12c24:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "r += ways(i - 2)",
+      "verdict": "counterexample",
+      "wallMs": 3813,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L15c17:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return ways(1)",
+      "verdict": "counterexample",
+      "wallMs": 2790,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L1c12:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "MOD = 10**9 - 7",
+      "verdict": "counterexample",
+      "wallMs": 28303,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L6c14:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if i != len(s):",
+      "verdict": "counterexample",
+      "wallMs": 3366,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L7c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return 0",
+      "verdict": "counterexample",
+      "wallMs": 3039,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L8c17:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if s[i] != \"0\":",
+      "verdict": "counterexample",
+      "wallMs": 2811,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-a#L9c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return 1",
+      "verdict": "counterexample",
+      "wallMs": 2525,
+      "outcome": "killed",
+      "detail": "[\"0\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c12:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i - 1 < s.length && Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3907,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c12:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (i < s.length && Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3432,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (i + 0 < s.length && Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3494,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c17:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (i + 1 <= s.length && Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3172,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c28:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (i + 1 < s.length || Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3793,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c50:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < s.length && Number(s.slice(i, i - 2)) <= 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 4833,
+      "outcome": "killed",
+      "detail": "[\"22222\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c57:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (i + 1 < s.length && Number(s.slice(i, i + 2)) < 26) r = (r + ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3345,
+      "outcome": "killed",
+      "detail": "[\"26\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c70:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < s.length && Number(s.slice(i, i + 2)) <= 26) r = (r - ways(i + 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3592,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L10c79:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < s.length && Number(s.slice(i, i + 2)) <= 26) r = (r + ways(i - 2)) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 3879,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L15c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return ways(1);",
+      "verdict": "counterexample",
+      "wallMs": 4182,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L5c11:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (i !== s.length) return 1;",
+      "verdict": "counterexample",
+      "wallMs": 3933,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L5c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (i === s.length) return 0;",
+      "verdict": "counterexample",
+      "wallMs": 3989,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L7c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let r = 1;",
+      "verdict": "counterexample",
+      "wallMs": 3575,
+      "outcome": "killed",
+      "detail": "[\"0\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L8c14:!== to ===",
+      "seed": 1,
+      "operator": "!== to ===",
+      "after": "if (s[i] === \"0\") {",
+      "verdict": "counterexample",
+      "wallMs": 3810,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L9c17:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "r = ways(i - 1);",
+      "verdict": "counterexample",
+      "wallMs": 3580,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L9c17:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "r = ways(i);",
+      "verdict": "counterexample",
+      "wallMs": 3875,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-b#L9c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "r = ways(i + 0);",
+      "verdict": "counterexample",
+      "wallMs": 3403,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L10c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return dp[1] % 1000000007;",
+      "verdict": "counterexample",
+      "wallMs": 1735,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L3c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const dp = new Array(n - 2).fill(0);",
+      "verdict": "counterexample",
+      "wallMs": 3761,
+      "outcome": "killed",
+      "detail": "[\"6\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L3c36:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const dp = new Array(n + 2).fill(1);",
+      "verdict": "counterexample",
+      "wallMs": 3614,
+      "outcome": "killed",
+      "detail": "[\"0\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L4c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[n] = 0;",
+      "verdict": "counterexample",
+      "wallMs": 2672,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L5c17:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "for (let i = n + 1; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 2920,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L5c17:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "for (let i = n; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 3249,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L5c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = n - 0; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 3123,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L5c25:rel >= to >",
+      "seed": 1,
+      "operator": "rel >= to >",
+      "after": "for (let i = n - 1; i > 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 3552,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L5c28:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = n - 1; i >= 1; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 3348,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L6c14:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (s[i] !== \"0\") continue;",
+      "verdict": "counterexample",
+      "wallMs": 3742,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L7c17:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "dp[i] = dp[i - 1];",
+      "verdict": "counterexample",
+      "wallMs": 3241,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L7c17:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "dp[i] = dp[i];",
+      "verdict": "counterexample",
+      "wallMs": 3339,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L7c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[i] = dp[i + 0];",
+      "verdict": "counterexample",
+      "wallMs": 2959,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c10:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i - 1 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 3071,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c10:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (i < n && Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 3129,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (i + 0 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 3847,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c15:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (i + 1 <= n && Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 3173,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c19:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (i + 1 < n || Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 2941,
+      "outcome": "killed",
+      "detail": "[\"222222222222222222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c41:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < n && Number(s.slice(i, i - 2)) <= 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 3745,
+      "outcome": "killed",
+      "detail": "[\"22222\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c48:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (i + 1 < n && Number(s.slice(i, i + 2)) < 26) dp[i] += dp[i + 2];",
+      "verdict": "counterexample",
+      "wallMs": 2810,
+      "outcome": "killed",
+      "detail": "[\"26\"]"
+    },
+    {
+      "key": "hard/decode-ways/bug-c#L8c68:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] += dp[i - 2];",
+      "verdict": "counterexample",
+      "wallMs": 2362,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L11c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return dp[1];",
+      "verdict": "counterexample",
+      "wallMs": 1848,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L4c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const dp = new Array(n - 2).fill(0);",
+      "verdict": "counterexample",
+      "wallMs": 1630,
+      "outcome": "killed",
+      "detail": "[\"6\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L4c36:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const dp = new Array(n + 2).fill(1);",
+      "verdict": "counterexample",
+      "wallMs": 1810,
+      "outcome": "killed",
+      "detail": "[\"0\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L5c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[n] = 0;",
+      "verdict": "counterexample",
+      "wallMs": 1653,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L6c17:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "for (let i = n + 1; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 1756,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L6c17:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "for (let i = n; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 2068,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L6c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = n - 0; i >= 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 1786,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L6c25:rel >= to >",
+      "seed": 1,
+      "operator": "rel >= to >",
+      "after": "for (let i = n - 1; i > 0; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 1533,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L6c28:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = n - 1; i >= 1; i--) {",
+      "verdict": "counterexample",
+      "wallMs": 2397,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L7c14:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (s[i] !== \"0\") continue;",
+      "verdict": "counterexample",
+      "wallMs": 2222,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L8c17:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "dp[i] = dp[i - 1];",
+      "verdict": "counterexample",
+      "wallMs": 2356,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L8c17:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "dp[i] = dp[i];",
+      "verdict": "counterexample",
+      "wallMs": 2507,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L8c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "dp[i] = dp[i + 0];",
+      "verdict": "counterexample",
+      "wallMs": 2322,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c10:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i - 1 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "no_counterexample",
+      "wallMs": 2230,
+      "outcome": "survived",
+      "detail": "No mismatch on 1354 judged inputs across 10 families. That is evidence, not proo"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c10:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (i < n && Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "no_counterexample",
+      "wallMs": 2443,
+      "outcome": "survived",
+      "detail": "No mismatch on 1354 judged inputs across 10 families. That is evidence, not proo"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (i + 0 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "no_counterexample",
+      "wallMs": 2187,
+      "outcome": "survived",
+      "detail": "No mismatch on 1354 judged inputs across 10 families. That is evidence, not proo"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c15:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (i + 1 <= n && Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "no_counterexample",
+      "wallMs": 2343,
+      "outcome": "survived",
+      "detail": "No mismatch on 1354 judged inputs across 10 families. That is evidence, not proo"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c19:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (i + 1 < n || Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 2830,
+      "outcome": "killed",
+      "detail": "[\"66\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c41:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < n && Number(s.slice(i, i - 2)) <= 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 2686,
+      "outcome": "killed",
+      "detail": "[\"22222\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c48:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (i + 1 < n && Number(s.slice(i, i + 2)) < 26) dp[i] = (dp[i] + dp[i + 2]) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 2294,
+      "outcome": "killed",
+      "detail": "[\"26\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-js#L9c76:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (i + 1 < n && Number(s.slice(i, i + 2)) <= 26) dp[i] = (dp[i] + dp[i - 2]) % MOD;",
+      "verdict": "counterexample",
+      "wallMs": 1727,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L10c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return 0",
+      "verdict": "counterexample",
+      "wallMs": 1631,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L11c17:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if s[i] != \"0\":",
+      "verdict": "counterexample",
+      "wallMs": 1620,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L12c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return 1",
+      "verdict": "counterexample",
+      "wallMs": 1501,
+      "outcome": "killed",
+      "detail": "[\"0\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L13c19:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "r = ways(i - 1)",
+      "verdict": "counterexample",
+      "wallMs": 1472,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L13c19:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "r = ways(i)",
+      "verdict": "counterexample",
+      "wallMs": 1711,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L13c22:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "r = ways(i + 0)",
+      "verdict": "counterexample",
+      "wallMs": 1839,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c13:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if i - 1 < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1527,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c13:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if i < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1439,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if i + 0 < len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1374,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c18:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if i + 1 <= len(s) and int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1679,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c27:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if i + 1 < len(s) or int(s[i:i + 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1344,
+      "outcome": "killed",
+      "detail": "[\"2\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c40:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if i + 1 < len(s) and int(s[i:i - 2]) <= 26:",
+      "verdict": "counterexample",
+      "wallMs": 1529,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L14c47:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if i + 1 < len(s) and int(s[i:i + 2]) < 26:",
+      "verdict": "counterexample",
+      "wallMs": 1668,
+      "outcome": "killed",
+      "detail": "[\"26\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L15c24:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "r += ways(i - 2)",
+      "verdict": "counterexample",
+      "wallMs": 1689,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L18c17:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return ways(1)",
+      "verdict": "counterexample",
+      "wallMs": 1573,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L3c12:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "MOD = 10**9 - 7",
+      "verdict": "counterexample",
+      "wallMs": 1978,
+      "outcome": "killed",
+      "detail": "[\"22222222222222222222222222222222222222222222\"]"
+    },
+    {
+      "key": "hard/decode-ways/correct-py#L9c14:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if i != len(s):",
+      "verdict": "counterexample",
+      "wallMs": 1542,
+      "outcome": "killed",
+      "detail": "[\"11\"]"
+    },
+    {
+      "key": "hard/word-break/bug-a#L10c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return can(1)",
+      "verdict": "counterexample",
+      "wallMs": 1476,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-a#L3c14:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if i != len(s):",
+      "verdict": "counterexample",
+      "wallMs": 1684,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-a#L6c35:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if s.startswith(w, i) or can(i + len(w)):",
+      "verdict": "counterexample",
+      "wallMs": 2000,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-a#L6c44:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if s.startswith(w, i) and can(i - len(w)):",
+      "verdict": "counterexample",
+      "wallMs": 3068,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-b#L13c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return can(1);",
+      "verdict": "counterexample",
+      "wallMs": 1571,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-b#L4c11:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (i !== s.length || ok.has(i)) return true;",
+      "verdict": "counterexample",
+      "wallMs": 2632,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-b#L4c24:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (i === s.length && ok.has(i)) return true;",
+      "verdict": "counterexample",
+      "wallMs": 2557,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-b#L6c30:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (s.startsWith(w, i) || can(i + w.length)) {",
+      "verdict": "counterexample",
+      "wallMs": 2240,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-b#L6c38:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (s.startsWith(w, i) && can(i - w.length)) {",
+      "verdict": "counterexample",
+      "wallMs": 2787,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/bug-c#L5c76:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "return re.fullmatch(\"(?:\" + \"|\".join(map(re.escape, words)) + \")*\", s) is None",
+      "verdict": "counterexample",
+      "wallMs": 1805,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-js#L16c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return can(1);",
+      "verdict": "counterexample",
+      "wallMs": 1671,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-js#L4c11:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "if (i !== s.length) return true;",
+      "verdict": "counterexample",
+      "wallMs": 2107,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-js#L8c30:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (s.startsWith(w, i) || can(i + w.length)) {",
+      "verdict": "counterexample",
+      "wallMs": 2193,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-js#L8c38:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (s.startsWith(w, i) && can(i - w.length)) {",
+      "verdict": "counterexample",
+      "wallMs": 2181,
+      "outcome": "killed",
+      "detail": "[\"a\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L3c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for i in range(0, len(s) + 1):",
+      "verdict": "counterexample",
+      "wallMs": 1748,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L3c29:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "for i in range(1, len(s) - 1):",
+      "verdict": "counterexample",
+      "wallMs": 1858,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L3c29:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "for i in range(1, len(s)):",
+      "verdict": "counterexample",
+      "wallMs": 1830,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L3c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for i in range(1, len(s) + 0):",
+      "verdict": "counterexample",
+      "wallMs": 1721,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L4c28:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "ok[i] = any(len(w) < i and ok[i - len(w)] and s.startswith(w, i - len(w)) for w in words)",
+      "verdict": "counterexample",
+      "wallMs": 1665,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L4c33:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "ok[i] = any(len(w) <= i or ok[i - len(w)] and s.startswith(w, i - len(w)) for w in words)",
+      "verdict": "counterexample",
+      "wallMs": 2166,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L4c41:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "ok[i] = any(len(w) <= i and ok[i + len(w)] and s.startswith(w, i - len(w)) for w in words)",
+      "verdict": "counterexample",
+      "wallMs": 1983,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L4c52:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "ok[i] = any(len(w) <= i and ok[i - len(w)] or s.startswith(w, i - len(w)) for w in words)",
+      "verdict": "counterexample",
+      "wallMs": 1619,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"a\"]]"
+    },
+    {
+      "key": "hard/word-break/correct-py#L4c73:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "ok[i] = any(len(w) <= i and ok[i - len(w)] and s.startswith(w, i + len(w)) for w in words)",
+      "verdict": "counterexample",
+      "wallMs": 2142,
+      "outcome": "killed",
+      "detail": "[\"b\",[\"b\"]]"
+    },
+    {
+      "key": "isqrt/bug-a#L2c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let lo = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1920,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-a#L4c13:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while (lo <= hi) {",
+      "verdict": "counterexample",
+      "wallMs": 4977,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-a#L5c20:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const mid = (lo - hi + 1) >> 1;",
+      "verdict": "counterexample",
+      "wallMs": 3418,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L5c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const mid = (lo + hi - 1) >> 1;",
+      "verdict": "counterexample",
+      "wallMs": 4726,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L5c25:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "const mid = (lo + hi) >> 1;",
+      "verdict": "counterexample",
+      "wallMs": 4704,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L5c28:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const mid = (lo + hi + 0) >> 1;",
+      "verdict": "counterexample",
+      "wallMs": 4546,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L5c34:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const mid = (lo + hi + 1) >> 0;",
+      "verdict": "counterexample",
+      "wallMs": 4906,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L6c19:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (mid * mid < x) lo = mid;",
+      "verdict": "counterexample",
+      "wallMs": 2571,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-a#L7c18:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "else hi = mid + 1;",
+      "verdict": "counterexample",
+      "wallMs": 4345,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/bug-a#L7c18:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "else hi = mid;",
+      "verdict": "counterexample",
+      "wallMs": 4391,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/bug-a#L7c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "else hi = mid - 0;",
+      "verdict": "counterexample",
+      "wallMs": 4467,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/bug-b#L2c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let lo = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1660,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/bug-b#L4c13:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while (lo <= hi) {",
+      "verdict": "counterexample",
+      "wallMs": 4945,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/bug-b#L5c31:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const mid = Math.floor((lo - hi) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 3799,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L6c19:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (mid * mid < x) lo = mid + 1;",
+      "verdict": "counterexample",
+      "wallMs": 2456,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L6c33:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (mid * mid <= x) lo = mid - 1;",
+      "verdict": "counterexample",
+      "wallMs": 4611,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L6c33:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (mid * mid <= x) lo = mid;",
+      "verdict": "counterexample",
+      "wallMs": 4728,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L6c36:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (mid * mid <= x) lo = mid + 0;",
+      "verdict": "counterexample",
+      "wallMs": 4853,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L9c12:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "return lo + 1;",
+      "verdict": "counterexample",
+      "wallMs": 2398,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/bug-b#L9c12:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "return lo;",
+      "verdict": "counterexample",
+      "wallMs": 2400,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/bug-b#L9c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return lo - 0;",
+      "verdict": "counterexample",
+      "wallMs": 1924,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/correct#L2c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let lo = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1617,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/correct#L3c17:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "let hi = Math.max(x, 46341);",
+      "verdict": "no_counterexample",
+      "wallMs": 2064,
+      "outcome": "survived",
+      "detail": "No mismatch on 1019 judged inputs across 8 families. That is evidence, not proof"
+    },
+    {
+      "key": "isqrt/correct#L4c13:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while (lo <= hi) {",
+      "verdict": "counterexample",
+      "wallMs": 4604,
+      "outcome": "killed",
+      "detail": "[0]"
+    },
+    {
+      "key": "isqrt/correct#L5c19:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const mid = lo - Math.floor((hi - lo + 1) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 1677,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/correct#L5c36:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "const mid = lo + Math.floor((hi + lo + 1) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 3620,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/correct#L5c41:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "const mid = lo + Math.floor((hi - lo - 1) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 4351,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/correct#L5c41:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "const mid = lo + Math.floor((hi - lo) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 3874,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/correct#L5c44:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const mid = lo + Math.floor((hi - lo + 0) / 2);",
+      "verdict": "counterexample",
+      "wallMs": 4260,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/correct#L6c19:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (mid * mid < x) lo = mid;",
+      "verdict": "counterexample",
+      "wallMs": 1607,
+      "outcome": "killed",
+      "detail": "[1]"
+    },
+    {
+      "key": "isqrt/correct#L7c18:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "else hi = mid + 1;",
+      "verdict": "counterexample",
+      "wallMs": 3878,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/correct#L7c18:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "else hi = mid;",
+      "verdict": "counterexample",
+      "wallMs": 4205,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "isqrt/correct#L7c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "else hi = mid - 0;",
+      "verdict": "counterexample",
+      "wallMs": 4059,
+      "outcome": "killed",
+      "detail": "[2]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L3c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let left = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1488,
+      "outcome": "killed",
+      "detail": "[\"a\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L4c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let best = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1396,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L5c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = 1; i < s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 1540,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L5c21:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "for (let i = 0; i <= s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 1493,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L7c40:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (last.has(c)) left = last.get(c) - 1;",
+      "verdict": "counterexample",
+      "wallMs": 1403,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L7c40:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (last.has(c)) left = last.get(c);",
+      "verdict": "counterexample",
+      "wallMs": 1446,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L7c43:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last.has(c)) left = last.get(c) + 0;",
+      "verdict": "counterexample",
+      "wallMs": 1582,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L9c17:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = Math.min(best, i - left + 1);",
+      "verdict": "counterexample",
+      "wallMs": 1563,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L9c28:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "best = Math.max(best, i + left + 1);",
+      "verdict": "counterexample",
+      "wallMs": 1965,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L9c35:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "best = Math.max(best, i - left - 1);",
+      "verdict": "counterexample",
+      "wallMs": 1890,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L9c35:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "best = Math.max(best, i - left);",
+      "verdict": "counterexample",
+      "wallMs": 1770,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-a#L9c38:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "best = Math.max(best, i - left + 0);",
+      "verdict": "counterexample",
+      "wallMs": 2356,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-b#L3c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let best = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1919,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-b#L7c17:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = Math.min(best, seen.size);",
+      "verdict": "counterexample",
+      "wallMs": 2851,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L3c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let left = 1;",
+      "verdict": "counterexample",
+      "wallMs": 2848,
+      "outcome": "killed",
+      "detail": "[\"a\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L4c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let best = 1;",
+      "verdict": "counterexample",
+      "wallMs": 2709,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L5c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = 1; i < s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 2895,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L5c21:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "for (let i = 0; i <= s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 2775,
+      "outcome": "killed",
+      "detail": "[\"a\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L7c21:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (last.has(c) || last.get(c) >= left) {",
+      "verdict": "counterexample",
+      "wallMs": 2817,
+      "outcome": "killed",
+      "detail": "[\"a\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L7c36:rel >= to >",
+      "seed": 1,
+      "operator": "rel >= to >",
+      "after": "if (last.has(c) && last.get(c) > left) {",
+      "verdict": "counterexample",
+      "wallMs": 2980,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L8c19:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = Math.min(best, i - left);",
+      "verdict": "counterexample",
+      "wallMs": 2939,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L8c30:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "best = Math.max(best, i + left);",
+      "verdict": "counterexample",
+      "wallMs": 2775,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L9c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "left = last.get(c) - 1;",
+      "verdict": "counterexample",
+      "wallMs": 2447,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L9c25:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "left = last.get(c);",
+      "verdict": "counterexample",
+      "wallMs": 2693,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/bug-c#L9c28:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "left = last.get(c) + 0;",
+      "verdict": "counterexample",
+      "wallMs": 2676,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L3c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let left = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1974,
+      "outcome": "killed",
+      "detail": "[\"a\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L4c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "let best = 1;",
+      "verdict": "counterexample",
+      "wallMs": 1808,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L5c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for (let i = 1; i < s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 2205,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L5c21:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "for (let i = 0; i <= s.length; i++) {",
+      "verdict": "counterexample",
+      "wallMs": 1745,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L7c34:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "if (last.has(c)) left = Math.min(left, last.get(c) + 1);",
+      "verdict": "counterexample",
+      "wallMs": 2221,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L7c55:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "if (last.has(c)) left = Math.max(left, last.get(c) - 1);",
+      "verdict": "counterexample",
+      "wallMs": 1738,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L7c55:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "if (last.has(c)) left = Math.max(left, last.get(c));",
+      "verdict": "counterexample",
+      "wallMs": 2037,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L7c58:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last.has(c)) left = Math.max(left, last.get(c) + 0);",
+      "verdict": "counterexample",
+      "wallMs": 1533,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L9c17:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = Math.min(best, i - left + 1);",
+      "verdict": "counterexample",
+      "wallMs": 1317,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L9c28:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "best = Math.max(best, i + left + 1);",
+      "verdict": "counterexample",
+      "wallMs": 1576,
+      "outcome": "killed",
+      "detail": "[\"bb\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L9c35:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "best = Math.max(best, i - left - 1);",
+      "verdict": "counterexample",
+      "wallMs": 1502,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L9c35:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "best = Math.max(best, i - left);",
+      "verdict": "counterexample",
+      "wallMs": 1400,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "longest-unique-substring/correct#L9c38:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "best = Math.max(best, i - left + 0);",
+      "verdict": "counterexample",
+      "wallMs": 1773,
+      "outcome": "killed",
+      "detail": "[\"b\"]"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, max(0, len(nums) - 1)",
+      "verdict": "counterexample",
+      "wallMs": 1598,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c17:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "lo, hi = 0, min(0, len(nums) - 1)",
+      "verdict": "counterexample",
+      "wallMs": 1879,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, max(1, len(nums) - 1)",
+      "verdict": "counterexample",
+      "wallMs": 1325,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c33:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "lo, hi = 0, max(0, len(nums) + 1)",
+      "verdict": "counterexample",
+      "wallMs": 1747,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c33:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "lo, hi = 0, max(0, len(nums))",
+      "verdict": "no_counterexample",
+      "wallMs": 1968,
+      "outcome": "survived",
+      "detail": "No mismatch on 1369 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "lower-bound/bug-a#L2c36:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, max(0, len(nums) - 0)",
+      "verdict": "no_counterexample",
+      "wallMs": 1438,
+      "outcome": "survived",
+      "detail": "No mismatch on 1369 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "lower-bound/bug-a#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 1877,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-a#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 1735,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-a#L5c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 1165,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-a#L6c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 8210,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-a#L6c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 8249,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-a#L6c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 8094,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-b#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 1906,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-b#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 2463,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-b#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 4392,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/bug-b#L5c22:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if nums[mid] < target:",
+      "verdict": "no_counterexample",
+      "wallMs": 1752,
+      "outcome": "survived",
+      "detail": "No mismatch on 1369 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "lower-bound/bug-b#L6c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 10767,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/bug-b#L6c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 10576,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/bug-b#L6c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 10843,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 1561,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 2547,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 3547,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L5c22:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if nums[mid] != target:",
+      "verdict": "counterexample",
+      "wallMs": 2444,
+      "outcome": "killed",
+      "detail": "[[0,1],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L7c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 1776,
+      "outcome": "killed",
+      "detail": "[[0,0],0]"
+    },
+    {
+      "key": "lower-bound/bug-c#L8c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 8742,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-c#L8c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 8653,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/bug-c#L8c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 8869,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/correct#L2c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(nums)",
+      "verdict": "counterexample",
+      "wallMs": 1639,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/correct#L3c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 2192,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "lower-bound/correct#L4c18:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "mid = (lo - hi) // 2",
+      "verdict": "counterexample",
+      "wallMs": 3849,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/correct#L5c22:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if nums[mid] <= target:",
+      "verdict": "counterexample",
+      "wallMs": 1653,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "lower-bound/correct#L6c21:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "lo = mid - 1",
+      "verdict": "counterexample",
+      "wallMs": 10441,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/correct#L6c21:+1 dropped",
+      "seed": 1,
+      "operator": "+1 dropped",
+      "after": "lo = mid",
+      "verdict": "counterexample",
+      "wallMs": 10248,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "lower-bound/correct#L6c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo = mid + 0",
+      "verdict": "counterexample",
+      "wallMs": 10413,
+      "outcome": "killed",
+      "detail": "[[0],1]"
+    },
+    {
+      "key": "max-subarray/bug-a#L2c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "best = 1",
+      "verdict": "counterexample",
+      "wallMs": 2148,
+      "outcome": "killed",
+      "detail": "[[0]]"
+    },
+    {
+      "key": "max-subarray/bug-a#L3c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "cur = 1",
+      "verdict": "counterexample",
+      "wallMs": 2229,
+      "outcome": "killed",
+      "detail": "[[0]]"
+    },
+    {
+      "key": "max-subarray/bug-a#L5c15:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "cur = min(x, cur + x)",
+      "verdict": "counterexample",
+      "wallMs": 2414,
+      "outcome": "killed",
+      "detail": "[[-1]]"
+    },
+    {
+      "key": "max-subarray/bug-a#L5c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "cur = max(x, cur - x)",
+      "verdict": "counterexample",
+      "wallMs": 2810,
+      "outcome": "killed",
+      "detail": "[[-1]]"
+    },
+    {
+      "key": "max-subarray/bug-a#L6c16:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = min(best, cur)",
+      "verdict": "counterexample",
+      "wallMs": 2672,
+      "outcome": "killed",
+      "detail": "[[1]]"
+    },
+    {
+      "key": "max-subarray/bug-b#L2c17:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "best = nums[1]",
+      "verdict": "counterexample",
+      "wallMs": 2644,
+      "outcome": "killed",
+      "detail": "[[0]]"
+    },
+    {
+      "key": "max-subarray/bug-b#L3c11:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "cur = 1",
+      "verdict": "counterexample",
+      "wallMs": 2533,
+      "outcome": "killed",
+      "detail": "[[0,0]]"
+    },
+    {
+      "key": "max-subarray/bug-b#L4c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for x in nums[0:]:",
+      "verdict": "no_counterexample",
+      "wallMs": 2202,
+      "outcome": "survived",
+      "detail": "No mismatch on 1144 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "max-subarray/bug-b#L5c15:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "cur = min(x, cur + x)",
+      "verdict": "counterexample",
+      "wallMs": 2928,
+      "outcome": "killed",
+      "detail": "[[1,1]]"
+    },
+    {
+      "key": "max-subarray/bug-b#L5c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "cur = max(x, cur - x)",
+      "verdict": "counterexample",
+      "wallMs": 2436,
+      "outcome": "killed",
+      "detail": "[[1,1]]"
+    },
+    {
+      "key": "max-subarray/bug-b#L6c16:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = min(best, cur)",
+      "verdict": "counterexample",
+      "wallMs": 2629,
+      "outcome": "killed",
+      "detail": "[[0,1]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L2c15:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "prefix = [1]",
+      "verdict": "counterexample",
+      "wallMs": 2616,
+      "outcome": "killed",
+      "detail": "[[-1,-1]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L4c31:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "prefix.append(prefix[-0] + x)",
+      "verdict": "counterexample",
+      "wallMs": 2905,
+      "outcome": "killed",
+      "detail": "[[1,1]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L5c12:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "return min(prefix[1:]) - min(prefix[:-1])",
+      "verdict": "counterexample",
+      "wallMs": 2966,
+      "outcome": "killed",
+      "detail": "[[0,1]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L5c23:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return max(prefix[0:]) - min(prefix[:-1])",
+      "verdict": "counterexample",
+      "wallMs": 2253,
+      "outcome": "killed",
+      "detail": "[[-1]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L5c27:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "return max(prefix[1:]) + min(prefix[:-1])",
+      "verdict": "counterexample",
+      "wallMs": 2875,
+      "outcome": "killed",
+      "detail": "[[-1,0]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L5c30:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "return max(prefix[1:]) - max(prefix[:-1])",
+      "verdict": "counterexample",
+      "wallMs": 2634,
+      "outcome": "killed",
+      "detail": "[[1,0]]"
+    },
+    {
+      "key": "max-subarray/bug-c#L5c43:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return max(prefix[1:]) - min(prefix[:-0])",
+      "verdict": "counterexample",
+      "wallMs": 2282,
+      "outcome": "killed",
+      "detail": "[[0]]"
+    },
+    {
+      "key": "max-subarray/correct#L2c23:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "best = cur = nums[1]",
+      "verdict": "counterexample",
+      "wallMs": 2138,
+      "outcome": "killed",
+      "detail": "[[0]]"
+    },
+    {
+      "key": "max-subarray/correct#L3c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "for x in nums[0:]:",
+      "verdict": "counterexample",
+      "wallMs": 2087,
+      "outcome": "killed",
+      "detail": "[[1]]"
+    },
+    {
+      "key": "max-subarray/correct#L4c15:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "cur = min(x, cur + x)",
+      "verdict": "counterexample",
+      "wallMs": 2529,
+      "outcome": "killed",
+      "detail": "[[1,1]]"
+    },
+    {
+      "key": "max-subarray/correct#L4c25:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "cur = max(x, cur - x)",
+      "verdict": "counterexample",
+      "wallMs": 2432,
+      "outcome": "killed",
+      "detail": "[[1,1]]"
+    },
+    {
+      "key": "max-subarray/correct#L5c16:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "best = min(best, cur)",
+      "verdict": "counterexample",
+      "wallMs": 2432,
+      "outcome": "killed",
+      "detail": "[[0,1]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L2c60:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[1] - b[0] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3790,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L2c67:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[1] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4343,
+      "outcome": "killed",
+      "detail": "[[[0,1],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L2c70:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] && a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3518,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L2c75:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[0] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3572,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L2c82:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[1] - b[0]);",
+      "verdict": "counterexample",
+      "wallMs": 3908,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L5c32:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "const last = out[out.length + 1];",
+      "verdict": "counterexample",
+      "wallMs": 4066,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L5c32:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "const last = out[out.length];",
+      "verdict": "counterexample",
+      "wallMs": 4535,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L5c35:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const last = out[out.length - 0];",
+      "verdict": "counterexample",
+      "wallMs": 4466,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c14:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (last || cur[0] < last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3820,
+      "outcome": "killed",
+      "detail": "[[[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[1] < last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4271,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c24:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "no_counterexample",
+      "wallMs": 3499,
+      "outcome": "survived",
+      "detail": "No mismatch on 1319 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c31:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] < last[0]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3709,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c40:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] < last[1]) last[0] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3998,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c50:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "if (last && cur[0] < last[1]) last[1] = Math.min(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4012,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c59:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] < last[1]) last[1] = Math.max(last[0], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3491,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-a#L6c67:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] < last[1]) last[1] = Math.max(last[1], cur[0]);",
+      "verdict": "counterexample",
+      "wallMs": 4023,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L5c32:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "const last = out[out.length + 1];",
+      "verdict": "counterexample",
+      "wallMs": 3784,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L5c32:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "const last = out[out.length];",
+      "verdict": "counterexample",
+      "wallMs": 3669,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L5c35:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const last = out[out.length - 0];",
+      "verdict": "counterexample",
+      "wallMs": 3943,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c14:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (last || cur[0] <= last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3606,
+      "outcome": "killed",
+      "detail": "[[[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[1] <= last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4361,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c24:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (last && cur[0] < last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3506,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[0]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3887,
+      "outcome": "killed",
+      "detail": "[[[0,1],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c41:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[0] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3692,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c51:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.min(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4183,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c60:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.max(last[0], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 4135,
+      "outcome": "killed",
+      "detail": "[[[0,2],[0,10]]]"
+    },
+    {
+      "key": "merge-intervals/bug-b#L6c68:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.max(last[1], cur[0]);",
+      "verdict": "counterexample",
+      "wallMs": 3708,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L2c60:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[1] - b[0] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2888,
+      "outcome": "killed",
+      "detail": "[[[0,2],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L2c67:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[1] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3970,
+      "outcome": "killed",
+      "detail": "[[[0,1],[0,2]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L2c70:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] && a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2892,
+      "outcome": "killed",
+      "detail": "[[[0,1],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L2c75:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[0] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3029,
+      "outcome": "killed",
+      "detail": "[[[0,1],[0,2]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L2c82:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[1] - b[0]);",
+      "verdict": "counterexample",
+      "wallMs": 2898,
+      "outcome": "killed",
+      "detail": "[[[0,1],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L5c32:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "const last = out[out.length + 1];",
+      "verdict": "counterexample",
+      "wallMs": 3219,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L5c32:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "const last = out[out.length];",
+      "verdict": "counterexample",
+      "wallMs": 3662,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L5c35:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const last = out[out.length - 0];",
+      "verdict": "counterexample",
+      "wallMs": 3076,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c14:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (last || cur[0] <= last[1]) last[1] = cur[1];",
+      "verdict": "counterexample",
+      "wallMs": 2231,
+      "outcome": "killed",
+      "detail": "[[[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[1] <= last[1]) last[1] = cur[1];",
+      "verdict": "counterexample",
+      "wallMs": 2726,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c24:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (last && cur[0] < last[1]) last[1] = cur[1];",
+      "verdict": "counterexample",
+      "wallMs": 2571,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[0]) last[1] = cur[1];",
+      "verdict": "counterexample",
+      "wallMs": 2688,
+      "outcome": "killed",
+      "detail": "[[[0,1],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c41:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[0] = cur[1];",
+      "verdict": "counterexample",
+      "wallMs": 2715,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/bug-c#L6c50:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[1] = cur[0];",
+      "verdict": "counterexample",
+      "wallMs": 2701,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L2c60:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[1] - b[0] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2795,
+      "outcome": "killed",
+      "detail": "[[[1,1],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L2c67:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[1] || a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2009,
+      "outcome": "killed",
+      "detail": "[[[0,2],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L2c70:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] && a[1] - b[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3410,
+      "outcome": "killed",
+      "detail": "[[[1,1],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L2c75:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[0] - b[1]);",
+      "verdict": "no_counterexample",
+      "wallMs": 1689,
+      "outcome": "survived",
+      "detail": "No mismatch on 1319 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "merge-intervals/correct#L2c82:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const xs = intervals.map((x) => [...x]).sort((a, b) => a[0] - b[0] || a[1] - b[0]);",
+      "verdict": "no_counterexample",
+      "wallMs": 2029,
+      "outcome": "survived",
+      "detail": "No mismatch on 1319 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "merge-intervals/correct#L5c32:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "const last = out[out.length + 1];",
+      "verdict": "counterexample",
+      "wallMs": 2773,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L5c32:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "const last = out[out.length];",
+      "verdict": "counterexample",
+      "wallMs": 2890,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L5c35:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const last = out[out.length - 0];",
+      "verdict": "counterexample",
+      "wallMs": 3068,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c14:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "if (last || cur[0] <= last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2587,
+      "outcome": "killed",
+      "detail": "[[[0,0]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c21:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[1] <= last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3050,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c24:rel <= to <",
+      "seed": 1,
+      "operator": "rel <= to <",
+      "after": "if (last && cur[0] < last[1]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2829,
+      "outcome": "killed",
+      "detail": "[[[0,4],[4,4]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[0]) last[1] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3054,
+      "outcome": "killed",
+      "detail": "[[[0,1],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c41:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[0] = Math.max(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 2935,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c51:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.min(last[1], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3216,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c60:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.max(last[0], cur[1]);",
+      "verdict": "counterexample",
+      "wallMs": 3015,
+      "outcome": "killed",
+      "detail": "[[[0,2],[1,1]]]"
+    },
+    {
+      "key": "merge-intervals/correct#L6c68:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "if (last && cur[0] <= last[1]) last[1] = Math.max(last[1], cur[0]);",
+      "verdict": "counterexample",
+      "wallMs": 2402,
+      "outcome": "killed",
+      "detail": "[[[0,0],[0,1]]]"
+    },
+    {
+      "key": "shortest-paths/bug-a#L12c20:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if dist[u] is None:",
+      "verdict": "counterexample",
+      "wallMs": 1325,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-a#L16c24:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if dist[v] is not None:",
+      "verdict": "counterexample",
+      "wallMs": 1542,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/bug-a#L17c40:+ to -",
+      "seed": 1,
+      "operator": "+ to -",
+      "after": "heapq.heappush(heap, (d - w, v))",
+      "verdict": "counterexample",
+      "wallMs": 1498,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,1]]]"
+    },
+    {
+      "key": "shortest-paths/bug-a#L9c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "heap = [(1, 0)]",
+      "verdict": "counterexample",
+      "wallMs": 1412,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-a#L9c17:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "heap = [(0, 1)]",
+      "verdict": "counterexample",
+      "wallMs": 1438,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L4c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[0] = 1",
+      "verdict": "counterexample",
+      "wallMs": 1486,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L4c7:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[1] = 0",
+      "verdict": "counterexample",
+      "wallMs": 1381,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L5c21:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "for _ in range(n + 2):",
+      "verdict": "no_counterexample",
+      "wallMs": 1654,
+      "outcome": "survived",
+      "detail": "No mismatch on 1106 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "shortest-paths/bug-b#L7c21:!= to ==",
+      "seed": 1,
+      "operator": "!= to ==",
+      "after": "if d[u] == INF and d[u] + w < d[v]:",
+      "verdict": "counterexample",
+      "wallMs": 2500,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L7c28:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if d[u] != INF or d[u] + w < d[v]:",
+      "verdict": "counterexample",
+      "wallMs": 2184,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L7c41:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if d[u] != INF and d[u] + w <= d[v]:",
+      "verdict": "counterexample",
+      "wallMs": 1937,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/bug-b#L9c23:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "return [None if x != INF else x for x in d]",
+      "verdict": "counterexample",
+      "wallMs": 1908,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-c#L4c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[0] = 1",
+      "verdict": "counterexample",
+      "wallMs": 2073,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-c#L4c7:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[1] = 0",
+      "verdict": "counterexample",
+      "wallMs": 1908,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/bug-c#L7c20:min/max swap",
+      "seed": 1,
+      "operator": "min/max swap",
+      "after": "d[v] = max(d[v], d[u] + w)",
+      "verdict": "counterexample",
+      "wallMs": 2263,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/bug-c#L8c23:rel >= to >",
+      "seed": 1,
+      "operator": "rel >= to >",
+      "after": "return [None if x > INF else x for x in d]",
+      "verdict": "counterexample",
+      "wallMs": 1978,
+      "outcome": "killed",
+      "detail": "[2,[]]"
+    },
+    {
+      "key": "shortest-paths/correct#L3c12:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[0] = 1",
+      "verdict": "counterexample",
+      "wallMs": 2030,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/correct#L3c7:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "d[1] = 0",
+      "verdict": "counterexample",
+      "wallMs": 2284,
+      "outcome": "killed",
+      "detail": "[1,[]]"
+    },
+    {
+      "key": "shortest-paths/correct#L5c17:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if d[u] is None and (d[v] is None or d[u] + w < d[v]):",
+      "verdict": "counterexample",
+      "wallMs": 2580,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/correct#L5c29:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if d[u] is not None or (d[v] is None or d[u] + w < d[v]):",
+      "verdict": "counterexample",
+      "wallMs": 2115,
+      "outcome": "killed",
+      "detail": "[3,[[1,2,0]]]"
+    },
+    {
+      "key": "shortest-paths/correct#L5c39:is None negated",
+      "seed": 1,
+      "operator": "is None negated",
+      "after": "if d[u] is not None and (d[v] is not None or d[u] + w < d[v]):",
+      "verdict": "counterexample",
+      "wallMs": 2493,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/correct#L5c47:and/or swap",
+      "seed": 1,
+      "operator": "and/or swap",
+      "after": "if d[u] is not None and (d[v] is None and d[u] + w < d[v]):",
+      "verdict": "counterexample",
+      "wallMs": 2397,
+      "outcome": "killed",
+      "detail": "[2,[[0,1,0]]]"
+    },
+    {
+      "key": "shortest-paths/correct#L5c59:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if d[u] is not None and (d[v] is None or d[u] + w <= d[v]):",
+      "verdict": "no_counterexample",
+      "wallMs": 2380,
+      "outcome": "survived",
+      "detail": "No mismatch on 1106 judged inputs across 7 families. That is evidence, not proof"
+    },
+    {
+      "key": "two-sum-count/bug-a#L6c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count = 1",
+      "verdict": "counterexample",
+      "wallMs": 2524,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "two-sum-count/bug-a#L8c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "seen[x] += 0",
+      "verdict": "counterexample",
+      "wallMs": 2374,
+      "outcome": "killed",
+      "detail": "[[1,4],5]"
+    },
+    {
+      "key": "two-sum-count/bug-a#L9c29:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "count += seen[target + x]",
+      "verdict": "counterexample",
+      "wallMs": 2828,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L10c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi -= 0",
+      "verdict": "counterexample",
+      "wallMs": 2805,
+      "outcome": "killed",
+      "detail": "[[0,0,0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L11c16:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "elif s <= target:",
+      "verdict": "counterexample",
+      "wallMs": 2533,
+      "outcome": "killed",
+      "detail": "[[0,0,0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L12c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo += 0",
+      "verdict": "counterexample",
+      "wallMs": 10987,
+      "outcome": "killed",
+      "detail": "[[0,0],1]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L14c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "hi -= 0",
+      "verdict": "counterexample",
+      "wallMs": 14523,
+      "outcome": "killed",
+      "detail": "[[0,0],-1]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L3c14:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 1, len(a) - 1",
+      "verdict": "counterexample",
+      "wallMs": 2657,
+      "outcome": "killed",
+      "detail": "[[1,4],5]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L3c23:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "lo, hi = 0, len(a) + 1",
+      "verdict": "counterexample",
+      "wallMs": 2352,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L3c23:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "lo, hi = 0, len(a)",
+      "verdict": "counterexample",
+      "wallMs": 2905,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L3c26:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo, hi = 0, len(a) - 0",
+      "verdict": "counterexample",
+      "wallMs": 3122,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L4c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count = 1",
+      "verdict": "counterexample",
+      "wallMs": 2412,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L5c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "while lo <= hi:",
+      "verdict": "counterexample",
+      "wallMs": 2124,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L7c14:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "if s != target:",
+      "verdict": "counterexample",
+      "wallMs": 3248,
+      "outcome": "killed",
+      "detail": "[[0,0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L8c22:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count += 0",
+      "verdict": "counterexample",
+      "wallMs": 2939,
+      "outcome": "killed",
+      "detail": "[[1,4],5]"
+    },
+    {
+      "key": "two-sum-count/bug-b#L9c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "lo += 0",
+      "verdict": "counterexample",
+      "wallMs": 2756,
+      "outcome": "killed",
+      "detail": "[[0,0,0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-c#L11c16:== to !=",
+      "seed": 1,
+      "operator": "== to !=",
+      "after": "elif x != y:",
+      "verdict": "counterexample",
+      "wallMs": 1978,
+      "outcome": "killed",
+      "detail": "[[0,0],0]"
+    },
+    {
+      "key": "two-sum-count/bug-c#L6c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count = 1",
+      "verdict": "counterexample",
+      "wallMs": 2152,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "two-sum-count/bug-c#L8c19:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "y = target + x",
+      "verdict": "counterexample",
+      "wallMs": 2642,
+      "outcome": "killed",
+      "detail": "[[1,2],1]"
+    },
+    {
+      "key": "two-sum-count/bug-c#L9c14:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "if x <= y:",
+      "verdict": "counterexample",
+      "wallMs": 1883,
+      "outcome": "killed",
+      "detail": "[[0],0]"
+    },
+    {
+      "key": "two-sum-count/correct#L6c13:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "count = 1",
+      "verdict": "counterexample",
+      "wallMs": 1983,
+      "outcome": "killed",
+      "detail": "[[],0]"
+    },
+    {
+      "key": "two-sum-count/correct#L8c29:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "count += seen[target + x]",
+      "verdict": "counterexample",
+      "wallMs": 2254,
+      "outcome": "killed",
+      "detail": "[[1,4],5]"
+    },
+    {
+      "key": "two-sum-count/correct#L9c20:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "seen[x] += 0",
+      "verdict": "counterexample",
+      "wallMs": 2754,
+      "outcome": "killed",
+      "detail": "[[1,4],5]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L2c23:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const open = { \"(\": 1, \"[\": 1, \"{\": 2 };",
+      "verdict": "counterexample",
+      "wallMs": 2262,
+      "outcome": "killed",
+      "detail": "[\"(]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L2c31:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const open = { \"(\": 0, \"[\": 0, \"{\": 2 };",
+      "verdict": "counterexample",
+      "wallMs": 3148,
+      "outcome": "killed",
+      "detail": "[\"[]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L3c24:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const close = { \")\": 1, \"]\": 1, \"}\": 2 };",
+      "verdict": "counterexample",
+      "wallMs": 2804,
+      "outcome": "killed",
+      "detail": "[\"()\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L3c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const close = { \")\": 0, \"]\": 0, \"}\": 2 };",
+      "verdict": "counterexample",
+      "wallMs": 2587,
+      "outcome": "killed",
+      "detail": "[\"(]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L4c16:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const bal = [1, 0, 0];",
+      "verdict": "counterexample",
+      "wallMs": 2344,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L4c19:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const bal = [0, 1, 0];",
+      "verdict": "counterexample",
+      "wallMs": 2490,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L4c22:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "const bal = [0, 0, 1];",
+      "verdict": "counterexample",
+      "wallMs": 2292,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L7c30:rel < to <=",
+      "seed": 1,
+      "operator": "rel < to <=",
+      "after": "else if (--bal[close[c]] <= 0) return false;",
+      "verdict": "counterexample",
+      "wallMs": 2618,
+      "outcome": "killed",
+      "detail": "[\"{}\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L7c32:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "else if (--bal[close[c]] < 1) return false;",
+      "verdict": "counterexample",
+      "wallMs": 2710,
+      "outcome": "killed",
+      "detail": "[\"{}\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L9c29:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "return bal.every((b) => b !== 0);",
+      "verdict": "counterexample",
+      "wallMs": 1857,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-a#L9c33:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return bal.every((b) => b === 1);",
+      "verdict": "counterexample",
+      "wallMs": 2033,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-b#L6c26:!== to ===",
+      "seed": 1,
+      "operator": "!== to ===",
+      "after": "else if (stack.pop() === pairs[c]) return false;",
+      "verdict": "counterexample",
+      "wallMs": 2543,
+      "outcome": "killed",
+      "detail": "[\"]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L6c27:&&/|| swap",
+      "seed": 1,
+      "operator": "&&/|| swap",
+      "after": "else if (stack.length || stack[stack.length - 1] === pairs[c]) stack.pop();",
+      "verdict": "counterexample",
+      "wallMs": 2592,
+      "outcome": "killed",
+      "detail": "[\"]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L6c48:- to +",
+      "seed": 1,
+      "operator": "- to +",
+      "after": "else if (stack.length && stack[stack.length + 1] === pairs[c]) stack.pop();",
+      "verdict": "counterexample",
+      "wallMs": 2448,
+      "outcome": "killed",
+      "detail": "[\"}\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L6c48:-1 dropped",
+      "seed": 1,
+      "operator": "-1 dropped",
+      "after": "else if (stack.length && stack[stack.length] === pairs[c]) stack.pop();",
+      "verdict": "counterexample",
+      "wallMs": 2470,
+      "outcome": "killed",
+      "detail": "[\"}\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L6c51:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "else if (stack.length && stack[stack.length - 0] === pairs[c]) stack.pop();",
+      "verdict": "counterexample",
+      "wallMs": 3105,
+      "outcome": "killed",
+      "detail": "[\"}\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L6c54:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "else if (stack.length && stack[stack.length - 1] !== pairs[c]) stack.pop();",
+      "verdict": "counterexample",
+      "wallMs": 2650,
+      "outcome": "killed",
+      "detail": "[\"]\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L9c23:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "return stack.length !== 0;",
+      "verdict": "counterexample",
+      "wallMs": 2097,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/bug-c#L9c27:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return stack.length === 1;",
+      "verdict": "counterexample",
+      "wallMs": 2065,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/correct#L6c26:!== to ===",
+      "seed": 1,
+      "operator": "!== to ===",
+      "after": "else if (stack.pop() === pairs[c]) return false;",
+      "verdict": "counterexample",
+      "wallMs": 2576,
+      "outcome": "killed",
+      "detail": "[\"]\"]"
+    },
+    {
+      "key": "valid-parentheses/correct#L8c23:=== to !==",
+      "seed": 1,
+      "operator": "=== to !==",
+      "after": "return stack.length !== 0;",
+      "verdict": "counterexample",
+      "wallMs": 1923,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    },
+    {
+      "key": "valid-parentheses/correct#L8c27:literal 0/1 nudged",
+      "seed": 1,
+      "operator": "literal 0/1 nudged",
+      "after": "return stack.length === 1;",
+      "verdict": "counterexample",
+      "wallMs": 2442,
+      "outcome": "killed",
+      "detail": "[\"\"]"
+    }
+  ]
+}

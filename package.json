@@ -1,0 +1,43 @@
+{
+  "name": "counterexample",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "bench": "tsx bench/run.ts",
+    "gen:demos": "tsx scripts/gen-demos.ts",
+    "screenshots": "node scripts/screenshots.mjs",
+    "e2e": "node scripts/e2e-smoke.mjs",
+    "soak": "tsx bench/soak.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "sandbox": "node sandbox/server.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "axe-core": "4.14.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "fast-check": "^4.10.2",
+    "playwright": "1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^3.2.7"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

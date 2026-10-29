@@ -1,0 +1,240 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { POST } from "@/app/api/attack/route";
+import { Guard, guardConfig } from "@/lib/agent/guard";
+import { attackBodySchema, clientIp, getGuard, ipBucket, MAX_BODY_BYTES, problemsPayload, readJsonBody, resetGuardForTests } from "@/lib/agent/api";
+import { BUILT_INS } from "@/lib/problems/catalog";
+
+const saved = { ...process.env };
+beforeEach(() => {
+  // Always replay here, even if a key happens to be set in the environment.
+  process.env.REPLAY = "1";
+  delete process.env.RATE_LIMIT_PER_HOUR;
+  delete process.env.REPLAY_RATE_LIMIT_PER_HOUR;
+  delete process.env.MAX_CONCURRENT_ATTACKS;
+  resetGuardForTests();
+});
+afterEach(() => {
+  process.env = { ...saved };
+  resetGuardForTests();
+});
+
+const isqrt = BUILT_INS.find((x) => x.problem.id === "isqrt")!;
+const post = (body: unknown, init: { ip?: string; signal?: AbortSignal } = {}) =>
+  POST(
+    new Request("http://x/api/attack", {
+      method: "POST",
+      headers: { "x-real-ip": init.ip ?? "1.2.3.4", "content-type": "application/json" },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+      signal: init.signal,
+    }),
+  );
+const lines = async (res: Response) => (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+
+describe("POST /api/attack (replay mode)", () => {
+  it("takes only JSON, so a cross-site form cannot post an attack without a preflight", async () => {
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", ""]) {
+      const res = await POST(new Request("http://x/api/attack", { method: "POST", headers: { "x-real-ip": "9.9.9.9", ...(type ? { "content-type": type } : {}) }, body: JSON.stringify({ problemId: "isqrt", code: "x", language: "python" }) }));
+      expect(res.status, type).toBe(415);
+    }
+  });
+
+  it("streams the mode, trace events and then the report (without the trace)", async () => {
+    const res = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/ndjson/);
+    const msgs = await lines(res);
+    expect(msgs[0]).toMatchObject({ type: "mode", mode: "replay", problem: { id: "isqrt" } });
+    expect(msgs.filter((m) => m.type === "event").length).toBeGreaterThan(10);
+    const last = msgs.at(-1);
+    expect(last.type).toBe("report");
+    expect(last.report.verdict).toBe("counterexample");
+    expect(last.report.counterexample.args).toEqual([2147483647]);
+    expect(last.report.trace).toBeUndefined();
+  });
+
+  it("researches only when asked (research=force) or cited; otherwise suggests it for risky APIs", async () => {
+    const body = { problemId: "isqrt", code: isqrt.demo.code, language: "javascript" };
+    const autoLines = await lines(await post(body));
+    expect(autoLines.at(-1).report.research).toBeUndefined();
+    expect(autoLines.some((m) => m.type === "event" && m.event.data?.suggestion === "research")).toBe(true);
+    const forced = (await lines(await post({ ...body, research: "force" }, { ip: "5.5.5.5" }))).at(-1).report;
+    expect(forced.research.queries).toEqual(["Integer square root constraints edge cases", "JavaScript right shift operator converts operands to 32-bit integers"]);
+    expect(forced.research.facts.length).toBeGreaterThan(0);
+    expect(forced.research.influencedFamilies).toContain("int32-bounds");
+  });
+
+  it("never replays the demo's explanation for edited code", async () => {
+    // A different bug: correct midpoint, wrong only at x = 5.
+    const edited = isqrt.demo.code.replace("const mid = (lo + hi + 1) >> 1;", "const mid = lo + Math.floor((hi - lo + 1) / 2);").replace("return lo;", "return x === 5 ? 3 : lo;");
+    expect(edited).not.toBe(isqrt.demo.code);
+    const r = (await lines(await post({ problemId: "isqrt", code: edited, language: "javascript" }, { ip: "6.6.6.6" }))).at(-1).report;
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample.args).toEqual([5]);
+    expect(r.explanation).toMatch(/^Replay mode has no hand-written explanation for edited code/);
+    expect(r.explanation).not.toMatch(/32-bit/);
+    expect(r.fix.verified).toBe(true);
+    const demo = (await lines(await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "6.6.6.7" }))).at(-1).report;
+    expect(demo.explanation).toMatch(/32-bit signed arithmetic/);
+  });
+
+  it("edited code in another language gets an honest explanation and no wrong-language fix", async () => {
+    const js = "function solve(nums, target) { return nums.length === 1 ? -1 : nums.indexOf(target); }";
+    const r = (await lines(await post({ problemId: "binary-search", code: js, language: "javascript" }, { ip: "6.6.6.8" }))).at(-1).report;
+    expect(r.verdict).toBe("counterexample");
+    expect(r.explanation).toMatch(/no hand-written explanation or reference fix in this language/);
+    expect(r.fix).toBeUndefined();
+  });
+
+  it("validates the body against the schema before doing any work", async () => {
+    const cases: [unknown, RegExp][] = [
+      ["{not json", /expected object/i],
+      [{ problemId: "isqrt", code: "  ", language: "javascript" }, /Paste a solution/],
+      [{ problemId: "isqrt", code: "x".repeat(20_001), language: "javascript" }, /20,000/],
+      [{ problemId: "isqrt", code: "x", language: "ruby" }, /python|javascript/],
+      [{ code: "x", language: "python" }, /Pick a built-in problem/],
+      [{ problemId: "", code: "x", language: "python" }, /too small|at least/i],
+      [{ problemId: "nope", code: "x", language: "python" }, /Unknown problem/],
+      [{ statement: "x", code: "def solve(): pass", language: "python" }, /Replay mode/],
+    ];
+    for (const [body, re] of cases) {
+      const res = await post(body);
+      expect(res.status, JSON.stringify(body).slice(0, 60)).toBe(400);
+      expect((await res.json()).error).toMatch(re);
+    }
+  });
+
+  it("rate-limits per IP with 429 and Retry-After (the replay limit, in replay mode)", async () => {
+    process.env.REPLAY_RATE_LIMIT_PER_HOUR = "1";
+    process.env.VERCEL = "1"; // forwarding headers are only trusted behind a proxy that sets them
+    resetGuardForTests();
+    const first = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "9.9.9.9" });
+    await first.text();
+    const second = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "9.9.9.9" });
+    expect(second.status).toBe(429);
+    expect(Number(second.headers.get("retry-after"))).toBeGreaterThan(0);
+    const other = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" }, { ip: "8.8.8.8" });
+    expect(other.status).toBe(200);
+    await other.text();
+  });
+
+  it("does not trust spoofable forwarding headers unless a proxy that sets them is declared", () => {
+    const h = new Headers({ "x-real-ip": "1.1.1.1", "x-forwarded-for": "2.2.2.2, 3.3.3.3" });
+    expect(clientIp(h, {})).toBe("untrusted-proxy");
+    expect(clientIp(h, { VERCEL: "1" })).toBe("1.1.1.1");
+    // Behind a generic proxy only the right-most entry (the one the proxy appended) is trusted; x-real-ip may be the client's own.
+    expect(clientIp(h, { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
+    expect(clientIp(new Headers({ "x-real-ip": "1.1.1.1" }), { TRUST_PROXY_HEADERS: "1" })).toBe("unknown");
+    expect(clientIp(new Headers({ "x-forwarded-for": "3.3.3.3" }), { TRUST_PROXY_HEADERS: "1" })).toBe("3.3.3.3");
+  });
+
+  it("limits an IPv6 client by its /64, so rotating addresses inside it gives no new bucket", () => {
+    const vercel = (ip: string) => clientIp(new Headers({ "x-real-ip": ip }), { VERCEL: "1" });
+    const rotated = Array.from({ length: 200 }, (_, i) => vercel(`2001:db8:abcd:12:${i.toString(16)}::${(i * 7).toString(16)}`));
+    expect(new Set(rotated)).toEqual(new Set(["2001:db8:abcd:12::/64"]));
+    expect(vercel("2001:DB8:ABCD:0012::9%eth0")).toBe("2001:db8:abcd:12::/64");
+    expect(vercel("2001:db8:abcd:13::1")).toBe("2001:db8:abcd:13::/64");
+    // IPv4, also IPv4-mapped, stays one address per bucket; an unparseable value is kept as is.
+    expect(["1.2.3.4", "::ffff:1.2.3.4", "::ffff:102:304"].map(vercel)).toEqual(["1.2.3.4", "1.2.3.4", "1.2.3.4"]);
+    expect(clientIp(new Headers({ "x-forwarded-for": "10.0.0.1, 2001:db8::5" }), { TRUST_PROXY_HEADERS: "1" })).toBe("2001:db8:0:0::/64");
+    expect(ipBucket("not-an-ip")).toBe("not-an-ip");
+    // A proxy that appends the client's port gives one bucket per client, not one per connection.
+    expect(["203.0.113.5:40001", "203.0.113.5:40002", "203.0.113.5"].map(ipBucket)).toEqual(["203.0.113.5", "203.0.113.5", "203.0.113.5"]);
+    expect(ipBucket("[2001:db8:1:2::9]:443")).toBe("2001:db8:1:2::/64");
+    // Through the guard: the 11th attack from the same /64 within the hour is refused, whatever the interface id.
+    const guard = new Guard(guardConfig({ RATE_LIMIT_PER_HOUR: "10", MAX_CONCURRENT_ATTACKS: "50" }));
+    const verdicts = rotated.slice(0, 11).map((ip, i) => guard.admit(ip, Date.UTC(2026, 9, 26, 12) + i, true).ok);
+    expect(verdicts.filter(Boolean)).toHaveLength(10);
+    expect(verdicts.at(-1)).toBe(false);
+  });
+
+  it("cannot pick its own rate-limit bucket behind a proxy by sending forwarding headers", () => {
+    // The client sends spoofed values; the proxy appends the real address.
+    const spoofed = (n: number) => new Headers({ "x-real-ip": `6.6.6.${n}`, "x-forwarded-for": `6.6.6.${n}, 4.4.4.4` });
+    expect(new Set([1, 2, 3].map((n) => clientIp(spoofed(n), { TRUST_PROXY_HEADERS: "1" })))).toEqual(new Set(["4.4.4.4"]));
+  });
+
+  it("on Vercel uses the address the platform sets (x-real-ip, else x-vercel-forwarded-for, else x-forwarded-for)", () => {
+    expect(clientIp(new Headers({ "x-real-ip": "1.1.1.1", "x-forwarded-for": "1.1.1.1" }), { VERCEL: "1" })).toBe("1.1.1.1");
+    expect(clientIp(new Headers({ "x-vercel-forwarded-for": "5.5.5.5" }), { VERCEL: "1" })).toBe("5.5.5.5");
+    expect(clientIp(new Headers({ "x-forwarded-for": "5.5.5.6" }), { VERCEL: "1" })).toBe("5.5.5.6");
+    expect(clientIp(new Headers(), { VERCEL: "1" })).toBe("unknown");
+  });
+
+  it("refuses an oversized body with 413 before reading it, and stops reading a stream past the cap", async () => {
+    const declared = await POST(new Request("http://x/api/attack", { method: "POST", headers: { "content-length": String(MAX_BODY_BYTES + 1), "x-real-ip": "1.2.3.4" }, body: "{}" }));
+    expect(declared.status).toBe(413);
+    // No Content-Length: a stream that would go on for 400 MB is cancelled just past the cap.
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled += 16_384;
+        if (pulled > 400 * 1024 * 1024) c.close();
+        else c.enqueue(new Uint8Array(16_384).fill(0x20));
+      },
+    });
+    const streamed = await POST(new Request("http://x/api/attack", { method: "POST", body: endless, duplex: "half" } as RequestInit & { duplex: "half" }));
+    expect(streamed.status).toBe(413);
+    expect(pulled).toBeLessThan(MAX_BODY_BYTES + 3 * 16_384);
+    expect((await streamed.json()).error).toMatch(/over \d+ bytes/);
+  });
+
+  it("still reads the largest valid body: statement and code at their caps", async () => {
+    const body = { statement: "é".repeat(8_000), code: "€".repeat(20_000), language: "python" };
+    const req = new Request("http://x", { method: "POST", body: JSON.stringify(body) });
+    const read = await readJsonBody(req);
+    expect(read).toEqual({ ok: true, value: body });
+    expect(attackBodySchema.safeParse(body).success).toBe(true);
+    expect(await readJsonBody(new Request("http://x", { method: "POST", body: "{nope" }))).toEqual({ ok: true, value: null });
+  });
+
+  it("frees its concurrency slot when the attack finishes", async () => {
+    process.env.MAX_CONCURRENT_ATTACKS = "1";
+    resetGuardForTests();
+    const first = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(first.status).toBe(200);
+    expect(getGuard().activeAttacks).toBe(1); // held while the stream runs
+    await first.text();
+    expect(getGuard().activeAttacks).toBe(0);
+    const second = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(second.status).toBe(200);
+    await second.text();
+    expect(getGuard().activeAttacks).toBe(0);
+  });
+
+  it("returns 503 with the reason when the server is misconfigured", async () => {
+    process.env.MODEL_PRICES = "{broken";
+    const res = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/misconfigured: MODEL_PRICES/);
+    delete process.env.MODEL_PRICES;
+    process.env.RATE_LIMIT_PER_HOUR = "many";
+    resetGuardForTests();
+    const bad = await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript" });
+    expect(bad.status).toBe(503);
+    expect((await bad.json()).error).toMatch(/misconfigured: guard settings/);
+  });
+
+  it("stops the attack when the client disconnects", async () => {
+    const ac = new AbortController();
+    const res = await post({ problemId: "binary-search", code: BUILT_INS[0]!.demo.code, language: "python" }, { signal: ac.signal });
+    ac.abort();
+    const msgs = await lines(res);
+    expect(msgs.at(-1)).toMatchObject({ type: "report", report: { verdict: "error", message: expect.stringMatching(/cancelled/) } });
+  });
+});
+
+describe("GET /api/problems payload", () => {
+  it("reports the mode and the built-in problems without their bug notes", () => {
+    const j = JSON.parse(JSON.stringify(problemsPayload("replay")));
+    expect(j.mode).toBe("replay");
+    expect(j.problems).toHaveLength(5);
+    expect(JSON.stringify(j)).not.toMatch(/"bug"/);
+  });
+});
+
+describe("attackBodySchema", () => {
+  it("applies defaults and keeps code whitespace", () => {
+    const b = attackBodySchema.parse({ problemId: "isqrt", code: "  x\n", language: "python" });
+    expect(b).toMatchObject({ routing: "routed", research: "auto", code: "  x\n" });
+  });
+});

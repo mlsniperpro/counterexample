@@ -1,0 +1,233 @@
+# WIN checklist: Counterexample (Nebius x NVIDIA Global AI Hackathon)
+
+Freeze: **Thu 2026-10-29 18:00 EAT (15:00 UTC)**. Read by `bash .agent/win-gate.sh COUNTEREXAMPLE`.
+
+Legend:
+- `- [x]` done, with evidence in this repo.
+- `- [P]` built and tested; the final proof needs an owner input listed in `BLOCKED.md`.
+- `- [-]` not applicable.
+
+## Judging criteria
+
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 611 tests when counted on 2026-10-29 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
+- [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and `TAVILY_API_KEY` (BLOCKED.md); Token Factory itself was reachable from the build session from 2026-10-27.
+- [x] **Creativity:**
+  - an oracle that must pass the examples before any bug is claimed (after ALGO);
+  - model-written generators as a bounded, interpreted DSL;
+  - small-scope bounded-exhaustive inputs;
+  - EvalPlus-style mutation;
+  - delta debugging over structured inputs;
+  - fixes re-attacked before they are called fixed;
+  - research into the documentation of risky APIs the code calls.
+
+  Evidence: `src/lib/core/`, `src/lib/research/plan.ts`, README "Design choices".
+- [x] **Design (UX):**
+  - one click to a minimal counterexample in replay mode;
+  - live trace;
+  - the fix as a diff against the submitted code;
+  - "Why Ultra here, Super there" panel;
+  - share link;
+  - "Try it in 60 seconds" in the README;
+  - accessible chips (`aria-pressed`) and a verdict announced to screen readers.
+
+  Evidence: `docs/screenshots/` (390 px; no horizontal overflow, no page errors).
+- [x] **Potential impact:**
+  - Benchmark: 38/38 bugs found, 0/16 false alarms, fixes verified; the 8 hard-tier bugs are found only through the author-written families (hand-written fixtures, stand-ins for what Super is prompted to write), and both ablations find 0 of 8. That is by construction, since we wrote those families knowing the bug classes; the live run will show whether Super writes such families itself. Not every hard-tier counterexample is minimal: in the latest fixture run 3 of the 8 hit the shrink budget and are reported "not minimal" (the two DAG ones are graphs of 215 and 460 nodes); 2 to 4 of 8 is typical (5 of 8 on a heavily loaded machine). "Fixes verified 38 of 38" is a pipeline check: in fixture mode each fix is the problem's reference solution (`bench/results/fixture.md`).
+  - Soak: every claimed counterexample independently confirmed, 0 unsound and 0 missed across 503 attacks on 503 mutants of all 54 solutions, 1 seed (`bench/results/soak-all.md`; the README table is the earlier 3-seed run on the 40 base-tier solutions: 1,071 attacks, 0 unsound, 0 missed).
+- [x] **Best use of Tavily (bonus):** research covers the problem's sources and the documentation of risky APIs. One search and one cited summary per question; families may cite only this run's facts; the report shows which families research shaped. Evidence: `tests/unit/plan.test.ts`, e2e test "on request, researches the documentation of risky APIs…", replay fixtures checked against MDN and the Python docs.
+- [P] **Live Tavily run:** `TavilyClient` is proven over real HTTP (fake server) and by `pnpm preflight`. Needs `TAVILY_API_KEY` (BLOCKED.md).
+
+## Brief requirements
+
+- [x] 1. Scaffold: Next.js with TypeScript and pnpm, MIT `LICENSE`, `README.md`.
+- [x] 2. Token Factory client (env base URL, key, model ids) plus a deterministic replay provider. Evidence: `src/lib/models/`, `tests/integration/providers.test.ts`.
+- [x] 3. `Judge0Executor`. Evidence: `src/lib/exec/judge0.ts`, `tests/integration/executors.test.ts`, `tests/integration/sandbox.test.ts`.
+- [x] 3. `LocalExecutor`: Python and JS, time and memory limits, dev only, labelled; production refuses it. Evidence: `src/lib/exec/local.ts`, tests.
+- [x] 3 P1. Nebius AI Cloud executor: our own Judge0-compatible sandbox (`sandbox/`) deployable as a Nebius Serverless AI endpoint (`docs/NEBIUS-SANDBOX.md`). Docker build, preflight and benchmark verified locally; the `nebius ai endpoint create` flags are not yet verified against the live CLI (BLOCKED.md).
+- [P] 3 P1. Sandbox deployed on Nebius AI Cloud. Needs AI Cloud credentials and a registry (BLOCKED.md).
+- [x] 4. Agent loop as explicit typed stages with budgets and a streamed structured trace. Evidence: `src/lib/agent/stages.ts`, `budget.ts`, `trace.ts`, `tests/unit/budget-trace.test.ts`, `tests/integration/api.test.ts`.
+- [x] 5. Generic shrinker over arrays, strings and graphs, unit- and property-tested. Evidence: `src/lib/core/shrink.ts`, `tests/unit/shrink.test.ts`.
+- [x] 6. Research stage only when the statement references external facts or the user asks, cited, showing its effect on the generators. Evidence: `researchPlan`, trace "Research shaped …", tests.
+- [x] 7. UI: paste, or pick one of 5 classic buggy problems; live trace, counterexample, fix, re-attack; phone width. Evidence: `src/app/`, `docs/screenshots/`.
+- [x] 8. Benchmark: 38 buggy and 16 correct solutions (base tier 30 + 10, hard tier 8 + 6); bug-found rate, time to first counterexample, false alarms, cost Ultra-only vs routed; every README number from the script. Evidence: `bench/run.ts`, `bench/results/fixture.md`.
+- [P] 8. Live benchmark numbers (`pnpm bench --live --readme`). Needs the Nebius key (BLOCKED.md).
+- [x] 9. Rate limit by IP and daily model-spend cap. Evidence: `src/lib/agent/guard.ts`, `tests/unit/guard-limit.test.ts`.
+- [P] 9. Vercel deployment with env vars. Needs the owner's Vercel project and keys (BLOCKED.md).
+- [x] 10. `docs/FEEDBACK.md`, `docs/FRICTION.md`, `docs/VIDEO.md`, `docs/SUBMISSION.md` (every Devpost field, paste-ready), `docs/architecture.svg`.
+- [P] 10. Demo video filmed and published. Needs the owner's footage and YouTube (BLOCKED.md).
+- [P] Public repo before submission. Owner action (BLOCKED.md).
+- [x] Done-when: replay end to end in tests (`tests/e2e/agent-replay.test.ts`); live marked owner-to-verify.
+
+## Quality bar
+
+- [x] Lint with 0 warnings, strict TypeScript (`noUncheckedIndexedAccess`), all tests green, `next build` green. Evidence: `.agent/win/COUNTEREXAMPLE/checks.sh`.
+- [x] Property tests with fast-check and a fixed seed; deep runs at `FC_NUM_RUNS=5000` passed. Evidence: `.agent/win/COUNTEREXAMPLE/break-it.md`.
+- [x] Integration tests at every boundary: executors, providers, sandbox, API route, live wiring over real HTTP.
+- [x] Failure paths: timeouts, aborts, 429/503 retries, 401, malformed JSON, schema violations, budget exhaustion, partial results, a full sandbox queue.
+- [x] Soak and failure injection: the mutation soak (`pnpm soak`), fake 429s, hanging providers, a missing runtime.
+- [x] Fresh-clone README run passed (break-it.md).
+- [x] Security: sandbox env isolation tested; per-run uid, process cap and kill-all-after-run in the container (Docker-tested, `break-it.md`); constant-time token auth; share links schema-validated (http(s) links only); no SSRF (URLs from env only).
+- [x] Scalability statement with measured load (README "Load and limits").
+
+## Audit findings (all fixed or recorded as accepted; details for round 4b on are in `.agent/win/COUNTEREXAMPLE/reaudit.md`, earlier rounds are summarised here)
+
+- [x] Round 2: 10 code-review findings fixed in `f19cb63` (per-family validation, spend-cap bypass, slot leaks, and more).
+- [x] Round 3: 10 code-review findings fixed in `0993b4e` (share-link validation, `hashchange`, citation filter, and more).
+- [x] Round 4a: queue-full bug in the sandbox (503 while a slot was free) fixed; regression test in `sandbox.test.ts`.
+- [x] Round 4a: shell profile variables leaking into user code fixed (`--noprofile --norc`); tested.
+- [x] Round 4a: `x = 5`-style bugs missed by random sampling; fixed by the small-scope family; regression test in `api.test.ts`.
+- [x] Round 4a: edited demo code replayed the demo's explanation; fixed with an honest replay explanation; tested.
+- [x] Round 4b: 10 code-review findings fixed:
+  - brief-compliant research trigger;
+  - `|| 0` false positive;
+  - wrong-language replay fix;
+  - per-question research errors;
+  - reasons within the cap;
+  - small-scope graph bound;
+  - per-family budget caps;
+  - soak writes the README only when clean;
+  - memoised diff;
+  - CRLF diff.
+- [x] Round 5 (full hostile audit of `ee9018d`): 3 critical, 4 high, 7 medium/low findings, all fixed with regression tests that fail on the old code:
+  - critical: a forked child escaped the time limit and held a sandbox slot forever; runs now get their own process group, and in the container their own uid whose every process is killed after the run (`tini` reaps them);
+  - critical: user code could read the sandbox token from the server's environment and outlive its run; each run slot now has its own unprivileged uid with a private directory and a 64-process cap, and the server drops the token from its environment;
+  - critical: checklist cited `break-it.md` before it existed; it is now written per tested commit;
+  - high: a Python `inf`/`nan` result shifted every later result onto the wrong input; non-finite floats are now encoded the same way in both languages, and an unreadable line keeps its place;
+  - high: model-written generators could exhaust memory; a family is cut to 500,000 values and generation checks the deadline;
+  - high: the understand call for a pasted statement was untraced, unbudgeted and had no deadline; it is now an attack stage like the others;
+  - high: responses without token usage, and failed or cut-off calls, cost $0 against the spend cap; they now count as unpriced;
+  - medium: "no mismatch on N inputs" counted inputs the oracle could not judge; it now counts judged inputs only and says how many were not;
+  - medium: FEEDBACK.md said the Nebius P1 was not attempted; updated to the built sandbox endpoint;
+  - medium: hand-typed load numbers; `pnpm bench --readme` now writes the "Load per attack" line;
+  - medium: spoofable `x-forwarded-for`; forwarding headers are trusted only on Vercel or with `TRUST_PROXY_HEADERS=1`;
+  - low: shared links now say they were not verified by the server; Judge0's per-submission CPU limit is documented; a Python `__main__` block or JS `export` no longer breaks loading.
+- [x] Round 6 (four parallel hostile audits of `04f1f92`: agent core, security, judge view and docs truth, UI/tests/scalability; plus a sandbox benchmark run that hit a false alarm). Every finding below was reproduced, then fixed with a regression test:
+  - high: a spurious timeout (Judge0's CPU budget is shared across a whole submission, so a loaded machine can cut it) was blamed on an innocent input, and the shrink stage claimed a bug its own re-check did not reproduce; a correct binary search was reported as broken. Fixed at three levels: Judge0 submissions now hold only as many inputs as fit their full limits in the 15 s cap; a timeout in a shared-budget chunk is blamed on an input only after it also times out alone; and every mismatch must reproduce on a fresh re-run before it counts, otherwise it is dropped with a trace warning and the attack goes on (`tests/integration/confirm-shrink.test.ts`, `tests/unit/program.test.ts`);
+  - high: correct code returning an object with keys in another order was flagged; comparison now sorts keys recursively (`tests/unit/compare.test.ts`);
+  - high: a solution's output was never size-limited (a 4 MB string reached the stream, the DOM and a ~1M-token explain prompt); outputs are clipped to 2,000 characters for display, trace, report and prompts, while comparison uses the full value;
+  - high: submitted code had outbound network access from the sandbox (security fix, see below);
+  - medium: integer answers beyond 2^53 were rounded before comparison, hiding last-digit overflow bugs; the harness parser now keeps them exact;
+  - medium: a mismatch already found was lost if a budget or cancellation hit during shrinking; the confirmed hit is now recorded before shrinking;
+  - medium: an oracle answer without a code block ended the attack instead of using the remaining attempts; it now retries with feedback;
+  - medium: the shrinker missed adjacent pairs at unaligned offsets (`({())}` instead of `({)}`); pairs and singles are now removed at every offset (`tests/unit/shrink.test.ts`);
+  - medium: switching problem mid-run showed the old run's results; a cut stream showed no error; there was no cancel or client timeout (`src/app/stream.ts`, `tests/unit/stream.test.ts`, Playwright-verified);
+  - medium: `/api/attack` read bodies of any size before validation; one user could fill the sandbox's /tmp and /dev/shm; memory was limited per process, not per run; `pnpm sandbox` listened on all interfaces with no token; two sandbox instances on one host killed each other's runs; no test covered slot release or spend charging (security fixes, see below);
+  - low: "minimal counterexample" was claimed when the shrink budget ran out; the report now says it may not be minimal;
+  - low: deeply nested share links threw RangeError; the decoder caps nesting at 64 and always throws `ShareLinkError`;
+  - low: a long shared title overflowed at 390 px; errors and verdicts were not announced; table regions were not keyboard-focusable; warning text was below WCAG AA (now 5.38:1 light and 7.70:1 dark); statement backticks showed raw (axe-core: 0 violations);
+  - low: `X-Forwarded-For` was read left-most and `x-real-ip` trusted off Vercel; the daily spend cap was checked only at admit (security fixes, see below);
+  - docs: architecture.svg still showed the P1 as "planned" and lacked the sandbox, small-scope, mutation and API-doc research; FEEDBACK.md lacked onboarding and "use it again" for Nemotron, AI Cloud and Tavily; SUBMISSION.md left out the Tavily API-doc research and AI Cloud, and still listed a Jobs executor; the README lacked the Dijkstra line, contradicted itself on share links and claimed exact timing; FRICTION.md had a stale load estimate; NEBIUS-SANDBOX.md cited a benchmark run on an older image.
+- [x] Round 7 (four parallel full audits of `91aa3f5`; the security audit found nothing exploitable). Fixed with regression tests:
+  - high: the "no model generators" ablation also dropped the small-scope family, overstating Nemotron's role; the benchmark now has a separate no-model ablation, a "Found by family" column and a model-found row, and the README states that the deterministic families alone find 30/30;
+  - medium: an example output beyond 2^53 made a correct oracle "unreliable"; a correct JS solution returning a BigInt was flagged; the JS harness used `performance`, which Judge0 CE's default Node 12 lacks (now perf_hooks, checked under a real Node v12.14.0); Judge0 never enforced the per-input time limit inside a finished submission (now checked, after a solo re-run); a fix was "verified" when the oracle could judge none of the re-attack (the counterexample itself must now be judged, and unjudged inputs are reported); the confirm step could drop a real bug behind four flaky ones (it now re-checks in batches until one reproduces);
+  - medium: architecture.svg claimed no model output runs; replay demos hit 429 after 10 attacks (replay now has its own limit of 120 per hour); VIDEO.md described a demo the app no longer shows (it now uses coin-change, with numbers from the replay run);
+  - low: the run reserve was twice what shrinking needs; the big-integer marker leaked into JSON output (exact digits are now written at every JSON boundary); a dead shrink candidate; float mode compared object values exactly; the timing label said "wall clock" in fixture mode.
+- [x] Round 8, agent core and executors (audit of `0e938c2`; every finding verified before fixing, each fix with a regression test that fails on the old code):
+  - high: an unreadable generator answer ended the attack before the deterministic families ran; the attack now goes on with them and says so, and `extractJson` reads the first balanced object;
+  - high: running out of time during the re-attack lost the proposed fix; the fix is now recorded before the re-attack, the re-attack runs in chunks with the counterexample first, and a failing fix stops after its first failing chunk;
+  - medium: on Judge0, the chunk size halves after a timeout or crash in a shared chunk (a simulated run with many hangs dropped from 831 s to 86 s); a crash is blamed only after a solo re-run;
+  - medium: big-integer values in prompts, oracle feedback and the trace JSONL show exact digits; JS numbers above 2^53 are written by their exact value, so `2**60` equals Python's `1 << 60`;
+  - medium: an entry name the code does not define falls back to the code's own function (`solve` first), and JS `export`/`async` functions are recognised;
+  - medium: a cancel during research ends the attack there;
+  - low: the no-bug message counts mismatches that did not reproduce; accurate wording when a shrunk input does not fail again; dead code and file-local exports removed.
+- [x] Round 9 (audit of `8440d3a`, fixed in `7649452` and `7204867`; details in `reaudit.md`):
+  - high (security, `7649452`): a 10 MB result line froze the event loop for about 12.5 s of CPU, now 8 ms. Lines over 256,000 characters are refused unread, the exact-integer reviver runs only when a 16+ digit run is present, and the output cap is 8 MB (`tests/unit/program.test.ts`);
+  - high (security, `7649452`): POSIX message queues could outlive a run through `/dev/mqueue`; every mq_* syscall is now denied and `/dev/mqueue` is locked and swept (a test fails on the old sandbox; the container shows mode 711 with queue creation denied);
+  - high (docs): replay stand-ins were called "recorded model responses"; the docs, the UI and the README now call them hand-written stand-ins;
+  - medium (core): a stateful solution got an order-dependent counterexample labelled "flaky" (now reported as order-dependent and not shrunk); the shrinker dropped isolated graph nodes one at a time (now in bulk, then halves, then singly); `shape: "path"` was missing from the model's DSL doc; `pool` bypassed the value caps;
+  - medium (docs): unverified live claims in SUBMISSION, circular "fixes verified" (now stated as a pipeline check), non-minimal hard-tier counterexamples, the live `max_tokens` and `finish_reason` risk and the unverified Nebius CLI flags (both now listed in BLOCKED.md);
+  - medium (UI and tests): `ReportView` rendering is now tested (`tests/unit/report-view.test.ts`); axe-core reports 0 violations across 5 built-ins x 2 widths x 2 themes; `pnpm e2e` passes, including under load.
+- [x] Round 10 security (audit of `7204867`; every finding reproduced, then fixed with a regression test that fails on the old code):
+  - high (`c3a3457`): results under the per-line cap still added up to about 2.3 s of event-loop work per run; a total budget of 1,000,000 characters of results per run (`MAX_RESULTS_TOTAL_CHARS`) brings it to 0.33 s;
+  - medium (`83fe9d6`): deeply nested results overflowed the stack in compare and display; results nested over 256 levels (`MAX_RESULT_DEPTH`) are refused unread, using a linear string-aware scan;
+  - high (`83fe9d6`): an infeasible `distinct` array (10,000 elements from a 10-value domain) cost about 45 s of synchronous sampling; sampling now stops once the element domain is used up, and the 50 inputs take under 0.5 s (`tests/unit/spec.test.ts`).
+- [x] Round 10 judge and docs, fixed in the docs and the report panel (details in `reaudit.md`):
+  - medium: the README and `docs/VIDEO.md` described a coin-change result the app no longer produces; replay now gives `solve([2, 5], 6)` expected 3, got -1, shrunk from `[[2, 19], 24]` in 4 steps, with the fix re-attacked on 1,232 inputs, found first by the small-scope family. The README says so, and the video now shows Shortest paths, where small-scope finds nothing and a model-designed family does;
+  - medium: the README, SUBMISSION and this checklist now say that 3 to 4 of the 8 hard-tier counterexamples hit the shrink budget and are reported as "not minimal";
+  - low: the README soak table is marked as an earlier run (pre-round 9, base tier) to be regenerated on the final commit; the video no longer says "cheaper and faster than Ultra everywhere" (it now cites the replay-estimated benchmark and says so); the report panel in replay mode reads "Research (hand-written stand-in for Tavily)" (`tests/unit/report-view.test.ts`); the README states the spend-cap arithmetic (about $0.65 reserved per live attack, at most 3 in flight at the default $2 cap); `docs/FEEDBACK.md` gives the real client length (under 100 lines); the README no longer gives a precise minimal timeout length.
+- [x] Round 10 UI and tests: the audit was stopped twice before reporting. Round 11 covered UI and tests in full (below).
+- [x] Round 11 core and security (audit of `60c13c4`; fixed with regression tests in `5966c4f`; details in `reaudit.md`):
+  - high: the shrinker took any (int, list of pairs) as a graph, so n = 2^31-1 ran a per-node loop until the heap ran out; it is now a graph only within the node limit and with in-range endpoints (`tests/unit/shrink.test.ts`);
+  - high: a fixed-length array or string spec froze small-scope (length 200: 11.7 s; length 2,000 did not finish). Each length is now built directly and the enumeration is bounded by values (27 ms) (`tests/unit/smallscope.test.ts`, including a property test against the old layered construction);
+  - high: shrinking a fixed-length input scanned O(N²) invalid removals synchronously. The scan now yields to the event loop every 100,000 values, stops at a scan budget and stops on abort (`tests/unit/shrink.test.ts`);
+  - medium: `maxValues` counted a `const` as one value (an array of a 200-element const ran 43 s); it now counts the contents, and the spec is refused;
+  - medium: a 503 on the generator call ended the attack; it now costs only the model's families, with a warning (`tests/integration/agent-failures.test.ts`);
+  - medium: IPv6 clients rotated addresses inside their /64 for fresh rate-limit buckets; limits are now keyed by the /64 (`tests/integration/api.test.ts`);
+  - low: an explanation cut inside its code block kept the half block (`tests/unit/parse.test.ts`).
+- [x] Round 11 UI and tests (fixed in `4da9353`):
+  - medium: when a run ended, focus jumped from the code editor to Attack, so the next Space started a new attack. Focus now moves only from Cancel, `<body>` or nowhere (`focusIsIdle`, `tests/unit/run-state.test.ts`, plus an e2e step that fails on the old code);
+  - low: focus fell to `<body>` after the fix-view toggle and after closing a shared report; both are fixed and covered by the same e2e step;
+  - low: wall-clock speed bounds flaked under CPU load; they now measure the worker process's CPU time (`cpuClock` in `tests/helpers.ts`), with the same bounds;
+  - low: `ms()` printed "1000 ms" for 999.5 ms; it now rounds first (`tests/unit/format.test.ts`).
+- [x] Round 11 judge and docs: the stale FEEDBACK client length, the README hard-tier wording, and the bench, which was regenerated at `bda6cc8` (38/38 found, 0 false alarms, unchanged).
+- [x] Round 12 (audit of `5805541`; details in `reaudit.md`):
+  - security, fixed in `a3f70e3` with tests that fail on the old code:
+    - high: a result line with no trailing newline skipped the size, total and depth caps;
+    - medium: nested small-scope specs built every leaf in full (7.8 s, 556 MB);
+    - low: JSON extraction was quadratic on unclosed braces;
+  - core (`a3f70e3`):
+    - shrink `seen` keys are digests (1,002 MB to 68 MB);
+    - fractional examples compare as floats;
+    - an unshrunk counterexample is clipped in the explain prompt and trace;
+  - UI and tests (`a3f70e3`):
+    - the responsiveness test can now fail;
+    - the CPU bounds are tightened;
+    - Close during a run focuses Cancel;
+    - a stale share decode is dropped (`share-state.ts` pending link);
+    - an e2e step aborts on a problem switch and clears the hash;
+    - the error boundary is tested;
+  - judge and docs: the screenshot notes, "hundreds of inputs" (not thousands), and the root `SUBMISSION.md` pointer.
+- [x] Round 13 (audit of `a3f70e3`; fixed in `d494fef` and the docs commit after it):
+  - critical (security): code writing to stdout directly forged 2,000,000 empty records (32 s of parsing). `parseLines` stops at the chunk's input count (8 ms), with tests in `tests/unit/program.test.ts` and `tests/integration/executors.test.ts`;
+  - medium (core): a top-level oneOf of nested arrays still took 2 to 8 s. One 2,000,000-scalar budget per small-scope call fixes it, and the catalog inputs are byte-identical;
+  - low (core):
+    - float mode compares safe integers exactly;
+    - tuple items are sampled evenly;
+  - judge and docs:
+    - the SUBMISSION Nebius AI Cloud wording is conditional (the deploy is pending);
+    - the Ultra-only median is 11.3 s;
+    - this checklist's non-minimal count and test count are updated.
+- [x] Round 14 (audit of `b67762a` and `985e3d2`; fixed in `f8c7f67`, `88152ed` and the docs commit after them; details in `reaudit.md`):
+  - security:
+    - a crashed attack keeps its spend reservation (`tests/integration/route-crash.test.ts`);
+    - `parseLines` jumps between markers;
+    - linear parsing of explanations, `<think>`, `codeOnly` and `errorSummary`;
+  - core:
+    - memoized small-scope sizes, with a value budget per parameter;
+    - `oracle_unreliable` when most inputs are unjudged;
+    - float mode is exact only below 2^50;
+    - an async JS solve is a runtime error;
+    - `class Solution` is documented as unsupported;
+  - judge:
+    - the default fast model's announced removal on 2026-11-09: a preflight check, the BLOCKED owner step, and the SUBMISSION checklist;
+    - FEEDBACK and FRICTION corrected (ids, JSON mode, Sandboxes);
+  - UI and tests:
+    - an e2e step checks that the form's request carries each option, the language and "Your own";
+    - holding Enter on Attack no longer cancels the run;
+    - picking a chip closes the shared report;
+    - tests pin the top-level oneOf values and the float tolerance.
+- [x] Round 15 (audit of `c90b859`; fixed in `92831bb`, `1afd683` and the UI commit after them; details in `reaudit.md`):
+  - core: a suite time bomb after the 2026-11-09 model removal (preflight tests on a fixed clock, and no key means the check is skipped; 528/528 pass with the clock at 2026-12-05); removed ids match without case; graph signature in the oracle prompt; Python async; orphan `</think>`;
+  - security: `sortJson` and `smallestFirst` serialise once; the re-attack setup, dedupe and judging yield to the event loop;
+  - UI: Enter-only repeat guard on both buttons; stale share writes dropped; tests for `pick()`, the midnight refund, small-scope dedupe and plurals;
+  - judge: UI copy says "hundreds of inputs (thousands of runs)", with screenshots retaken; bench-sourced batch counts; official Sandboxes limits; the preflight owner step; unverifiable dates removed.
+- [x] Round 16 (audit of `b4f5c68`; details in `reaudit.md`): CLI scripts read `.env.local`; the per-input value cap sums all arguments and judging splits batches by value; `runStage` yields between families; think tags inside code are content; Python prints big integers; both retired Nano ids named; a 1200 x 800 Devpost thumbnail.
+- [x] Round 17 (audit of `a0570b8`; details in `reaudit.md`): fences open only at line start, so a mid-sentence "```" cannot hide `</think>`; a stray `</think>` before a pair is cut; order-dependent counts stay inside one process; `pnpm bench` writes nothing when a run errors; SUBMISSION screenshot sizes and round count.
+- [x] Round 17 security and round 16 UI (details in `reaudit.md`): nested `oneOf` checking cost capped; mutation seed keys built with yields; linear fence regex; a double-click on Cancel no longer starts a run; share race closed on hashchange and error paths; tests kill the Judge0 forged-record, short-oracle and four UI mutants.
+- [x] Round 18 (audit of `2f70b6f`; details in `reaudit.md`): natural `sorted` order; `unordered_nested`; class Solution refused clearly; order-dependent wording; unclosed draft fences; model formatting variants; owner step to merge PR #1 into `main`; simulated latency and stand-in search wording; input counts.
+- [x] Round 19 (audit of `58dbebe`; details in `reaudit.md`): nested `oneOf` fan-out capped at 16; linear code-fence regex; the last block in the language that defines a function; code-point strings; the missing-sandbox ConfigError; axe in the e2e (it caught duplicate landmark names); echo guards for a double-tapped Enter and a double-click on Cancel; a pasted share link scrolled into view; docs on research triggers and re-attack counts.
+- [x] Round 20 (audit of `d15cb74`; details in `reaudit.md`): entry fallback by spelling, then the last function; understand answers read leniently (call-style entry, extra examples, bounds past 2^53); permutations drawn without replacement; small-scope `oneOf` elements from every option; code blocks chosen by the entry; `bench/longest-path.ts` for the README's graph figures; price caveat; video timing.
+- [x] Round 21 (audit of `2ab4d46`; details in `reaudit.md`): lenient entry and size caps in the understand answer; examples past 2^53 left out; draw budget and const caps against generation stalls; status, repeated-link and echo-guard fixes with tests; the soak's timeout check.
+- [x] Round 22 (audit of `876e650`; details in `reaudit.md`): entry chosen by what the code defines; every list counted in `jsonValues`; documented DSL limits; repeated notes announced.
+- [x] Round 23 (audit of `9a9c561`; details in `reaudit.md`): entry from top-level functions only; consts kept as written; lists counted in `maxValues`; a family-wide draw budget and generation that yields every 20 ms; one batch pass for order-dependent hits; JSON-only attack requests; docs on limits, bench time and Token Factory in the video.
+- [x] Round 24 (audit of `77ca989`; details in `reaudit.md`): integer-valued doubles get exact digits only below 2^64; `MAX_CONCURRENT_ATTACKS` default 2 (about 1 GB per attack at the caps); lists shortened to fit the value cap; "hand-written" replay messages; the report's content, banner, download and run reset pinned by tests.
+- [x] Round 25 (audit of `8281d1f`; details in `reaudit.md`): large results judged again in fresh runs instead of called oracle failures; order-dependent blame only with a stable oracle; exact parsing without a reviver (3 to 5 times faster); namespace and mount syscalls denied in the sandbox; report sections as headings, the time to first counterexample only with a counterexample, every verdict heading and a compile-error report tested; a 404 page; the research option's explanation shown.
+- [x] Round 26 (audit of `657c696`; details in `reaudit.md`): unread results re-run with runs cut to what fits, flagged by the parser; integer keys refused; an unstable oracle named; placeholder and field-border contrast; a mode-aware research explanation; tests for the 404 link, Attack's disabled state and every report heading; the trace follows only at the bottom.
+- [x] Round 27 (audit of `5cd3d06`; details in `reaudit.md`): the trace follows by scroll direction, tested in the e2e; field-border contrast measured in the e2e; the research explanation conditional while the mode is unknown; a longer timeout for the slow stateful-oracle test.
+- [x] Round 28 (audit of `f158efa`; details in `reaudit.md`): `socketpair` denied in the sandbox (kernel buffers no RSS counts); float problems with whole example answers compared as floats; the trace back to showing the newest event (decision recorded); drawn-border check in the e2e; the research explanation names the Tavily key.
+- [x] Round 29 (audit of `df31d50`; details in `reaudit.md`): `inotify` denied in the sandbox; float inference narrowed to outputs written with a decimal point, and exact mode lets non-integers differ by rounding (1e-9) while integers stay exact; e2e checks the trace mid-run, the picked chip's look, the scroll regions' focus outlines and "Your own" pressed.
+- [x] Round 30 (audit of `e17f6d6`; details in `reaudit.md`): float comparison decided from the oracle's answers (a non-integer switches an exact problem to float mode, with a trace note); exact mode's rounding gap 1e-12 relative; float-literal check on kept examples only; deep answers are model-output errors.
+- [x] Round 31 (audit of `68d1c6a`; details in `reaudit.md`): float answers compared per pair (1e-6 when either side is not an integer; integers exact), no order-dependent switch; tests for research citations, the full fix view and every stat tile.
+- [x] Round 32 (audit of `6cafaa3`; UI test gaps pinned in a later push; details in `reaudit.md`): the sandbox denies fork/vfork and clone without CLONE_THREAD, so a run is one process bounded by one RLIMIT_AS (threads still work); comparison tolerance and the integer-valued-float limit documented.
+- [x] Round 33 (audit of `0a20cea`; details in `reaudit.md`): "minimal" defined precisely (locally minimal under the reductions); sandbox denies legacy AIO and sets `ulimit -c 0`; tests for the diff direction, the one-mismatch fix summary and the full-fix view's keyboard access; a crafted link no longer scrolls sideways.
