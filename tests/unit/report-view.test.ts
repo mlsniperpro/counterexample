@@ -248,6 +248,9 @@ describe("ReportView puts every field in its own place (distinct values)", () =>
   it("shows each model-routing cell, the per-step cost (not the run total) and the tokens sum", () => {
     expect(html).toMatch(/<td>oracle<div class="small muted">Correctness first<\/div><\/td><td><code>ultra<\/code><\/td><td>2<\/td><td>345<\/td><td>\$0.00042<\/td>/);
     expect(html).toMatch(/<td><code>super<\/code>.*?<\/td><td>1<\/td><td>110<\/td><td>unpriced<\/td>/);
+    // The step column is the step's purpose, not its stage: the generators row's stage ("attack") differs from its
+    // purpose ("generators"), so a mutant rendering s.stage here would show "attack" and must fail.
+    expect(html).toMatch(/<td>generators<div class="small muted">Cheap and fast<\/div><\/td><td><code>super<\/code>/);
     // The per-step cost is the step's own, not the run total ($0.075).
     expect(html).toContain("<td>$0.00042</td>");
     expect(html).not.toContain("<td>$0.075</td>");

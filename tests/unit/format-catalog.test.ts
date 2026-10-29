@@ -39,13 +39,24 @@ describe("UI formatting", () => {
       // Distinct values in every numeric field so the routing row pins its own columns:
       // calls (3) must not read as promptTokens (97) or completionTokens (59), and the
       // step label must be `purpose` ("oracle"), not `stage` ("understand").
-      stages: [{ stage: "understand", purpose: "oracle", role: "reasoning", model: "u", why: "w", calls: 3, promptTokens: 97, completionTokens: 59, costUsd: null, latencyMs: 10, simulated: true }],
+      // Two stages: one replayed/unpriced, one live/priced, so the routing rows pin step (purpose, not stage), model,
+      // calls, the per-step cost (priced vs unpriced, not the run total) and latency, each with distinct values.
+      stages: [
+        { stage: "understand", purpose: "oracle", role: "reasoning", model: "u", why: "w", calls: 3, promptTokens: 97, completionTokens: 59, costUsd: null, latencyMs: 10, simulated: true },
+        { stage: "attack", purpose: "generators", role: "fast", model: "s", why: "w", calls: 5, promptTokens: 20, completionTokens: 8, costUsd: 0.00033, latencyMs: 7, simulated: false },
+      ],
     };
     const md = toMarkdown(r);
     expect(md).toContain("solve([0], 0)");
     expect(md).toContain("got:      -1");
     expect(md).toContain("## Fix (verified: re-attacked on 10 judged inputs: 0 failures)");
     expect(md).toContain("| oracle | u (replay) | 3 | unpriced | 10 ms (simulated) |");
+    // The priced live row's step is its purpose ("generators", not stage "attack"), and its per-step cost is its own
+    // ($0.00033), not "unpriced" and not the run total ($0.00100): a mutant on any of those fails.
+    expect(md).toContain("| generators | s | 5 | $0.00033 | 7 ms |");
+    // The summary line pins each total in its own place: inputs (3), runs (5), model calls (2) and the total cost
+    // ($0.00100 from stats.costUsd, distinct from wallMs=1 which would render $1.000) — a mutant swapping any of them fails.
+    expect(md).toContain("3 inputs, 5 sandbox runs, 2 model calls, $0.00100. Provider: replay; executor: Local.");
   });
 });
 
