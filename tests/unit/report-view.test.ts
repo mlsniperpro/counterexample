@@ -123,6 +123,8 @@ describe("ReportView research section", () => {
     const base = fullReport();
     const failed = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [], error: "no research client configured (set TAVILY_API_KEY)" } });
     expect(failed).toContain("Research did not complete: no research client configured (set TAVILY_API_KEY)");
+    // A failed search is not also reported as one that found nothing.
+    expect(failed).not.toContain("The searches found no facts to use.");
     const empty = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [] } });
     expect(empty).toContain("The searches found no facts to use.");
   });

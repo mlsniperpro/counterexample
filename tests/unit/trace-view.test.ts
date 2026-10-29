@@ -17,7 +17,8 @@ describe("TraceEventLine", () => {
   });
 
   it("formats a small elapsed time in ms and shows a why span only for model calls", () => {
-    const e: TraceEvent = { seq: 0, t: 12, stage: "run", kind: "info", msg: "running the solution" };
+    // The info event carries data too (as real ones do), so only the kind check keeps a why span off it.
+    const e: TraceEvent = { seq: 0, t: 12, stage: "run", kind: "info", msg: "running the solution", data: { family: "small-scope" } };
     const html = renderToStaticMarkup(createElement(TraceEventLine, { e }));
     expect(html).toContain('<span class="t">12 ms</span>');
     expect(html).toContain('<span class="msg">running the solution</span>');
