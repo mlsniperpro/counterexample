@@ -21,10 +21,11 @@ import { parseUnderstanding } from "./understand";
 /** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
 export const RUN_CHUNK = 64;
 /**
- * The run stage judges a family in sub-batches that double from this up to RUN_CHUNK (4, 8, 16, 32, 64, 64, ...). A hit,
- * or a family whose oracle fails on every input, then surfaces after a few inputs instead of after a whole 64-input
- * chunk: a solution that times out on every input of a worst-case family, or a brute-force oracle too slow for that
- * family's sizes, would otherwise spend 64 x the time limit per chunk and exhaust the wall clock before the hit is seen.
+ * Probe size for an unproven family in the run stage: its first window is judged as this many inputs, then the rest of
+ * the window; once a window runs clean the family is judged a whole RUN_CHUNK window per call. So a solution that times
+ * out on every input of a worst-case family, or a brute-force oracle too slow for that family's sizes, surfaces after the
+ * probe instead of after a whole 64-input chunk (64 x the time limit), without probing every window — which would
+ * multiply executor submissions and, on a remote executor, risk the wall clock on a correct solution.
  */
 export const RUN_FIRST_CHUNK = 4;
 const MUTANTS = 300;

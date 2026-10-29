@@ -242,7 +242,11 @@ async function main() {
   const firstCx = await page.locator(".cx code.big").innerText();
   // The claims the page makes: the sandbox it ran in, why each model was chosen, and the problem's examples.
   check((await page.locator(".badges .badge").allInnerTexts()).some((t) => /local|judge0/i.test(t)), "the executor badge names where the code ran");
-  check((await page.locator(".trace .why").count()) > 0 && (await page.locator(".trace .why").first().innerText()).trim().length > 0, "model calls in the trace say why that model was chosen");
+  const firstWhy = (await page.locator(".trace .why").first().innerText()).trim();
+  check((await page.locator(".trace .why").count()) > 0 && firstWhy.length > 0, "model calls in the trace say why that model was chosen");
+  // The why span shows the routing rationale (a sentence), not the event's purpose (a single word) or its model id (has a
+  // slash): a mutant printing e.data.purpose or e.data.model in that span would fail one of these.
+  check(/\s/.test(firstWhy) && !firstWhy.includes("/"), `the trace why is the routing rationale, not the purpose or model id (${firstWhy.slice(0, 50)})`);
   check((await page.locator("ul.examples li").count()) > 0, "the problem's examples are listed");
   // Every research fact is cited, in the live trace and in the report, with a link to its https source.
   const traceSources = await page.locator(".trace .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
@@ -498,6 +502,10 @@ async function main() {
   check(jsonl.endsWith("\n"), "the trace download ends with a newline");
   const traced = jsonl.trim().split("\n").map((l) => JSON.parse(l));
   eq(traced.length, await page.locator(".trace li.ev").count(), "events in the trace download");
+  // Each downloaded line is the event itself (showValue(e)), not a projection: it carries the event's fields, and the
+  // first message matches what the trace shows on screen. A mutant writing e.msg, e.data or {seq} per line fails here.
+  check(traced.every((e) => e && typeof e.seq === "number" && typeof e.stage === "string" && typeof e.kind === "string" && typeof e.msg === "string"), "each downloaded trace line is the full event object (seq, stage, kind, msg)");
+  eq(traced[0].msg, (await page.locator(".trace li.ev .msg").first().innerText()).trim(), "the downloaded trace carries the same messages shown on screen");
   // Share puts the report's link in the address bar too.
   await page.getByRole("button", { name: "Share link" }).click();
   const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 15_000 }).then(() => true, () => false);

@@ -251,7 +251,7 @@ describe("agent failure paths (replay mode)", () => {
   it("reports the counterexample for a family whose inputs all time out, instead of exhausting the wall clock (round 34)", async () => {
     // A correct sum that hangs once the array is long. A model family of only-long inputs (every one times out) used to
     // cost 64 x the time limit per chunk, so the attack ended budget_exhausted before the hit was examined. The run
-    // stage now judges in doubling sub-batches, so the timeout is found and confirmed after a few inputs.
+    // stage now probes the first window (a few inputs) before judging the rest, so the timeout is found and confirmed early.
     const problem: Problem = {
       id: "hang-family",
       title: "Sum (hangs when long)",

@@ -266,4 +266,12 @@ describe("ReportView region names tell a shared report from the reader's own", (
     const sharedHtml = renderToStaticMarkup(createElement(ReportView, { r: fullReport(), onCopy: () => {} }));
     expect(sharedHtml).toContain('aria-label="Shared report: attack families table"');
   });
+
+  it("shows the Share link button on the reader's own report and never on a shared one", () => {
+    // The reader's own report gets onShare; a shared report is rendered without it (a link has nothing to re-share), so
+    // the button must not appear. Without this, dropping the `onShare &&` guard would render a dead button on shared reports.
+    expect(render(fullReport(), {})).toContain(">Share link<");
+    const sharedHtml = renderToStaticMarkup(createElement(ReportView, { r: fullReport(), onCopy: () => {} }));
+    expect(sharedHtml).not.toContain("Share link");
+  });
 });
