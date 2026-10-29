@@ -1,12 +1,12 @@
 # break-it.md (COUNTEREXAMPLE)
 
-TESTED_COMMIT: 538ec65
+TESTED_COMMIT: 33fb704
 
-What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, 616 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `538ec65`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
+What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, over 600 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `33fb704`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
 
 ## Adversarial testing performed
 
-- **36 rounds of hostile audit** (reaudit.md), each four parallel Sonnet reviewers at high effort over core, security, UI/tests and judge/docs, plus main-session verification of every finding. More than 260 issues were found and fixed or recorded. The round-34, round-35 and round-36 findings (below, and in reaudit.md) are all fixed with regression tests; several round-35/36 findings were side effects of the round-34 fix, caught by re-auditing the fix itself.
+- **More than 35 rounds of hostile audit** (reaudit.md), each four parallel Sonnet reviewers at high effort over core, security, UI/tests and judge/docs, plus main-session verification of every finding. More than 150 issues were found and fixed or recorded. The round-34, round-35 and round-36 findings (below, and in reaudit.md) are all fixed with regression tests; several round-35/36 findings were side effects of the round-34 fix, caught by re-auditing the fix itself.
 - **Property testing at scale.** `FC_NUM_RUNS=5000` over the unit suite: every property test passes (the process exit is 1 only from a vitest-worker `onTaskUpdate` timeout under heavy concurrent load, not a test failure). `FC_NUM_RUNS=1000` is part of `checks.sh` and passes.
 - **Differential parser fuzzing.** `parseExact` vs `JSON.parse(text, exactReviver)` over hundreds of thousands of random and adversarial JSON texts (big integers, escaped quotes, marker look-alikes, odd whitespace, numbers in key position): no divergence in value or in accept/reject.
 - **Full benchmark**, every round, in four configurations (routed, Ultra-only, no-model, random-only): verdicts, costs and the load line are stable and match `bench/results/fixture.md` (only timings and hard-tier minimal strings vary, as documented).

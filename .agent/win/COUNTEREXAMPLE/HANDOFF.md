@@ -1,5 +1,10 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 18:30 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 37 done:
+- Round 37 (audited e6a0cdd): core CLEAN, security CLEAN (both thorough, with live probes). UI found one real wrong-data gap — the headline minimal-counterexample input could render the unshrunk original — now pinned; and the trace-event + example rows were extracted into pure unit-tested components (src/app/trace-view.tsx), closing the recurring "AttackUI is e2e-only" class. Judge found the churny test-count figure stale again; fixed by making summary figures robust (WIN-CHECKLIST "over 600 tests"; "more than 35 rounds … 150 issues" in SUBMISSION/break-it). 621 tests, full checks green.
+- Two-consecutive-clean counter: round 37 NOT clean (UI + judge). Still need two clean rounds in a row. Core and security have now been clean three rounds running; UI/judge findings are shrinking and increasingly structural/robustness fixes. Next: round 38 (and 39).
+- At the final clean rounds: re-stamp reaudit AUDITED_COMMIT and break-it TESTED_COMMIT to the frozen commit, set CLEAN_AUDITS_IN_A_ROW>=2, run `.agent/win-gate.sh COUNTEREXAMPLE`, open PR #2, post final status. Freeze 2026-10-30 10:00Z; docs/demo final by 11:00Z. Hourly heartbeat left in place.
+
 STATE 2026-10-29 18:15 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 36 done:
 - Round 35 fixed and pushed (HEAD was ef8f22b): probe-first-window run stage, ptrace denied, 2 UI gaps, doc figures synced; 615 tests, full checks green.
 - Round 36 (audited ef8f22b): core CLEAN and security CLEAN (both verified the round-35 fixes hard). UI found 3 more test gaps (trace.jsonl download content, the live-trace "why" span, the Share-link button's absence on a shared report) — all pinned now. Judge found 2 mediums (a stale run-stage source comment describing the superseded "doubling" design; BLOCKED.md/SUBMISSION.md wrongly implying PR #1 unmerged while `main` is ~7 commits behind) + lows — all fixed; docs now say PR #1 is merged (d56dcf0) and name the remaining owner steps (merge PR #2 or set `counterexample` default; make repo public). 616 tests, full checks green.
