@@ -1,5 +1,10 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 00:55 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Rounds 22 to 24 are fixed and pushed (HEAD `8281d1f`): lint, typecheck, 588/588 tests, build, e2e (12 steps). Round 24: core and judge were clean; security (2 medium) and UI/tests (5 medium, test gaps) were fixed.
+- Round 25 (4 Sonnet auditors on `8281d1f`) is running. Two clean rounds in a row are needed.
+- Final-commit evidence still to do: soak (`pnpm soak --all --seeds 3 -j 2 --readme`), `pnpm bench --readme` on a quiet machine, screenshots (copy changed), FC_NUM_RUNS=5000, fresh clone, Docker sandbox, then break-it.md, the reaudit header, the gate, the PR body and the final status comment.
+
 STATE 2026-10-28 19:40 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Rounds 20 and 21 are fully fixed and pushed (HEAD `f217892`): lint, typecheck, 573/573 tests, build, e2e (12 steps, axe, echo guards and bad-link checks verified by mutants). Details in reaudit.md.
 - **Clean-round criterion (decision in reaudit.md, round 20):** a round is clean when no auditor finds a new verified defect rated medium or above; lows are fixed when cheap or recorded and accepted.
