@@ -92,15 +92,20 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * shmget, semget, msgget, every POSIX message-queue call (mq_open, mq_unlink,
  * mq_timedsend, mq_timedreceive, mq_notify, mq_getsetattr: a queue can also be
  * created with a plain open() under /dev/mqueue, so send and receive are denied
- * too), io_uring_{setup,enter,register}, and unshare, setns, mount, pivot_root
- * and chroot (a user namespace with its own tmpfs holds memory the run's limit
- * does not count, wherever the runtime's own seccomp profile is missing; clone
- * with CLONE_NEWUSER is left to that profile, since a flag check per clone
- * would need argument filtering and threads use clone).
+ * too), io_uring_{setup,enter,register}, unshare, setns, mount, pivot_root and
+ * chroot (a user namespace with its own tmpfs holds memory the run's limit does
+ * not count, wherever the runtime's own seccomp profile is missing), and fork,
+ * vfork and any clone that does not set CLONE_THREAD (a run is then one process,
+ * whose single RLIMIT_AS bounds its memory; without this, 64 forked children
+ * could each reserve memory_limit and reach the whole container's memory before
+ * the RSS sampler catches up, killing other runs). Threads stay allowed:
+ * clone with CLONE_THREAD passes, and clone3 returns ENOSYS so the C library
+ * falls back to the checked clone. `clone`/`clone3` go through the flag check
+ * below, not the flat list.
  */
 const DENIED_SYSCALLS = {
-  x64: { audit: 0xc000003e, x32: true, nrs: [41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161] },
-  arm64: { audit: 0xc00000b7, x32: false, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51] },
+  x64: { audit: 0xc000003e, x32: true, clone: 56, nrs: [57, 58, 41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161] },
+  arm64: { audit: 0xc00000b7, x32: false, clone: 220, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51] },
 };
 
 /**
@@ -118,10 +123,14 @@ as_kb, use_filter, argv = int(sys.argv[1]), sys.argv[2] == "1", sys.argv[3:]
 if as_kb > 0:
     resource.setrlimit(resource.RLIMIT_AS, (as_kb * 1024, as_kb * 1024))
 if use_filter:
-    NRS = ${JSON.stringify(t.nrs)}
+    NRS, CLONE, CLONE3, CLONE_THREAD = ${JSON.stringify(t.nrs)}, ${t.clone}, 435, 0x00010000
     op = lambda code, jt, jf, k: struct.pack("=HBBI", code, jt, jf, k)
-    DENY, ALLOW = 0x00050000 | 13, 0x7FFF0000
+    DENY, ENOSYS, ALLOW = 0x00050000 | 13, 0x00050000 | 38, 0x7FFF0000
     prog = [op(0x20, 0, 0, 4), op(0x15, 1, 0, ${t.audit}), op(0x06, 0, 0, DENY), op(0x20, 0, 0, 0)]
+    # A = nr. clone3 -> ENOSYS so the C library retries thread creation with clone (which the next block checks).
+    prog += [op(0x15, 0, 1, CLONE3), op(0x06, 0, 0, ENOSYS)]
+    # clone: allow only with CLONE_THREAD (a thread); any other clone makes a new process, so deny it.
+    prog += [op(0x15, 0, 4, CLONE), op(0x20, 0, 0, 16), op(0x54, 0, 0, CLONE_THREAD), op(0x15, 0, 1, 0), op(0x06, 0, 0, DENY), op(0x20, 0, 0, 0)]
     ${t.x32 ? "prog.append(op(0x35, len(NRS) + 1, 0, 0x40000000))" : "pass"}
     prog += [op(0x15, len(NRS) - i, 0, nr) for i, nr in enumerate(NRS)]
     prog += [op(0x06, 0, 0, ALLOW), op(0x06, 0, 0, DENY)]

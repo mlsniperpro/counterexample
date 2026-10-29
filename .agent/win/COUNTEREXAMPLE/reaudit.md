@@ -7,6 +7,13 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 32 (2026-10-29, `6cafaa3`/`77b5b15`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (security 1 medium). Core was clean; UI and judge were still running when the fix landed and re-audit in round 33. Fixed in the next push.
+- **Security** (1 medium; the hardened sandbox probed for memory the per-run limit misses, the route, guard, share links, compare CPU, 113 commits of history):
+  - medium: a run could `fork` up to `MAX_PROCS` children, each allowed `RLIMIT_AS` of `memory_limit`, so a fork burst reached the whole 2 GB container before the 50 ms RSS sampler caught up (measured 1.4 to 2.0 GB from one run, OOM-killing other runs). **Fix:** the seccomp filter denies `fork`, `vfork` and any `clone` without `CLONE_THREAD`, so a run is one process bounded by its single `RLIMIT_AS`; threads still work (`clone` with `CLONE_THREAD` passes, `clone3` returns `ENOSYS` so the C library falls back to the checked `clone`). Verified against the rebuilt image: Python and JavaScript run, Python threads and Node workers run, `fork` and `subprocess` are denied (EACCES), the 30-child memory attack is denied at the first fork, a single process over its limit is still killed, and preflight and two bench problems pass. Tests updated for the single-process behaviour; the docs say what it rules out (asyncio, multiprocessing, child_process).
+- **Core** (2 low, none medium; 605 tests, FC_NUM_RUNS=1000, bench problems, pair-by-pair exact-mode checks, full attacks with real processes): low (accepted/doc): JSON cannot tell an integer-valued float from an integer, so two such answers beyond 2^50 that differ by rounding count as different unless the problem is marked `float` (now in the README); the float tolerance is a fixed 1e-6 and does not read a looser tolerance from the statement (now in the README).
+
 ## Round 31 (2026-10-29, `68d1c6a`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (core 1 medium, UI 3 medium test gaps). Security was clean (no findings); the judge is recorded when it reports. Fixed in `330b588` (core) and the next push (UI).

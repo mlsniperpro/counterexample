@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 11:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 32 security fix pushed: the sandbox denies fork/vfork and clone without CLONE_THREAD (a run is one process; threads work). lint, typecheck, 606/606 tests, build, e2e; image rebuilt and verified (both languages, threads, fork denied, attack denied, preflight, bench). Core was clean. Evidence done so far: screenshots retaken, FC 5000 (one test generator tightened for the per-pair float rule).
+- Next: round 33 on this HEAD (and re-audit UI/judge, which were mid-run in round 32). Two clean rounds needed. It is late against the 13:30/15:00 plan; if two clean rounds are not reached, run soak + fresh clone, then post the final status on PR #1 before 15:00Z with the open state stated plainly. break-it.md, the reaudit header and the gate come last.
+
 STATE 2026-10-29 10:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 30 is fixed in this push (float comparison from the oracle's answers): lint, typecheck, 604/604 tests, build, e2e. The usage limit and two worker restarts cost 08:00 to 10:30.
 - Next: round 31 on this HEAD while the final evidence runs (soak, bench, screenshots, FC 5000, fresh clone, Docker sandbox). The final status goes on PR #1 before 15:00Z either way: GATE: PASS if rounds 31 and 32 are clean, otherwise the open state stated plainly.

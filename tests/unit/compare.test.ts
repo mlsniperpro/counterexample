@@ -15,7 +15,10 @@ describe("outputsEqual", () => {
 
   it("unordered ignores the order of a top-level list, exact does not", () => {
     fc.assert(
-      fc.property(fc.array(jsonValueArb, { maxLength: 6 }), (xs) => {
+      // Integers and strings only: exact mode gives two non-integer numbers a rounding tolerance, so a reversed list of
+      // near-equal floats can legitimately compare equal under exact; the order-sensitivity this checks is about the
+      // elements being distinct values, which integers and strings show without that confound.
+      fc.property(fc.array(fc.oneof(fc.integer(), fc.string()), { maxLength: 6 }), (xs) => {
         const rev = [...xs].reverse();
         expect(outputsEqual(xs, rev, "unordered")).toBe(true);
         if (JSON.stringify(xs) !== JSON.stringify(rev)) expect(outputsEqual(xs, rev, "exact")).toBe(false);

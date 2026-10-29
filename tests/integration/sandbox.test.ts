@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Judge0Executor } from "@/lib/exec/judge0";
@@ -106,29 +105,36 @@ describe("sandbox HTTP API", () => {
     expect(sleepy.status.id).toBe(5);
   });
 
-  it("ends a run on time even when the program forks a child that holds its pipes", async () => {
-    const source = "import os, time\nif os.fork() == 0:\n    time.sleep(30)\nwhile True:\n    pass\n";
+  it("denies fork, so a run is a single process bounded by its own address-space limit", async () => {
+    // A new process would let a run reserve memory_limit again per child and reach the whole container before the RSS
+    // sampler catches up; the seccomp filter denies fork (EACCES), and the program carries on as one process.
+    const source = "import os\ntry:\n    os.fork()\n    print('FORKED')\nexcept OSError as e:\n    print('fork denied', e.errno)\n";
+    const r = await runSubmission({ language_id: 71, source, stdin: "", cpuSeconds: 2, wallSeconds: 5, memoryKb: 256 * 1024 });
+    expect(r.status.id).toBe(3);
+    expect(unb64(r.stdout).trim()).toBe("fork denied 13");
+  });
+
+  it("still ends an infinite loop on time (no child is involved now that fork is denied)", async () => {
     const t0 = Date.now();
-    const r = await runSubmission({ language_id: 71, source, stdin: "", cpuSeconds: 1, wallSeconds: 1, memoryKb: 256 * 1024 });
+    const r = await runSubmission({ language_id: 71, source: "while True:\n    pass\n", stdin: "", cpuSeconds: 1, wallSeconds: 1, memoryKb: 256 * 1024 });
     expect(r.status.id).toBe(5);
     expect(Date.now() - t0).toBeLessThan(5000);
   });
 
-  it("as root, runs each slot as its own uid: no reading the server's environment, no process outliving the run", async () => {
-    // A child that leaves the process group, then reports its pid; the program itself exits cleanly.
+  it("as root, runs each slot as its own uid: no reading the server's environment, and no new process to outlive the run", async () => {
+    // The run cannot read the server's environment (its own uid), and cannot fork a process that might outlive it.
     const source = [
-      "import os, sys, time",
+      "import os",
       "try:",
       "    open(f'/proc/{os.getppid()}/environ').read()",
       "    print('environ readable')",
       "except OSError:",
       "    print('environ denied')",
-      "pid = os.fork()",
-      "if pid == 0:",
-      "    os.setsid()",
-      "    time.sleep(30)",
-      "    sys.exit(0)",
-      "print(pid)",
+      "try:",
+      "    os.fork()",
+      "    print('forked')",
+      "except OSError:",
+      "    print('fork denied')",
     ].join("\n");
     const job = { language_id: 71, source, stdin: "", cpuSeconds: 2, wallSeconds: 5, memoryKb: 256 * 1024, uid: UID_BASE + 8 };
     if (process.getuid?.() !== 0) {
@@ -138,10 +144,7 @@ describe("sandbox HTTP API", () => {
     }
     const r = await runSubmission(job);
     expect(r.status.id).toBe(3);
-    const [verdict, forked] = unb64(r.stdout).trim().split("\n");
-    expect(verdict).toBe("environ denied");
-    const state = await readFile(`/proc/${forked}/status`, "utf8").then((t) => /^State:\s+(\w)/m.exec(t)?.[1], () => "gone");
-    expect(["gone", "Z"]).toContain(state);
+    expect(unb64(r.stdout).trim().split("\n")).toEqual(["environ denied", "fork denied"]);
   });
 
   it("returns 503 with Retry-After when the queue is full, and the client retries", async () => {
@@ -246,20 +249,26 @@ describe("sandbox isolation", () => {
     else expect(r.status.id).toBe(11);
   });
 
-  it("limits memory per run, not per process: forked children share one budget", async () => {
-    const source = [
-      "import os, time",
+  it("bounds a run's memory structurally: fork is denied, so children cannot spread the cost, and one process over its limit is killed", async () => {
+    // The old attack forked 20 children of 40 MB to reach 800 MB under a 64 MB per-run limit. Fork is denied now, so the
+    // loop never makes a second process, and the single process is held to its own address-space limit.
+    const forkBomb = [
+      "import os",
       "for _ in range(20):",
-      "    if os.fork() == 0:",
-      "        b = bytearray(40 * 1024 * 1024)",
-      "        time.sleep(5)",
-      "        os._exit(0)",
-      "time.sleep(4)",
-      "print('survived')",
+      "    try:",
+      "        if os.fork() == 0:",
+      "            os._exit(0)",
+      "    except OSError:",
+      "        print('fork denied, single process'); break",
+      "else:",
+      "    print('FORKED 20')",
     ].join("\n");
-    const r = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source });
-    expect(r.status.id).toBe(11);
-    expect(unb64(r.stderr)).toMatch(/memory limit 64 MB exceeded/);
+    const forked = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: forkBomb });
+    expect(forked.status.id).toBe(3);
+    expect(unb64(forked.stdout).trim()).toBe("fork denied, single process");
+    // A single process that asks for more than its limit is still killed.
+    const over = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: "b = bytearray(400 * 1024 * 1024)\nprint(len(b))\n" });
+    expect(over.status.id).not.toBe(3);
   });
 
   it("caps file size, and leaves nothing behind for the next user", async () => {
