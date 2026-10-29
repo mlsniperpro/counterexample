@@ -27,7 +27,7 @@ Per server:
 
 Container flags (defence in depth; the filter above does not depend on them):
 - `--memory 2g` and `--pids-limit 512` bound the whole container, the backstop behind the per-run limits;
-  Keep concurrent runs within the container memory: roughly `(--memory - 0.5 GB) / (memory_limit + 64 MB)`. At `--memory 2g` and the 256 MB default that is about 6; `MAX_CONCURRENT_ATTACKS` on the app and the server's own `maxConcurrent` (the CPU count by default) should not exceed it, or several memory-heavy runs at once can reach the container limit;
+  Keep concurrent runs within the container memory: roughly `(--memory - 0.5 GB) / (memory_limit + 64 MB)`. At `--memory 2g` and the 256 MB default that is about 5 ((2048 - 512) / (256 + 64) = 4.8); `MAX_CONCURRENT_ATTACKS` on the app and the server's own `maxConcurrent` (the CPU count by default) should not exceed it, or several memory-heavy runs at once can reach the container limit;
 - `--read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m`: bounded, RAM-backed temp dirs that the server itself uses (run uids cannot write them);
 - `--cap-drop ALL` plus the six capabilities the server needs: `CHOWN DAC_OVERRIDE FOWNER SETUID SETGID KILL`; `--security-opt no-new-privileges`;
 - `--network none` would deny the container all network, but it also disables port publishing: with `--network none -p 2390:2358` the port is not published (`docker port` prints nothing, `curl` cannot connect; checked on Docker 29.9.2). So it is not usable for a sandbox you call over HTTP; the per-run filter is what blocks the network.

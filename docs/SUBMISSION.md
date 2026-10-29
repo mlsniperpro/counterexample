@@ -6,7 +6,7 @@ Facts checked against the repo at the commit that last changed this file. The nu
 
 ## Before you submit (owner)
 
-- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is ahead (round-34/35 fixes, `ptrace` denial, regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
+- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is ahead (the round-34 to round-38 fixes, including the `ptrace` denial and the regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
 - [ ] The repo `mlsniperpro/counterexample` is public (MIT `LICENSE` at the top).
 - [ ] The demo video is on YouTube, public, and at most 3 minutes (script: `docs/VIDEO.md`).
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
@@ -98,7 +98,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
   - Network calls have timeouts, bounded retries with backoff and idempotency keys.
   - Each attack has budgets for model calls, sandbox runs and wall clock.
   - Per-IP rate limits and a daily spend cap protect the public demo.
-- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and 500+ tests:
+- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and over 600 tests:
   - unit tests;
   - fast-check property tests;
   - integration tests;
