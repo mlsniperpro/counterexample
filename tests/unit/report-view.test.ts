@@ -210,3 +210,47 @@ describe("ReportView research citations", () => {
     expect(html).toContain('<li>Arrays may hold one element. <a href="https://leetcode.com/problems/binary-search/" target="_blank" rel="noreferrer">source</a></li>');
   });
 });
+
+describe("ReportView puts every field in its own place (distinct values)", () => {
+  const r = fullReport({
+    families: [
+      { name: "two-digit-starts", rationale: "Numbers with two leading digits.", citations: [], source: "model", generated: 9, dropped: 0, tested: 7, mismatches: 3, oracleSkipped: 2 },
+      { name: "all-zero", rationale: "Every element zero.", citations: [], source: "model", generated: 4, dropped: 0, tested: 4, mismatches: 0, oracleSkipped: 0 },
+    ],
+    research: { queries: ["q"], facts: [{ fact: "Sorted ascending.", url: "https://example.com/d" }], influencedFamilies: ["two-digit-starts"] },
+    stages: [
+      { stage: "oracle", purpose: "oracle", role: "reasoning", model: "nvidia/ultra", why: "Correctness first", calls: 2, promptTokens: 300, completionTokens: 45, costUsd: 0.00042, latencyMs: 20, simulated: false },
+      { stage: "generators", purpose: "generators", role: "fast", model: "nvidia/super", why: "Cheap and fast", calls: 1, promptTokens: 100, completionTokens: 10, costUsd: null, latencyMs: 10, simulated: false },
+    ],
+    stats: { modelCalls: 8, runs: 4567, inputsTested: 123, wallMs: 1, timeToFirstCounterexampleMs: 2500, costUsd: 0.075, unpricedCalls: 2, simulatedModelMs: 0 },
+  });
+  const html = render(r);
+
+  it("shows each attack-families cell: name, tested, mismatches (red only when nonzero, never oracleSkipped), why", () => {
+    expect(html).toContain("<code>two-digit-starts</code>");
+    expect(html).toMatch(/<td><code>two-digit-starts<\/code><\/td><td>7<\/td><td class="bad">3<\/td><td class="small">Numbers with two leading digits.<\/td>/);
+    // The failing family is red with its mismatch count (3), not its oracleSkipped (2); a clean family is 0 with no red.
+    expect(html).not.toContain('<td class="bad">2</td>');
+    expect(html).toMatch(/<td><code>all-zero<\/code><\/td><td>4<\/td><td class="">0<\/td>/);
+  });
+
+  it("shows each model-routing cell, the per-step cost (not the run total) and the tokens sum", () => {
+    expect(html).toMatch(/<td>oracle<div class="small muted">Correctness first<\/div><\/td><td><code>ultra<\/code><\/td><td>2<\/td><td>345<\/td><td>\$0.00042<\/td>/);
+    expect(html).toMatch(/<td><code>super<\/code>.*?<\/td><td>1<\/td><td>110<\/td><td>unpriced<\/td>/);
+    // The per-step cost is the step's own, not the run total ($0.075).
+    expect(html).toContain("<td>$0.00042</td>");
+    expect(html).not.toContain("<td>$0.075</td>");
+  });
+
+  it("shows each stat tile with its own number", () => {
+    expect(html).toContain("<b>123</b><span>inputs attacked</span>");
+    expect(html).toContain("<b>4,567</b><span>sandbox runs</span>");
+    expect(html).toContain("<b>8</b><span>model calls</span>");
+    expect(html).toContain("<b>$0.075</b><span>model cost (+2 unpriced)</span>");
+    expect(html).toContain("<b>2.5 s</b><span>to first counterexample</span>");
+  });
+
+  it("names the one shaped generator family (the line is shown for a single family too)", () => {
+    expect(html).toContain("Shaped generator families: two-digit-starts");
+  });
+});
