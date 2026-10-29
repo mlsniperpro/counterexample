@@ -143,6 +143,14 @@ describe("ReportView content (each number and text in its place)", () => {
     expect(html).toContain("in 3 steps, 9 candidate runs");
   });
 
+  it("shows the shrunk counterexample input under the heading, not the unshrunk original", () => {
+    // The fixture's counterexample.args ([[0], 0]) differs from its original.args ([[3, 1, 2], 1]); the headline input
+    // must be the minimal (shrunk) args. A mutant rendering r.counterexample.original.args here would show the unshrunk
+    // input under "Minimal counterexample" and must fail.
+    expect(html).toContain('<code class="big">solve([0], 0)</code>');
+    expect(html).not.toContain("solve([3, 1, 2], 1)");
+  });
+
   it("puts each count in its column: inputs attacked, tested per family, calls and tokens per stage, and why", () => {
     expect(html).toMatch(/<b>3<\/b><span>inputs attacked<\/span>/);
     expect(html).toMatch(/<b>5<\/b><span>sandbox runs<\/span>/);
