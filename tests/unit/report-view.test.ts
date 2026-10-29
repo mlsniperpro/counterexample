@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import ReportView from "@/app/report-view";
+import { toMarkdown } from "@/app/format";
 import { fullReport } from "../app-fixtures";
 
 const render = (r = fullReport(), extra: { shareNote?: string; shareLink?: string } = {}) => renderToStaticMarkup(createElement(ReportView, { r, onCopy: () => {}, onShare: () => {}, ...extra }));
@@ -121,5 +122,38 @@ describe("ReportView research section", () => {
     expect(failed).toContain("Research did not complete: no research client configured (set TAVILY_API_KEY)");
     const empty = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [] } });
     expect(empty).toContain("The searches found no facts to use.");
+  });
+});
+
+describe("ReportView content (each number and text in its place)", () => {
+  const r = fullReport({
+    families: [{ name: "single-element", rationale: "One element.", citations: [], source: "model", generated: 7, dropped: 0, tested: 4, mismatches: 1, oracleSkipped: 0 }],
+    stages: [{ stage: "oracle", purpose: "oracle", role: "reasoning", model: "nvidia/u", why: "Correctness first", calls: 2, promptTokens: 345, completionTokens: 6, costUsd: null, latencyMs: 10, simulated: true }],
+  });
+  const html = render(r);
+
+  it("shows the verdict's message, the expected and actual outputs, the explanation and the shrink", () => {
+    expect(html).toContain('<p class="muted">Found a minimal counterexample.</p>');
+    expect(html).toMatch(/<span class="label">expected<\/span>[^]{0,80}>0</);
+    expect(html).toMatch(/<span class="label">got<\/span>[^]{0,80}>-1</);
+    expect(html).toContain("Because the loop stops early.");
+    expect(html).toContain("in 3 steps, 9 candidate runs");
+  });
+
+  it("puts each count in its column: inputs attacked, tested per family, calls and tokens per stage, and why", () => {
+    expect(html).toMatch(/<b>3<\/b><span>inputs attacked<\/span>/);
+    expect(html).toContain("<td>4</td>");
+    expect(html).not.toContain("<td>7</td>");
+    expect(html).toMatch(/Correctness first<\/div><\/td><td>.*?<\/td><td>2<\/td><td>351<\/td>/);
+  });
+
+  it("copies a Markdown report with every section: verdict, counterexample, why, fix in its language, and the setup", () => {
+    const md = toMarkdown(r);
+    expect(md).toContain("**Verdict:** Broken: minimal counterexample found. Found a minimal counterexample.");
+    expect(md).toContain("expected: 0\ngot:      -1");
+    expect(md).toContain("## Why\n\nBecause the loop stops early.");
+    expect(md).toContain("```python\ndef solve(a, t):\n    return 0\n```");
+    expect(md).toContain("3 inputs, 5 sandbox runs, 2 model calls");
+    expect(md).toContain("Provider: replay; executor: Local.");
   });
 });

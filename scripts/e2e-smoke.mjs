@@ -234,12 +234,28 @@ async function main() {
   eq(await shared.locator(".shared .cx code.big").innerText(), firstCx, "shared counterexample");
   check((await shared.locator(".shared > .row p").innerText()).includes("decoded in your browser"), "the shared banner says it was decoded locally");
   eq(await shared.locator(".shared > .row p").getAttribute("role"), "status", "the shared banner's role (opening a link is announced)");
+  const banner = await shared.locator(".shared > .row p").innerText();
+  check(banner.includes("(Broken: minimal counterexample found)"), `the shared banner names the verdict (${banner.slice(0, 80)})`);
+  check(banner.includes("a link can say anything, so re-run the attack to check it"), "the shared banner says a link can say anything");
+  // A second report of the same problem and verdict (another run: its timings differ, so its link does): announced too.
+  await page.getByRole("button", { name: "Attack this solution", exact: true }).click();
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Share link" }).click();
+  const sameProblem = await page.locator("input.share-link").inputValue();
+  check(sameProblem !== link, "a second run of the same problem has its own link");
+  await shared.evaluate(() => {
+    window.__banner = 0;
+    new MutationObserver((ms) => ms.forEach((m) => (window.__banner += m.addedNodes.length))).observe(document.querySelector(".shared > .row p"), { childList: true, subtree: true });
+  });
+  await shared.evaluate((l) => (window.location.hash = new URL(l).hash), sameProblem);
+  await shared.waitForFunction(() => window.__banner > 0, null, { timeout: 15_000 }).catch(() => check(false, "a second shared report of the same problem and verdict is announced"));
   await noHorizontalOverflow(shared, "shared report at 390 px");
   ok(step);
 
   step = "a second share link starts a fresh report view";
   await shared.locator(".shared").getByRole("button", { name: "Copy report" }).click();
   await shared.locator(".shared .result .live", { hasText: "Copied to the clipboard" }).waitFor();
+  check((await shared.evaluate(() => navigator.clipboard.readText())).startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
   await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).click();
   await shared.locator(".shared").getByRole("button", { name: "Show changes only" }).waitFor();
   // Make a second, different report and open its link in the same tab (a hash change, not a reload).
@@ -499,6 +515,13 @@ async function main() {
   await page.evaluate(() => (navigator.clipboard.writeText = () => Promise.reject(new Error("denied"))));
   await page.getByRole("button", { name: "Share link" }).click();
   await page.locator("p.live", { hasText: "Copy this link" }).waitFor({ timeout: 15_000 });
+  // A new run lets go of the last report's share link, and of a shared report open above it.
+  await page.evaluate((l) => (window.location.hash = new URL(l).hash), link2);
+  await page.locator(".shared .cx code.big").waitFor({ timeout: 15_000 });
+  await attackButton(page).click();
+  await settled();
+  eq(await page.locator("input.share-link").count(), 0, "share-link fields after a new run");
+  eq(await page.locator(".shared").count(), 0, "shared reports open after a new run");
   ok(step);
 
   step = "cancel a run mid-stream";
@@ -575,7 +598,10 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 10_000 });
   const download = page.waitForEvent("download", { timeout: 15_000 });
   await page.getByRole("button", { name: "Share link" }).click();
-  check((await download).suggestedFilename().startsWith("report-"), "a report too large for a link is downloaded");
+  const file = await download;
+  check(file.suggestedFilename().startsWith("report-"), "a report too large for a link is downloaded");
+  const saved = JSON.parse(readFileSync(await file.path(), "utf8"));
+  check(saved.verdict === "counterexample" && !("oracle" in saved) && !("trace" in saved), "the download holds what a link would carry (no oracle code, no trace)");
   await page.locator("p.live", { hasText: "downloaded as JSON instead" }).waitFor({ timeout: 15_000 });
   await page.unroute("**/api/attack");
   // An error line ends the stream (it is terminal, like a report), so a long error is checked in its own run.

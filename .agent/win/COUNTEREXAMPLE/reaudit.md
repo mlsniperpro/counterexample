@@ -18,7 +18,13 @@ Not clean (security found two medium items). Judge and core were clean under the
   - medium: integer-valued doubles such as `1e300` were expanded to their 301 digits four times per result (about 1.1 s of CPU per tick, every chunk). Exact digits are now built only below 2^64, where the overflow bugs they exist for live (test: 31,000 of them compared in all modes under 500 ms);
   - medium: retained inputs (`tested` and the fix stage's copies) reach about 860 MB for one attack at the DSL caps and 3 GB for four. The default `MAX_CONCURRENT_ATTACKS` is now 2, and the README states about 1 GB per concurrent attack. Keeping digests instead of inputs is the structural fix, left for after the hackathon;
   - low (accepted): the sandbox's seccomp filter does not deny `unshare(CLONE_NEWUSER)` (network stays denied; container defaults apply); Tavily searches are outside the model spend cap (2 per attack at most, under the per-IP limits); upstream error text (300 characters) and the sandbox host reach clients.
-- **UI and tests:** below once in.
+- **UI and tests** (5 medium test gaps, 7 low; every flow, 13 hostile links, touch at 280 px and crafted reports pass axe with no overflow; the shipped behaviour was correct):
+  - medium: the report's content was unpinned (message, expected/got labels, explanation, shrink steps, inputs attacked, tested per family, calls and tokens per stage, the "why" line, the Markdown sections). Unit tests now render the report with distinct numbers and check each in its place, and the Markdown section by section;
+  - medium: the round-23 banner (verdict, caveat sentence, key) had no test. The e2e now checks the verdict and the caveat, and that a second report of the same problem and verdict (another run) is announced;
+  - medium: the too-large download's content was unchecked; the e2e now reads the file and checks it holds no oracle code and no trace;
+  - medium: Copy report on a shared report was unchecked; the e2e reads the clipboard there too;
+  - medium: the run-start reset was unpinned; the e2e opens a shared link with a share link shown, starts a run, and checks both are gone;
+  - low (accepted): the "why" check would pass on the text "undefined" (the unit test now pins the real text); `fragmentBudget` wiring; browser Back after a pasted link keeps the shared report; Markdown fences are not escaped for code containing triple backticks; "expected null" for a crafted link without `expected`; an uppercase `#R=` link is ignored; `validReport` optional-field mutants and the copy-failed text.
 
 ## Round 23 (2026-10-28, `9a9c561`, 4 parallel Sonnet audits; findings verified by the main session)
 
