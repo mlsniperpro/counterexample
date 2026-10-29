@@ -6,7 +6,7 @@ Mode: **fixture** (replayed hand-written stand-ins for model answers; token coun
 | False alarms (of 16 correct) | 0 | 0 | 0 | 0 |
 | Fixes verified by re-attack | 38 of 38 | 38 of 38 | 30 of 30 | 27 of 27 |
 | Bugs first found by a model-designed family | 13 | 13 | 0 | 0 |
-| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.5 s run to run, more on a loaded machine) | 5.4 s | 11.3 s | 2.4 s | 2.4 s |
+| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.5 s run to run, more on a loaded machine) | 5.5 s | 11.3 s | 2.5 s | 2.5 s |
 | Model cost per solution | $0.0016 | $0.0032 | $0.0008 | $0.0008 |
 | Model cost, all 54 solutions | $0.0882 | $0.1725 | $0.0433 | $0.0419 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 | 0 |
@@ -31,7 +31,7 @@ Mode: **fixture** (replayed hand-written stand-ins for model answers; token coun
 | Bugs first found by a model-designed family | 8 | 0 | 0 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 |
 
-Load per attack (routed): 2 to 4 (median 3) model calls and 1,179 to 5,381 (median 2,635.5) sandbox runs, which is at least 31 to 385 (median 57) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
+Load per attack (routed): 2 to 4 (median 3) model calls and 1,179 to 5,381 (median 2,635.5) sandbox runs, which is at least 31 to 385 (median 56.5) Judge0 submissions (up to 64 inputs each, fewer when a long time limit would not fit Judge0's 15 s CPU cap; smaller shrink batches, timeouts and crashes add more).
 
 | Solution | Tier | Expected | Verdict (routed) | Found by family | Minimal counterexample | Fix verified |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -79,13 +79,13 @@ Load per attack (routed): 2 to 4 (median 3) model calls and 1,179 to 5,381 (medi
 | `hard/dag-distances/bug-b` | hard | bug | counterexample | path-graph-max-n (model) | `[460,[[0,1,0],[1,2,8277862],[2,3,1895036],[3,4,9459078],[4,5` (not minimal) | yes |
 | `hard/dag-distances/correct-js` | hard | correct | no_counterexample |  |  |  |
 | `hard/dag-distances/correct-py` | hard | correct | no_counterexample |  |  |  |
-| `hard/decode-ways/bug-a` | hard | bug | counterexample | all-ones-max-length (model) | `["111111111111111111111111111111"]` | yes |
+| `hard/decode-ways/bug-a` | hard | bug | counterexample | all-ones-max-length (model) | `["1111111111111111111111111111111"]` | yes |
 | `hard/decode-ways/bug-b` | hard | bug | counterexample | ambiguous-run-dead-end (model) | `["111111111111111111111111111111111100"]` | yes |
 | `hard/decode-ways/bug-c` | hard | bug | counterexample | all-ones-max-length (model) | `["2222222222222222222222222222222222222222222222222222222222` | yes |
 | `hard/decode-ways/correct-js` | hard | correct | no_counterexample |  |  |  |
 | `hard/decode-ways/correct-py` | hard | correct | no_counterexample |  |  |  |
 | `hard/word-break/bug-a` | hard | bug | counterexample | one-letter-run-no-split (model) | `["aaaaaaaaaaaaaaaaaaaaaaaab",["aaa","aa","a"]]` | yes |
-| `hard/word-break/bug-b` | hard | bug | counterexample | one-letter-run-no-split (model) | `["aaaaaaaaaaaaaaaaaaaaaaaaaaab",["aaa","aa","a"]]` | yes |
-| `hard/word-break/bug-c` | hard | bug | counterexample | one-letter-run-no-split (model) | `["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",["aaa` (not minimal) | yes |
+| `hard/word-break/bug-b` | hard | bug | counterexample | one-letter-run-no-split (model) | `["aaaaaaaaaaaaaaaaaaaaaaaaaaaab",["aaa","aa","a"]]` | yes |
+| `hard/word-break/bug-c` | hard | bug | counterexample | one-letter-run-no-split (model) | `["aaaaaaaaaaaaaaaaaaaaaaaaaaab",["aaa","aa","a"]]` | yes |
 | `hard/word-break/correct-js` | hard | correct | no_counterexample |  |  |  |
 | `hard/word-break/correct-py` | hard | correct | no_counterexample |  |  |  |

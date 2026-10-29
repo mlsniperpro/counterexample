@@ -348,6 +348,37 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.trace.some((e) => e.kind === "warn" && /small-scope: the oracle could not judge/.test(e.msg))).toBe(false);
   }, 90_000);
 
+  it("time-boxes shrinking a hang, so the attack still explains and fixes it within the wall clock (round 40)", async () => {
+    // Every candidate that still hangs costs a full time limit, so an unbounded shrink of a long hanging input used to
+    // run the whole wall clock out: the attack ended with the unshrunk input and no explanation or fix. Shrinking now
+    // gets at most half of the time left and keeps its progress, and the stages after it still run.
+    const problem: Problem = {
+      id: "hang-shrink",
+      title: "Sum (hangs when long)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 60 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 300,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "hang-shrink": {
+        oracle: "```python\ndef solve(xs):\n    return sum(xs)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":0,"max":9},"len":{"min":55,"max":60}}]}]}',
+        explain: "EXPLANATION: The loop never ends on long arrays.\n```python\ndef solve(xs):\n    return sum(xs)\n```",
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    if len(xs) >= 25:\n        while True:\n            pass\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, { ...deps(fx), budgets: { wallClockMs: 20_000 } });
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.got).toMatch(/^timeout/);
+    expect(r.explanation).toBeDefined();
+    expect(r.fix).toBeDefined();
+    expect(r.trace.some((e) => e.stage === "shrink" && e.kind === "warn" && /share of the time budget/.test(e.msg))).toBe(true);
+  }, 90_000);
+
   it("cuts off a hanging model call at the wall-clock deadline", async () => {
     const hanging: ModelProvider = {
       name: "nebius",

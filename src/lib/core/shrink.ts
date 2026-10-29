@@ -172,6 +172,8 @@ type ShrinkOptions = {
   maxScan?: number;
   /** Stops scanning (with the input so far, marked exhausted) once aborted. */
   signal?: AbortSignal;
+  /** Checked before each batch is run: true stops with the smallest failing input found so far, marked exhausted (a time box). */
+  shouldStop?: () => boolean;
 };
 
 /** Values scanned between yields to the event loop, so skipping many invalid candidates never blocks it for long. */
@@ -193,8 +195,14 @@ export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<Shr
     const [curNodes, curMag] = measure(current);
     const seen = new Set<string>();
     let batch: unknown[][] = [];
+    let stopped = false;
     const flush = async (): Promise<boolean> => {
       if (batch.length === 0) return false;
+      if (opts.shouldStop?.()) {
+        stopped = true;
+        batch = [];
+        return false;
+      }
       const res = await opts.stillFails(batch);
       evals += batch.length;
       const idx = res.findIndex(Boolean);
@@ -233,8 +241,10 @@ export async function shrink(start: unknown[], opts: ShrinkOptions): Promise<Shr
         improved = true;
         break;
       }
+      if (stopped) return { minimal: current, steps, evals, exhausted: true };
     }
     if (!improved) improved = await flush();
+    if (stopped) return { minimal: current, steps, evals, exhausted: true };
     if (!improved) return { minimal: current, steps, evals, exhausted: false };
   }
 }

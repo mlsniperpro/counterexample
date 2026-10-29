@@ -39,6 +39,24 @@ describe("shrinker", () => {
     expect(r.minimal).toEqual([1000]);
   });
 
+  it("stops when its time box runs out, keeping the smallest failing input found so far", async () => {
+    // A time box (shouldStop) must not throw away progress: the attack goes on to explain and fix that input.
+    let batches = 0;
+    const r = await shrink([1_000_003], {
+      isValid: () => true,
+      stillFails: async (b) => {
+        batches++;
+        return b.map((a) => (a[0] as number) >= 1000);
+      },
+      shouldStop: () => batches >= 3,
+    });
+    expect(r.exhausted).toBe(true);
+    expect(r.steps).toBeGreaterThan(0);
+    expect(r.minimal[0] as number).toBeLessThan(1_000_003);
+    expect(r.minimal[0] as number).toBeGreaterThanOrEqual(1000);
+    expect(batches).toBe(3); // nothing is judged once the box has run out
+  });
+
   it("shrinks strings by deleting and simplifying characters", async () => {
     // Fails when some character appears twice with a different one between.
     const fails = (a: unknown[]) => /(.)(?!\1).+\1/.test(a[0] as string);

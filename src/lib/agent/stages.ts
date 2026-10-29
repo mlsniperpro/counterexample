@@ -493,14 +493,22 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
   ctx.report.verdict = "counterexample";
   ctx.report.message = "Found a counterexample (not yet shrunk).";
   const specs = specsOf(ctx);
+  // Shrinking may use at most half of the wall clock left when it starts, then keeps the smallest failing input found
+  // so far: on a remote sandbox a hanging candidate costs a full time limit, and an unbounded shrink used to run the
+  // attack out of time with the unshrunk input and no explanation, fix or re-attack.
+  const shrinkUntil = ctx.budget.elapsed() + (ctx.budget.limits.wallClockMs - ctx.budget.elapsed()) / 2;
+  const hang = first.j.got.startsWith("timeout");
   const shrunk = await shrink(first.args, {
     isValid: (a) => argsConform(a, specs),
     stillFails: async (batch) => (await ctx.judge.compare("shrink", ctx.input.solution, batch)).map((j) => j.status === "mismatch"),
     maxEvals: ctx.limits.maxShrinkEvals,
     signal: ctx.signal,
-    // Small batches: only the first still-failing candidate matters, and each hanging candidate costs a full time limit.
-    batchSize: 16,
+    shouldStop: () => ctx.budget.elapsed() > shrinkUntil,
+    // Small batches: only the first still-failing candidate matters. For a hang, every candidate that still hangs costs
+    // a full time limit (more in a shared-limit sandbox submission), so it is tried two at a time.
+    batchSize: hang ? 2 : 16,
   });
+  if (ctx.budget.elapsed() > shrinkUntil) ctx.tracer.emit("shrink", "warn", "Shrinking used its share of the time budget; keeping the smallest failing input found so far");
   // Re-judge the result to report expected vs got for it; if it does not fail again, keep the confirmed original.
   const [final] = shrunk.steps ? await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]) : [first.j];
   const reproduced = final?.status === "mismatch";
