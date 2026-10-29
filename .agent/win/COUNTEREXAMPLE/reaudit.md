@@ -7,6 +7,14 @@ CLEAN_AUDITS_IN_A_ROW: 0  # round 34's 2 core mediums are fixed in 0d4def7; awai
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 39 (2026-10-29, `5afbb44`, 4 parallel Sonnet/high audits; all four reported)
+
+Not clean: core, security and judge/docs CLEAN; UI found 1 medium, fixed in `bea675c`.
+- **Core** CLEAN: the round-38 probe-skip fix verified (the skip is set in one place and never for small-scope/examples); nine correct JS/Python solutions and ~100 random specs (correct and buggy) gave no false alarm, no error and no non-conforming counterexample. Lows accepted: small-scope is empty for `distinct` arrays with len >= 4 (3 element values); an O(value) oracle on a large-range int can end a correct attack `budget_exhausted` (honest, not a false claim); a tiny-domain model family can still be probe-skipped (small-scope covers those shapes).
+- **Security** CLEAN: the BPF re-decoded, run isolation, launcher limits, server auth, route/guard, SSRF, share links and secrets held; `tests/integration/sandbox.test.ts` 22/22. Lows accepted (multi-threaded CPU contention bounded by RLIMIT_CPU; a non-attacker-triggerable spawn-error timer; failed live calls charged a flat amount).
+- **UI and tests** (1 medium; ~85 applied mutants): `src/app/page.tsx` mapped each built-in to the statement, examples, language and demo code the page shows, and no test imported it (statement->title, language->"python", code->bug all survived; the e2e's language check was circular). **Fixed:** the mapping is `uiProblems()` in `src/app/ui-problems.ts`, unit-tested field by field against the catalog. Lows also closed: the trace why-span kind check and the research error/empty exclusivity.
+- **Judge/docs** CLEAN; lows fixed in `a06ed6c` (sandbox concurrency arithmetic "about 5", consistent "over 600 tests", the current commit range main lacks, the old soak table kept as a labelled reference).
+
 ## Round 38 (2026-10-29, `c54e490` / core on `af35a1e`, 4 parallel Sonnet/high audits; the core audit was cut off by the 5-hour usage limit and resumed after the 20:40Z reset)
 
 Not clean: judge/docs CLEAN (the round-37 robust figures held) and security CLEAN; UI found 2 mediums and core 1 medium, all fixed in the next push.

@@ -1,5 +1,8 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 22:15 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 39 done:
+- Round 39: core, security and judge CLEAN; UI 1 medium (the page's built-in mapping was untested) fixed in bea675c. Full checks green. Counter still 0 (one dimension had a medium); need rounds 40 and 41 clean. Freeze 2026-10-30 10:00Z.
+
 STATE 2026-10-29 21:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 38 done:
 - The account's 5-hour usage limit stopped the round-38 core auditor around 18:40Z; it reset at 20:40Z and the session resumed at 21:38Z (about 3 idle hours). Round-38 UI fixes were pushed as af35a1e.
 - Round 38: judge and security CLEAN; UI 2 mediums (routing step column, Markdown totals) fixed; core 1 medium fixed — the oracle probe-skip no longer drops the ordered small-scope/examples families (a model oracle crashing on [] used to drop all of small-scope and miss a bug). Regression test mutation-checked; benchmark unaffected (no bench family ever had a small-scope/examples oracle skip).
