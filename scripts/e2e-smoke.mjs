@@ -432,6 +432,31 @@ async function main() {
 
   step = "the form sends what it shows, and the report's tools work";
   const bodies = [];
+  // Mid-run, a reader who scrolls up stays where they are, scrolling down short of the bottom does not re-follow, and End does.
+  pace.lineDelayMs = 150;
+  await attackButton(page).click();
+  const trace = page.locator(".trace-scroll");
+  await page.waitForFunction(() => {
+    const el = document.querySelector(".trace-scroll");
+    return el && el.scrollHeight - el.clientHeight > 300;
+  }, null, { timeout: 60_000 });
+  await trace.hover();
+  await page.mouse.wheel(0, -100_000);
+  await page.waitForTimeout(1500);
+  eq(await trace.evaluate((el) => el.scrollTop), 0, "the trace stays at the top where the reader scrolled, as events arrive");
+  const half = await trace.evaluate((el) => {
+    el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2);
+    return el.scrollTop;
+  });
+  await page.waitForTimeout(1200);
+  eq(await trace.evaluate((el) => el.scrollTop), half, "the trace stays where the reader scrolled down to, short of the bottom");
+  await trace.focus();
+  await page.keyboard.press("End");
+  await page.waitForTimeout(1200);
+  const behind = await trace.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+  check(behind <= 2, `after End the trace follows the newest event again (${behind} px short)`);
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await page.route("**/api/attack", (route) => {
     bodies.push(route.request().postDataJSON());
     return route.continue();
@@ -692,6 +717,15 @@ async function main() {
   ok(step);
 
   step = "accessibility: axe finds nothing at 390 and 1280 px, light and dark";
+  /** Contrast of an element's border against the background of the card it sits on. */
+  const borderRatio = (loc) =>
+    loc.evaluate((el) => {
+      const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const lum = (c) => rgb(c).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const a = lum(getComputedStyle(el).borderTopColor);
+      const b = lum(getComputedStyle(el.closest(".card")).backgroundColor);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
   /** axe-core's violations on the page as it stands, as "rule (impact): selectors" lines. */
   const axeViolations = async (p) => {
     await p.evaluate(AXE_SOURCE);
@@ -712,6 +746,8 @@ async function main() {
       eq(await axeViolations(p), "", `axe violations on the report (${where})`);
       await p.getByRole("button", { name: "Share link" }).click();
       await p.locator("input.share-link").waitFor({ timeout: 15_000 });
+      const linkRatio = await borderRatio(p.locator("input.share-link"));
+      check(linkRatio >= 3, `the share link's border is ${linkRatio.toFixed(2)}:1 on the card (${where})`);
       eq(await axeViolations(p), "", `axe violations with the share link shown (${where})`);
       await p.goto(link);
       await p.locator(".shared h2.verdict").waitFor({ timeout: 15_000 });
@@ -737,6 +773,11 @@ async function main() {
       await p.getByRole("button", { name: "Your own", exact: true }).click();
       await p.locator("textarea.statement-in").waitFor();
       eq(await axeViolations(p), "", `axe violations on "Your own" (${where})`);
+      // Text-field borders (WCAG 1.4.11): at least 3:1 against the card they sit on. axe does not check non-text contrast.
+      for (const sel of ["textarea.code", "textarea.statement-in", "select"]) {
+        const ratio = await borderRatio(p.locator(sel).first());
+        check(ratio >= 3, `${sel}'s border is ${ratio.toFixed(2)}:1 on the card (${where})`);
+      }
       await a11y.close();
     }
   }

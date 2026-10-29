@@ -31,3 +31,20 @@ export function echoesStart(e: { detail: number }, msSinceStart: number): boolea
 export function nearBottom(el: { scrollHeight: number; scrollTop: number; clientHeight: number }): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight < 24;
 }
+
+/** What the trace remembers between scroll events: whether it follows new events, and where it was. */
+export type TraceFollow = { follow: boolean; lastTop: number; autoTop: number; prevMax: number };
+
+/**
+ * The trace's follow state after a scroll event. Its own automatic scroll changes nothing; a scroll up stops
+ * following; a scroll down that reaches the bottom (or the bottom as it was one render ago, when an event rendered
+ * between the reader's End and its scroll event) follows again. Scrolling down to anywhere else keeps the reader there.
+ */
+export function followAfterScroll(s: TraceFollow, el: { scrollHeight: number; scrollTop: number; clientHeight: number }): TraceFollow {
+  const up = el.scrollTop < s.lastTop - 1;
+  const next = { ...s, lastTop: el.scrollTop };
+  if (Math.abs(el.scrollTop - s.autoTop) < 1) return next;
+  if (up) return { ...next, follow: false };
+  if (nearBottom(el) || el.scrollTop >= s.prevMax - 1) return { ...next, follow: true };
+  return next;
+}

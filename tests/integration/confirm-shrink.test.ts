@@ -294,7 +294,7 @@ describe("a solution that keeps state between calls", () => {
     // The trace says it is the oracle that answers differently in order, not only that the mismatches were flaky.
     expect(r.trace.some((e) => e.kind === "warn" && /the oracle answers them differently after earlier calls than alone/.test(e.msg))).toBe(true);
     expect(r.trace.some((e) => /did not reproduce on a re-run/.test(e.msg))).toBe(true);
-  });
+  }, 180_000); // About 25 s alone: every chunk re-runs its hits alone and in order; a loaded machine took over 60 s.
 
   it("reports an order-dependent counterexample that passes alone, never a flaky one", async () => {
     const r = await attack({ problem: bs.problem, solution: stateful, research: "off" }, deps());

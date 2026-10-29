@@ -41,5 +41,6 @@ export function researchHeading(setupResearch: string): string {
 /** What "Research the web" does, said under the checkbox: replay mode runs no web search. */
 export function researchHint(mode: UIMode | null): string {
   if (mode === "replay") return "In replay mode no web search runs: research shows hand-written stand-in results for the built-in problems, in place of Tavily's.";
+  if (mode !== "live") return "With a Tavily key on the server, research searches the web for the problem's official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding); without one, hand-written stand-in results are shown for the built-in problems.";
   return "Research searches the web (Tavily) for the problem's official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources.";
 }

@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 06:25 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 27 is fixed in this push (UI: trace following by direction, e2e for following and field-border contrast): lint, typecheck, 605/605 tests, build, e2e (12 steps); both auditor mutants now fail the e2e. Core, security and judge were clean in round 27.
+- Next: round 28 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z, with the open rounds stated plainly.
+
 STATE 2026-10-29 05:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 26 is fully fixed and pushed (core and security in `da03f2a`, UI in this push): lint, typecheck, 602/602 tests, build, e2e (12 steps); a full bench on `da03f2a`'s judge gave the fixture's verdicts. The worker restarted around 02:30 and lost about 3 hours.
 - Next: round 27 (4 Sonnet auditors) on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z (the goal's time limit), with the open rounds stated plainly.

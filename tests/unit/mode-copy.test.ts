@@ -27,6 +27,8 @@ describe("the research option's explanation", () => {
   it("says replay mode runs no web search, and names Tavily only when it may run", () => {
     expect(researchHint("replay")).toMatch(/^In replay mode no web search runs: research shows hand-written stand-in results/);
     expect(researchHint("replay")).not.toMatch(/searches the web/);
-    for (const m of ["live", "unknown", null] as const) expect(researchHint(m)).toMatch(/^Research searches the web \(Tavily\) for the problem's official constraints/);
+    expect(researchHint("live")).toMatch(/^Research searches the web \(Tavily\) for the problem's official constraints/);
+    // Like the hero text, it claims no search while the mode is unknown or still loading.
+    for (const m of ["unknown", null] as const) expect(researchHint(m)).toMatch(/^With a Tavily key on the server, research searches the web .*; without one, hand-written stand-in results are shown/);
   });
 });

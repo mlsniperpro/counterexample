@@ -7,6 +7,24 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 27 (2026-10-29, `5cd3d06`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (UI 3 medium). Core, security and judge were clean under the criterion. Fixed in the next push.
+- **Core** (3 low, none medium; full bench verdicts identical, FC_NUM_RUNS=1000 on two seeds, 600,000 texts through `parseExact` with no divergence, 150 random judge trials with timeouts and process splits, 0 misplaced):
+  - low (accepted): in a first chunk of very verbose outputs, the 8 MB output cap can kill a process before the judge has learned how many results fit, so one input is unjudgeable (or a false mismatch that the solo re-run drops); no false bug is claimed, and this predates round 26;
+  - low (accepted): once runs are cut to what fits, `ranBefore` and an order-dependent `sequence` assume the original batch; it needs a stateful solution with results over about 125 KB each;
+  - low, fixed: the stateful-oracle test took 21 to 29 s against a 60 s timeout and timed out under load; its timeout is 180 s now (also found by the judge and UI audits).
+- **Security** (2 low, none medium; the hardened sandbox with the documented flags: sockets, namespaces, mounts, memfd, userfaultfd, bpf and keyctl denied, memory and fork bombs killed; 2,000,000 fuzzed texts through `parseExact` with no divergence; worst parse 90 ms; the route's content type, body and guard checks; no secrets in 104 commits):
+  - low (accepted): hostile verbose output makes runs of 3 to 6 inputs, about 21 times the sandbox processes of a normal solution; runs are still charged (at most 1.7 times steady), inside the wall clock, concurrency cap and run budget; the README notes it;
+  - low (accepted): the `retry[0] === 0` guard cannot trigger (a run always reads its first result); kept as a guard against a future executor.
+- **Judge** (1 low; fresh clone with 602 tests, 12 e2e steps, full bench verdicts, costs and load line identical, every README and VIDEO figure and every constant reproduced, sponsor docs match, PR #1 and the owner steps as BLOCKED.md says): the stateful-oracle test timeout (fixed, above).
+- **UI and tests** (3 medium, 4 low; axe in 96 states with zero violations, contrast recomputed, keyboard order, hostile links, 47 mutants):
+  - medium: the trace re-followed when the reader scrolled down past where the last automatic scroll had left it, however far the bottom had moved. Following is now decided by direction: a scroll up stops it, and only reaching the bottom (or the bottom as it was one render ago, for End followed by an event) resumes it. It is a pure function with unit tests;
+  - medium: nothing tested following. The e2e now paces a run, wheels the trace to the top, scrolls to the middle and presses End, checking where it stays each time; the mutant without the scroll handler fails it;
+  - medium: nothing tested the field borders. The e2e computes each field's border contrast on its card (code, statement, language select, share link) at 390 and 1280 px in light and dark, and needs 3:1; the mutant that puts them back on `--line` fails it;
+  - low, fixed: the research explanation no longer claims a web search while the mode is unknown or loading (it says what happens with and without a Tavily key, like the hero text);
+  - low (accepted): chips and ghost buttons have 1.3:1 borders, but their labels are text (WCAG treats text-only buttons as identified by their text); the h1 overflows by a few pixels at 320 px with WCAG 1.4.12 text spacing (same as the accepted text-spacing item).
+
 ## Round 26 (2026-10-29, `657c696`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (security 1 medium, UI 6 medium; core and judge clean under the criterion). Fixed in `da03f2a` (core and security) and the next push (UI). A full bench on the fixed judge gave the fixture's verdicts.
