@@ -220,6 +220,22 @@ async function main() {
   eq(await page.locator("h2.verdict").innerText(), "Broken: minimal counterexample found", "verdict");
   check(/^solve\(/.test(await page.locator(".cx code.big").innerText()), "the minimal counterexample is shown");
   check((await page.locator(".trace li.ev").count()) > 5, "the live trace has events");
+  // The trace is the headline artifact, so pin that each event's three spans show their own field
+  // (time formatted, stage label, message) and not a sibling field: a render that printed e.kind or
+  // e.stage in the message span, or the raw millisecond number instead of ms(e.t), must fail here.
+  const traceEvents = await page.locator(".trace li.ev").evaluateAll((lis) =>
+    lis.map((li) => ({
+      kind: li.className.replace(/^ev\s+/, "").trim(),
+      t: li.querySelector(".t")?.textContent?.trim() ?? "",
+      st: li.querySelector(".st")?.textContent?.trim() ?? "",
+      msg: li.querySelector(".msg")?.textContent?.trim() ?? "",
+    })),
+  );
+  check(traceEvents.length > 0 && traceEvents.every((e) => /^\d+(\.\d+)?\s(ms|s)$/.test(e.t)), "every trace event shows a formatted time (ms(e.t)), not a raw millisecond number");
+  check(traceEvents.every((e) => e.st.length > 0 && e.msg.length > 0), "every trace event shows a stage label and a message");
+  check(traceEvents.some((e) => e.msg !== e.st), "the trace message span shows e.msg, not the stage label");
+  check(traceEvents.some((e) => e.msg !== e.kind), "the trace message span shows e.msg, not the event kind");
+  check(traceEvents.some((e) => e.st !== e.kind), "the trace stage span shows e.stage, not the event kind");
   check((await page.locator("p.sr-only[role=status]").innerText()).startsWith("Broken"), "the verdict is announced");
   await attackButton(page).waitFor();
   eq(await page.locator("p.err[role=alert]").count(), 0, "no error alert after a clean run");
@@ -273,7 +289,13 @@ async function main() {
   step = "a second share link starts a fresh report view";
   await shared.locator(".shared").getByRole("button", { name: "Copy report" }).click();
   await shared.locator(".shared .result .live", { hasText: "Copied to the clipboard" }).waitFor();
-  check((await shared.evaluate(() => navigator.clipboard.readText())).startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
+  const sharedMd = await shared.evaluate(() => navigator.clipboard.readText());
+  check(sharedMd.startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
+  // The banner names the problem by its title, not its id: cross-check it against the Markdown title line
+  // (both come from problem.title), so a render that printed shared.problem.id in the banner must fail.
+  const mdTitle = sharedMd.split("\n", 1)[0].replace("# Counterexample report: ", "").trim();
+  const bannerTitle = (await shared.locator(".shared > .row p b").innerText()).trim();
+  check(bannerTitle.length > 0 && bannerTitle === mdTitle, `the shared banner names the problem's title, not its id (banner="${bannerTitle}", title="${mdTitle}")`);
   await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).click();
   await shared.locator(".shared").getByRole("button", { name: "Show changes only" }).waitFor();
   // The full view is the corrected solution, not the submitted code: the binary-search fix loops while lo <= hi.

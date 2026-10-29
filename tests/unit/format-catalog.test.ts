@@ -36,13 +36,16 @@ describe("UI formatting", () => {
       explanation: "Because.",
       fix: { code: "def solve(): pass\n", verified: true, attempts: 1, reattackInputs: 10, reattackMismatches: 0, reattackUnjudged: 0 },
       stats: { modelCalls: 2, runs: 5, inputsTested: 3, wallMs: 1, timeToFirstCounterexampleMs: 1, costUsd: 0.001, unpricedCalls: 0, simulatedModelMs: 0 },
-      stages: [{ stage: "oracle", purpose: "oracle", role: "reasoning", model: "u", why: "w", calls: 1, promptTokens: 1, completionTokens: 1, costUsd: null, latencyMs: 10, simulated: true }],
+      // Distinct values in every numeric field so the routing row pins its own columns:
+      // calls (3) must not read as promptTokens (97) or completionTokens (59), and the
+      // step label must be `purpose` ("oracle"), not `stage` ("understand").
+      stages: [{ stage: "understand", purpose: "oracle", role: "reasoning", model: "u", why: "w", calls: 3, promptTokens: 97, completionTokens: 59, costUsd: null, latencyMs: 10, simulated: true }],
     };
     const md = toMarkdown(r);
     expect(md).toContain("solve([0], 0)");
     expect(md).toContain("got:      -1");
     expect(md).toContain("## Fix (verified: re-attacked on 10 judged inputs: 0 failures)");
-    expect(md).toContain("| oracle | u (replay) | 1 | unpriced | 10 ms (simulated) |");
+    expect(md).toContain("| oracle | u (replay) | 3 | unpriced | 10 ms (simulated) |");
   });
 });
 

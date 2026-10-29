@@ -1,5 +1,16 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 17:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — CONTINUE (post-"internal 15:00Z milestone"):
+- The 15:00Z time was the owner's internal "ready" milestone, not the competition deadline. Devpost closes Fri 2026-10-30 17:00Z; the owner submits Fri ~12:00-14:00Z. Code freeze is 2026-10-30 10:00Z; the final docs/demo push is due by 11:00Z. Build continues until then.
+- PR #1 was merged into `main` at the owner's request (merge commit d56dcf0). `main` now holds the whole project. Work continues on branch `counterexample`, which is ahead of `main`; a new PR (#2) will carry the post-merge work for the owner to merge before submitting.
+- Round 34 (the 2 core mediums that were open at 15:00Z) is FIXED: the run stage sub-batches so an all-timeout family and a too-slow-oracle family both bail out after a probe instead of 64 x the time limit. Bench regenerated; verdicts/costs/load unchanged.
+- Round 35 (audited f8cabfb, 4 Sonnet/high auditors) found 4 real mediums, now all fixed (see reaudit.md round 35):
+  - core: the round-34 sub-batching probed EVERY 64-window (~4.5x executor submissions), which on a remote executor could exhaust the 50 s wall clock and wrongly fail a correct solution. Fixed: probe only the first window of a family, then judge the rest a whole window per call (measured 257 -> 71 executor calls on binary-search/correct, pre-fix was 57). Regression test added (average batch size > RUN_CHUNK/2).
+  - security: `ptrace` was not denied, so a Python run could PTRACE_TRACEME + SIGSTOP and leak one unreapable zombie per submission, exhausting the uid NPROC / container pid limit and breaking the sandbox for everyone. Fixed: deny ptrace (x64 101, arm64 117) + regression test.
+  - UI: two test gaps (the Markdown routing row's `calls` column; the live trace's per-event time/stage/message text). Fixed with distinct-value unit fixture + e2e assertions; also cross-checked the shared banner's problem title.
+  - judge/docs: README/WIN-CHECKLIST said "3 of 8 not minimal" (stale after the bench regen; actually 2, both DAG); + 3 lows (SUBMISSION "33 rounds"->34, WIN-CHECKLIST "611 tests"->613, README layout list). Fixed.
+- Next: run full checks + the regenerated bench, commit/push, then round 36 and 37 (need two consecutive fully-clean rounds), then re-stamp break-it.md TESTED_COMMIT and reaudit AUDITED_COMMIT to the frozen commit, CLEAN_AUDITS_IN_A_ROW>=2, and run `.agent/win-gate.sh COUNTEREXAMPLE`. Hourly heartbeat left in place.
+
 STATE 2026-10-29 15:57 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — POST-DEADLINE:
 - The 15:00Z submission deadline has passed. The account's 5-hour usage limit was hit about 12:50Z and reset 15:30Z, so round 34's UI and judge auditors could not finish and no further rounds were possible before the deadline; the session sat idle through it.
 - HEAD is `d5e09fa`. Round 34: security clean; core found 2 OPEN mediums in the hard-tier hang-detection feature (a worst-case-only family can exhaust the wall clock before the hit is reported; a too-slow brute-force oracle stalls the attack). Both are documented in break-it.md and reaudit.md with reproductions and a fix plan; the sound fix rewrites the benchmark figures and could not be landed and re-verified safely in the time box.
