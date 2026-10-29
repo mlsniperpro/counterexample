@@ -1,6 +1,6 @@
 # WIN checklist: Counterexample (Nebius x NVIDIA Global AI Hackathon)
 
-Freeze: **Thu 2026-10-29 18:00 EAT (15:00 UTC)**. Read by `bash .agent/win-gate.sh COUNTEREXAMPLE`.
+Freeze: **Fri 2026-10-30 10:00 UTC** (final docs/demo push by 11:00 UTC; Devpost closes 17:00 UTC). Read by `bash .agent/win-gate.sh COUNTEREXAMPLE`.
 
 Legend:
 - `- [x]` done, with evidence in this repo.
@@ -144,7 +144,7 @@ Legend:
   - high (`83fe9d6`): an infeasible `distinct` array (10,000 elements from a 10-value domain) cost about 45 s of synchronous sampling; sampling now stops once the element domain is used up, and the 50 inputs take under 0.5 s (`tests/unit/spec.test.ts`).
 - [x] Round 10 judge and docs, fixed in the docs and the report panel (details in `reaudit.md`):
   - medium: the README and `docs/VIDEO.md` described a coin-change result the app no longer produces; replay now gives `solve([2, 5], 6)` expected 3, got -1, shrunk from `[[2, 19], 24]` in 4 steps, with the fix re-attacked on 1,232 inputs, found first by the small-scope family. The README says so, and the video now shows Shortest paths, where small-scope finds nothing and a model-designed family does;
-  - medium: the README, SUBMISSION and this checklist now say that 3 to 4 of the 8 hard-tier counterexamples hit the shrink budget and are reported as "not minimal";
+  - medium: the README and this checklist now say that 2 to 4 of the 8 hard-tier counterexamples hit the shrink budget and are reported as "not minimal" (the latest fixture shows 3);
   - low: the README soak table is marked as an earlier run (pre-round 9, base tier) to be regenerated on the final commit; the video no longer says "cheaper and faster than Ultra everywhere" (it now cites the replay-estimated benchmark and says so); the report panel in replay mode reads "Research (hand-written stand-in for Tavily)" (`tests/unit/report-view.test.ts`); the README states the spend-cap arithmetic (about $0.65 reserved per live attack, at most 3 in flight at the default $2 cap); `docs/FEEDBACK.md` gives the real client length (under 100 lines); the README no longer gives a precise minimal timeout length.
 - [x] Round 10 UI and tests: the audit was stopped twice before reporting. Round 11 covered UI and tests in full (below).
 - [x] Round 11 core and security (audit of `60c13c4`; fixed with regression tests in `5966c4f`; details in `reaudit.md`):
@@ -231,3 +231,6 @@ Legend:
 - [x] Round 31 (audit of `68d1c6a`; details in `reaudit.md`): float answers compared per pair (1e-6 when either side is not an integer; integers exact), no order-dependent switch; tests for research citations, the full fix view and every stat tile.
 - [x] Round 32 (audit of `6cafaa3`; UI test gaps pinned in a later push; details in `reaudit.md`): the sandbox denies fork/vfork and clone without CLONE_THREAD, so a run is one process bounded by one RLIMIT_AS (threads still work); comparison tolerance and the integer-valued-float limit documented.
 - [x] Round 33 (audit of `0a20cea`; details in `reaudit.md`): "minimal" defined precisely (locally minimal under the reductions); sandbox denies legacy AIO and sets `ulimit -c 0`; tests for the diff direction, the one-mismatch fix summary and the full-fix view's keyboard access; a crafted link no longer scrolls sideways.
+- [x] Round 34 (audit of `d5e09fa`; details in `reaudit.md`): two hard-tier wrong-verdict risks in hang detection (a worst-case-only family exhausting the wall clock before the hit is reported; a slow brute-force oracle stalling the attack) found and fixed by sub-batching the run stage.
+- [x] Round 35 (audit of `f8cabfb`; details in `reaudit.md`): the run-stage fix reworked to probe only the first window of each family then judge whole windows (the first version multiplied remote submissions ~4.5x and could fail a correct solution on the wall clock); `ptrace` denied in the sandbox (a `PTRACE_TRACEME` zombie-leak DoS); two UI test gaps pinned (Markdown routing `calls` column, live-trace event content); benchmark regenerated and doc figures synced.
+- [x] Round 36 (audit of `ef8f22b`; details in `reaudit.md`): core and security clean; three more UI test gaps pinned (trace.jsonl download content, the live-trace "why" span, the Share-link button's absence on a shared report); a stale run-stage source comment and the repo-state docs corrected.

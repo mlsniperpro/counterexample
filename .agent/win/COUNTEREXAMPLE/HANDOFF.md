@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 18:15 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 36 done:
+- Round 35 fixed and pushed (HEAD was ef8f22b): probe-first-window run stage, ptrace denied, 2 UI gaps, doc figures synced; 615 tests, full checks green.
+- Round 36 (audited ef8f22b): core CLEAN and security CLEAN (both verified the round-35 fixes hard). UI found 3 more test gaps (trace.jsonl download content, the live-trace "why" span, the Share-link button's absence on a shared report) — all pinned now. Judge found 2 mediums (a stale run-stage source comment describing the superseded "doubling" design; BLOCKED.md/SUBMISSION.md wrongly implying PR #1 unmerged while `main` is ~7 commits behind) + lows — all fixed; docs now say PR #1 is merged (d56dcf0) and name the remaining owner steps (merge PR #2 or set `counterexample` default; make repo public). 616 tests, full checks green.
+- Two-consecutive-clean-rounds counter: round 36 was NOT clean (UI + judge). Need rounds 37 and 38 both clean, then re-stamp break-it TESTED_COMMIT and reaudit AUDITED_COMMIT to the frozen commit, CLEAN_AUDITS_IN_A_ROW>=2, and run `.agent/win-gate.sh COUNTEREXAMPLE`.
+- OPEN owner steps before submit (BLOCKED.md): make repo public; merge PR #2 (not yet opened) into `main` or set `counterexample` as default; live run + Vercel + video + Devpost form. Hourly heartbeat left in place.
+
 STATE 2026-10-29 17:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — CONTINUE (post-"internal 15:00Z milestone"):
 - The 15:00Z time was the owner's internal "ready" milestone, not the competition deadline. Devpost closes Fri 2026-10-30 17:00Z; the owner submits Fri ~12:00-14:00Z. Code freeze is 2026-10-30 10:00Z; the final docs/demo push is due by 11:00Z. Build continues until then.
 - PR #1 was merged into `main` at the owner's request (merge commit d56dcf0). `main` now holds the whole project. Work continues on branch `counterexample`, which is ahead of `main`; a new PR (#2) will carry the post-merge work for the owner to merge before submitting.

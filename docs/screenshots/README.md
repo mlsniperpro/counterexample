@@ -1,6 +1,6 @@
 # Screenshots (evidence)
 
-Captured with `pnpm screenshots` (`scripts/screenshots.mjs`: Playwright 1.63.0, Chromium, 390 x 844 viewport, full page; the thumbnail at 1200 x 800) against `pnpm dev` in replay mode on 2026-10-28.
+Captured with `pnpm screenshots` (`scripts/screenshots.mjs`: Playwright 1.63.0, Chromium, 390 x 844 viewport, full page; the thumbnail at 1200 x 800) against `pnpm dev` in replay mode on 2026-10-29.
 
 | File | Shows |
 | --- | --- |

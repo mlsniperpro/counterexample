@@ -6,7 +6,7 @@ Facts checked against the repo at the commit that last changed this file. The nu
 
 ## Before you submit (owner)
 
-- [ ] PR #1 is merged into `main` (or `counterexample` is the default branch): `main` alone has no README, code or `LICENSE`, and the repo link opens the default branch.
+- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is ahead (round-34/35 fixes, `ptrace` denial, regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
 - [ ] The repo `mlsniperpro/counterexample` is public (MIT `LICENSE` at the top).
 - [ ] The demo video is on YouTube, public, and at most 3 minutes (script: `docs/VIDEO.md`).
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
@@ -110,7 +110,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 - **False alarms are worse than misses.** A correct binary search looked broken under a loaded sandbox. We now confirm every mismatch alone in a fresh process before claiming it. A failure that only appears after earlier calls is reported as "order-dependent" (the solution keeps state), never as flaky.
 - **Judge0 has one time limit per submission.** We size batches so every input keeps its full limit inside the 15 s CPU cap, and blame a timeout on an input only after it times out alone.
 - **Exact answers.** Integers past 2^53 lose digits in JavaScript, so an overflow in the last digit would go unnoticed. We compare them by their exact digits.
-- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (34 rounds by 29 October) found and fixed more than 150 issues.
+- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (36 rounds by 29 October) found and fixed more than 150 issues.
 - **No keys in the build environment.** The build sandbox had no Token Factory or Tavily key (and at first no network route to Token Factory), so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
 
 ## Accomplishments that we're proud of
