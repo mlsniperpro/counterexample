@@ -400,18 +400,27 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
     const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals - CONFIRM_HITS - 1);
     const batch = inputs.slice(0, room);
     if (batch.length < inputs.length) truncated = true;
-    // Each RUN_CHUNK window is judged in sub-batches that double from RUN_FIRST_CHUNK. Fast inputs run the whole window
-    // before the hits are confirmed, so the smallest hit across the window is still chosen (the demos are unchanged); the
-    // sub-batches only let two pathological cases bail out after a few inputs instead of after 64 x the time limit: a
-    // family whose inputs all time out (acted on at once), and one whose oracle fails on an opening sub-batch (skipped).
+    // Until a family has shown it runs fast with a working oracle, its first window is judged as a probe of
+    // RUN_FIRST_CHUNK inputs and then the rest of the window, so two pathological cases bail out after the probe instead
+    // of after a full 64 x the time limit: a family whose inputs all time out (acted on at once) and one whose oracle
+    // fails on the whole probe (skipped). Once a window has run clean (no timeout, not skipped) the family is known to
+    // run fast, so the rest of it is judged a whole window per call. Probing every window would otherwise turn each
+    // 64-input window into two executor submissions, and on a remote executor (the only kind production allows) those
+    // extra round trips can themselves exhaust the wall clock and fail a correct solution. Fast inputs still run the
+    // whole window before the hits are confirmed, so the smallest hit across the window is chosen and the demos are
+    // unchanged.
     let skipFamily = false;
+    let fastFamily = false;
     for (let at = 0; at < batch.length && !hits.length && !skipFamily; at += RUN_CHUNK) {
       const window = batch.slice(at, at + RUN_CHUNK);
       const found: Hit[] = [];
       let ran = 0;
       let sawTimeout = false;
-      for (let sub = 0, size = RUN_FIRST_CHUNK; sub < window.length && !sawTimeout && !skipFamily; sub += size, size = Math.min(size * 2, RUN_CHUNK)) {
-        const part = window.slice(sub, sub + size);
+      const probe = Math.min(RUN_FIRST_CHUNK, window.length);
+      const sizes = fastFamily ? [window.length] : window.length > probe ? [probe, window.length - probe] : [probe];
+      for (const size of sizes) {
+        if (sawTimeout || skipFamily) break;
+        const part = window.slice(ran, ran + size);
         const judged = await ctx.judge.compare("run", solution, part);
         tested.push(...part);
         st.tested += part.length;
@@ -423,8 +432,8 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
           const j = judged[i]!;
           if (j.status === "mismatch") found.push({ args: part[i] as unknown[], j, family: f.name, confirmed: false });
         }
-        // All of this sub-batch timed out or crashed in the solution: those are the hits, and each further input would
-        // cost another full time limit, so stop the window now and confirm what we have.
+        // This sub-batch timed out or crashed in the solution: those are the hits, and each further input would cost
+        // another full time limit, so stop the window now and confirm what we have.
         if (found.some((h) => h.j.got.startsWith("timeout"))) sawTimeout = true;
         // The oracle judged none of this sub-batch (a brute-force oracle too slow for this family's sizes) and no hit yet:
         // the rest of the family is the same shape and would only burn the wall clock, so skip it. If no family is ever
@@ -434,6 +443,9 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
           skipFamily = true;
         }
       }
+      // The solution ran a full window fast enough and the oracle worked: judge any later windows of this family whole,
+      // one submission each, instead of re-paying the probe on every window.
+      if (!sawTimeout && !skipFamily) fastFamily = true;
       if (found.length) {
         const kept = await confirmHits(ctx, found, window.slice(0, ran));
         st.mismatches += kept.length;
