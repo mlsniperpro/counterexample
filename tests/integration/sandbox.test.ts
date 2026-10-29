@@ -210,6 +210,22 @@ describe("sandbox isolation", () => {
     expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
   });
 
+  it("denies ptrace, so a run cannot make the server its tracer and leak unreapable zombies", async () => {
+    // PTRACE_TRACEME would make the sandbox server the run's tracer; a later self-stop is misread by the server's waitpid
+    // as a plain exit, so the process handle is dropped and the killed process becomes a zombie the server never reaps —
+    // one per submission, until it exhausts the uid's NPROC or the container's pid limit and breaks runs for everyone.
+    // The filter denies ptrace (x86_64 101, aarch64 117) with EACCES; no legitimate Node or Python run traces anything.
+    const py = [
+      "import ctypes, errno, platform",
+      "libc = ctypes.CDLL(None, use_errno=True)",
+      "nr = {'x86_64': 101, 'aarch64': 117}[platform.machine()]",
+      "r = libc.syscall(nr, 0, 0, 0, 0, 0)",  // ptrace(PTRACE_TRACEME): 0 if ever allowed, -1/EACCES when denied
+      "print('denied' if r == -1 and ctypes.get_errno() == errno.EACCES else 'allowed')",
+    ].join("\n");
+    const p = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: py });
+    expect(unb64(p.stdout).trim()).toBe("denied");
+  });
+
   it("denies submitted code every socket: metadata, a neighbouring sandbox, the internet and loopback", async () => {
     expect(await probeNetworkFilter()).toBe("blocked");
     const targets = [["169.254.169.254", 80], ["172.17.0.1", 2358], ["93.184.215.14", 80], ["127.0.0.1", Number(new URL(url).port)]];
