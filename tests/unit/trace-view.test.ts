@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ExampleLine, TraceEventLine } from "@/app/trace-view";
+import { ExampleLine, ProblemBrief, TraceEventLine } from "@/app/trace-view";
 import type { TraceEvent } from "@/lib/agent/trace";
 
 // The trace is the headline artifact, and AttackUI (which renders it) is a stateful client component that no test
@@ -39,5 +39,23 @@ describe("ExampleLine", () => {
     const html = renderToStaticMarkup(createElement(ExampleLine, { e: { args: [[2, 5], 6], output: 2 } }));
     expect(html).toContain("solve([2,5], 6) → 2");
     expect(html).not.toContain("solve(2)"); // a mutant swapping args and output would render solve(2) → [2,5], 6
+  });
+});
+
+describe("ProblemBrief", () => {
+  it("shows the problem's own statement, with inline code, and every one of its examples", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProblemBrief, {
+        statement: "Return the index of `target` in nums, or -1.",
+        examples: [
+          { args: [[1, 3, 5], 3], output: 1 },
+          { args: [[2, 4], 7], output: -1 },
+        ],
+      }),
+    );
+    expect(html).toContain('<p class="statement">Return the index of <code>target</code> in nums, or -1.</p>');
+    expect(html.match(/<li>/g)).toHaveLength(2);
+    expect(html).toContain("solve([1,3,5], 3) → 1");
+    expect(html).toContain("solve([2,4], 7) → -1");
   });
 });

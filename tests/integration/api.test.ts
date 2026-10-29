@@ -52,6 +52,20 @@ describe("POST /api/attack (replay mode)", () => {
     expect(last.report.trace).toBeUndefined();
   });
 
+  it("runs the Ultra-only baseline when the form asks for it, and routes otherwise", async () => {
+    // The "Ultra for everything (baseline)" toggle reaches the agent only through this route: pin that the posted
+    // routing is what runs, not just what the UI sends.
+    const report = async (routing: string, ip: string) => (await lines(await post({ problemId: "isqrt", code: isqrt.demo.code, language: "javascript", routing }, { ip }))).at(-1).report;
+    const ultra = await report("ultra-only", "5.5.5.1");
+    const routed = await report("routed", "5.5.5.2");
+    expect(ultra.setup.routing).toBe("ultra-only");
+    expect(routed.setup.routing).toBe("routed");
+    expect(ultra.stages.every((s: { model: string }) => s.model === ultra.setup.reasoningModel)).toBe(true);
+    const gen = (r: { stages: { purpose: string; model: string }[] }) => r.stages.find((s) => s.purpose === "generators")!.model;
+    expect(gen(routed)).toBe(routed.setup.fastModel);
+    expect(gen(ultra)).not.toBe(gen(routed));
+  });
+
   it("researches only when asked (research=force) or cited; otherwise suggests it for risky APIs", async () => {
     const body = { problemId: "isqrt", code: isqrt.demo.code, language: "javascript" };
     const autoLines = await lines(await post(body));
