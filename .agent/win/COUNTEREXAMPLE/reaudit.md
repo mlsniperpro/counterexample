@@ -1,7 +1,7 @@
 AUDITED_COMMIT: d5e09fa
 OPEN_CRITICAL: 0
 OPEN_HIGH: 0
-CLEAN_AUDITS_IN_A_ROW: 0  # round 34's 2 core mediums are fixed in 0d4def7; awaiting two clean rounds on the fix
+CLEAN_AUDITS_IN_A_ROW: 0  # every round from 35 on had at least one medium (all fixed); two consecutive fully-clean rounds still needed
 
 # Re-audit log (Counterexample)
 

@@ -1,6 +1,6 @@
 # Running user code on Nebius AI Cloud
 
-Counterexample never runs user code on the web server. Code runs in a sandbox that speaks the Judge0 API subset used by `Judge0Executor`. Two options:
+In production (and by default) Counterexample never runs user code on the web server; only the development-time local executor does (`ALLOW_LOCAL_EXECUTOR=1` in production). Code runs in a sandbox that speaks the Judge0 API subset used by `Judge0Executor`. Two options:
 
 - any Judge0 deployment (self-hosted Judge0 CE or RapidAPI), or
 - **the Counterexample sandbox** (`sandbox/server.mjs` + `sandbox/Dockerfile`): one small container, Node standard library only, deployable as a **Nebius Serverless AI endpoint**. This is the recommended path: the agent's models run on Nebius Token Factory and the code they attack runs on Nebius AI Cloud.
