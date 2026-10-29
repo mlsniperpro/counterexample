@@ -21,7 +21,8 @@ const guardEnvSchema = z.object({
   REPLAY_RATE_LIMIT_PER_HOUR: intFromEnv(120),
   ATTACKS_PER_IP_PER_DAY: intFromEnv(30),
   DAILY_SPEND_CAP_USD: z.coerce.number().min(0).default(2),
-  MAX_CONCURRENT_ATTACKS: z.coerce.number().int().min(1).default(4),
+  // Two: an attack at the DSL caps can hold about 1 GB of generated inputs until it ends (README "Load and limits").
+  MAX_CONCURRENT_ATTACKS: z.coerce.number().int().min(1).default(2),
   /** Charged against the daily cap for each call to a model with no known price, so unpriced models cannot bypass it. */
   UNPRICED_CALL_USD: z.coerce.number().min(0).default(0.05),
 });

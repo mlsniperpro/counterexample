@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { checkInputValues, parseTypeSpec, SPEC_LIMITS } from "../core/spec";
+import { checkInputValues, maxValues, parseTypeSpec, SPEC_LIMITS, type TypeSpec } from "../core/spec";
 import { ModelOutputError } from "../errors";
 import type { Problem, Solution } from "../problems/types";
 import { exactReviver } from "../core/compare";
@@ -195,6 +195,40 @@ function resolveEntry(code: string, language: Solution["language"], names: strin
   return named ? { entry, note: `The model named entry "${named}", which the code does not define; using "${entry}" instead` } : { entry };
 }
 
+/**
+ * Parse the parameter types, shortening the outermost list of the largest one when an input could hold more than the
+ * per-input value cap (10^4 words of up to 20 letters is 200,001 values once the list itself counts): the attack then
+ * covers inputs it can generate, and says so, instead of failing on the bound.
+ */
+function fitValueCap(raw: unknown[]): { types: TypeSpec[]; lowered: boolean } {
+  const types = raw.map((t) => structuredClone(t)) as Record<string, unknown>[];
+  let lowered = false;
+  for (let attempt = 0; ; attempt++) {
+    let over: { at: number; values: number } | undefined;
+    const parsed: TypeSpec[] = [];
+    for (let i = 0; i < types.length && !over; i++) {
+      try {
+        parsed.push(parseTypeSpec(types[i], `params[${i}].type`));
+      } catch (e) {
+        const m = /could hold (\d+) values/.exec(e instanceof Error ? e.message : "");
+        if (!m || attempt >= 8) throw e;
+        over = { at: i, values: Number(m[1]) };
+      }
+    }
+    if (!over) {
+      const total = parsed.reduce((n, t) => n + maxValues(t), 0);
+      if (total <= SPEC_LIMITS.maxValuesPerInput || attempt >= 8) return { types: parsed, lowered };
+      const at = parsed.reduce((best, t, i) => (t.kind === "array" && maxValues(t) > maxValues(parsed[best] as TypeSpec) ? i : best), 0);
+      over = { at, values: total };
+    }
+    const t = types[over.at] as { kind?: unknown; len?: { min: number; max: number } };
+    if (t.kind !== "array" || !t.len) throw new ModelOutputError(`problem spec: params[${over.at}].type: one input could hold ${over.values} values (limit ${SPEC_LIMITS.maxValuesPerInput})`);
+    const max = Math.max(0, Math.floor((t.len.max * SPEC_LIMITS.maxValuesPerInput) / over.values) - 1);
+    t.len = { min: Math.min(t.len.min, max), max };
+    lowered = true;
+  }
+}
+
 /** True when a JSON value holds an integer past 2^53 (it was rounded when parsed). */
 function hasUnsafeInteger(v: unknown): boolean {
   if (typeof v === "number") return Number.isInteger(v) && !Number.isSafeInteger(v);
@@ -222,7 +256,8 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
   const arity = a.params.reduce((n, p) => n + (typeof p.type === "object" && p.type !== null && (p.type as { kind?: unknown }).kind === "graph" ? 2 : 1), 0);
   const { entry, note } = resolveEntry(solution.code, solution.language, a.entry, arity);
   const bounds = a.params.map((p) => clampIntBounds(p.type));
-  const params = a.params.map((p, i) => ({ name: p.name, type: parseTypeSpec(bounds[i]?.type, `params[${i}].type`) }));
+  const fitted = fitValueCap(bounds.map((b) => b.type));
+  const params = a.params.map((p, i) => ({ name: p.name, type: fitted.types[i] as TypeSpec }));
   checkInputValues(params.map((p) => p.type), "params");
   if (a.examples.length === 0) throw new ModelOutputError("problem spec: no examples, so the oracle could not be checked");
   // Expected outputs keep integers beyond 2^53 exact, like the harness's outputs they are compared with
@@ -241,6 +276,7 @@ export function parseUnderstanding(text: string, statement: string, solution: Pi
     note,
     floats ? 'The examples return non-integer numbers, so outputs are compared as floats (the model asked for "exact")' : undefined,
     bounds.some((b) => b.clamped) ? "Integer bounds beyond 2^53 - 1 were lowered to 2^53 - 1, the largest integer every input can hold exactly" : undefined,
+    fitted.lowered ? `The longest list was shortened so that one input holds at most ${SPEC_LIMITS.maxValuesPerInput.toLocaleString("en-US")} values` : undefined,
     bounds.some((b) => b.capped) ? `Sizes beyond the generator's limits were lowered to them (lengths ${SPEC_LIMITS.maxLen.toLocaleString("en-US")}, graphs ${SPEC_LIMITS.maxNodes.toLocaleString("en-US")} nodes and ${SPEC_LIMITS.maxEdges.toLocaleString("en-US")} edges), so the largest inputs are not tried` : undefined,
     dropped ? `${dropped} example(s) whose arguments hold integers beyond 2^53 were left out of the oracle check (they cannot be passed exactly)` : undefined,
   ]

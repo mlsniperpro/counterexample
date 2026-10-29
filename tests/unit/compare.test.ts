@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { clipText, displayable, exactIntegersSupported, exactReviver, OUTPUT_TEXT_CAP, outputsEqual, showValue } from "@/lib/core/compare";
 import { jsonValueArb } from "../arbitraries";
+import { cpuClock } from "../helpers";
 
 describe("outputsEqual", () => {
   it("is reflexive in every mode", () => {
@@ -175,5 +176,17 @@ describe("float mode inside objects", () => {
     expect(outputsEqual({ avg: 1 }, { avg: 1.001 }, "float")).toBe(false);
     expect(outputsEqual({ a: 1 }, { a: 1, b: 2 }, "float")).toBe(false);
     expect(outputsEqual({ a: 1 }, { b: 1 }, "float")).toBe(false);
+  });
+});
+
+describe("huge integer-valued floats", () => {
+  it("compares and displays 1e300-style floats without expanding them to their 301 digits", () => {
+    const big = Array.from({ length: 31_000 }, () => 1e300);
+    const cpu = cpuClock();
+    for (const mode of ["exact", "unordered", "float"] as const) expect(outputsEqual(big, [...big], mode)).toBe(true);
+    expect(showValue(big).length).toBeLessThan(300_000);
+    expect(cpu()).toBeLessThan(500);
+    // Below 2^64 the exact digits still decide: two doubles 256 apart past 2^53 differ.
+    expect(outputsEqual(2 ** 60, 2 ** 60 + 256)).toBe(false);
   });
 });

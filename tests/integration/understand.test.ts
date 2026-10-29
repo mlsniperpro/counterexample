@@ -84,6 +84,15 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect(r.problem.params[0]?.type).toMatchObject({ of: { kind: "const", value }, pool: 10_000 });
   });
 
+  it("shortens the longest list when an input would pass the value cap, instead of failing (10^4 words of up to 20 letters)", async () => {
+    const words = { kind: "array", of: { kind: "string", alphabet: "abc", len: { min: 1, max: 20 } }, len: { min: 1, max: 10_000 } };
+    const r = await run({ ...spec, params: [{ name: "words", type: words }, spec.params[1]], examples: [{ args: [["a"], 1], output: 3 }] });
+    const len = (r.problem.params[0]?.type as { len: { max: number } }).len.max;
+    expect(len).toBeLessThan(10_000);
+    expect(len).toBeGreaterThan(9_900);
+    expect(r.note).toMatch(/The longest list was shortened/);
+  });
+
   it("reads flags written as off and a hyphenated comparison mode", async () => {
     const r = await run({ ...spec, compare: "unordered-nested", params: [{ name: "a", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 5 }, sorted: false, pool: 0, distinct: false } }, spec.params[1]] });
     expect(r.problem.compare).toBe("unordered_nested");

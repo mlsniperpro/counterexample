@@ -11,7 +11,7 @@ const cfg = (over: Partial<ReturnType<typeof guardConfig>> = {}) => ({ ...guardC
 
 describe("guard config", () => {
   it("has defaults and validates env", () => {
-    expect(guardConfig({})).toEqual({ RATE_LIMIT_PER_HOUR: 10, REPLAY_RATE_LIMIT_PER_HOUR: 120, ATTACKS_PER_IP_PER_DAY: 30, DAILY_SPEND_CAP_USD: 2, MAX_CONCURRENT_ATTACKS: 4, UNPRICED_CALL_USD: 0.05 });
+    expect(guardConfig({})).toEqual({ RATE_LIMIT_PER_HOUR: 10, REPLAY_RATE_LIMIT_PER_HOUR: 120, ATTACKS_PER_IP_PER_DAY: 30, DAILY_SPEND_CAP_USD: 2, MAX_CONCURRENT_ATTACKS: 2, UNPRICED_CALL_USD: 0.05 });
     expect(guardConfig({ RATE_LIMIT_PER_HOUR: "3", DAILY_SPEND_CAP_USD: "0.5", MAX_CONCURRENT_ATTACKS: "" }).RATE_LIMIT_PER_HOUR).toBe(3);
     expect(() => guardConfig({ RATE_LIMIT_PER_HOUR: "lots" })).toThrow(ConfigError);
     expect(() => guardConfig({ MAX_CONCURRENT_ATTACKS: "0" })).toThrow(ConfigError);

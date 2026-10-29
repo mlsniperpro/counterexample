@@ -41,9 +41,15 @@ export function exactIntegersSupported(parse: (text: string, reviver: typeof exa
   return (exactSupported ??= probe());
 }
 
+/**
+ * Doubles at or past 2^64 stay numbers: their exact digits (up to 309 of them) cost ~1 s per result of 31,000 `1e300`s
+ * to build four times over, and no overflow bug the digits exist to catch lives up there.
+ */
+const EXACT_DIGITS_BELOW = 2 ** 64;
+
 /** The exact digits of an unsafe integer held as a number, in the same marker form, so number and marker forms compare alike. */
 function normalise(x: unknown): unknown {
-  if (typeof x === "number" && Number.isInteger(x) && !Number.isSafeInteger(x)) return BIG + BigInt(x).toString();
+  if (typeof x === "number" && Number.isInteger(x) && !Number.isSafeInteger(x) && Math.abs(x) < EXACT_DIGITS_BELOW) return BIG + BigInt(x).toString();
   return x === undefined ? null : x;
 }
 

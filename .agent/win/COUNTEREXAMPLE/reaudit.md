@@ -7,6 +7,19 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 24 (2026-10-28 to 29, `77ca989`, 4 parallel Sonnet audits, paused 23:00 to 00:30 by the usage limit; findings verified by the main session)
+
+Not clean (security found two medium items). Judge and core were clean under the criterion.
+- **Judge** (1 low, none medium; full bench verdicts and costs byte-identical, fresh clone with 583 tests and 12 e2e steps, every README and VIDEO number reproduced, official docs match): three replay messages still said "recorded"; they say "hand-written".
+- **Core** (4 low, none medium; full bench verdicts identical; FC_NUM_RUNS=1500 on two seeds; sync and async generation identical under concurrency; order-dependent and entry cases hold):
+  - low (round-23 regression at the cap): 10^4 words of up to 20 letters counted 200,001 values once the list counts, and failed the attack. The understand stage now shortens the longest list to fit, with a note (test);
+  - low (accepted): `extractJson` can take a closing fence of an earlier code block as an opening one when a model quotes code before its JSON (falls back to the first balanced object; not typical output); the fallback note calls a method "not defined" when a top-level `solve` wraps it (verdicts right); an entry written as prose ("a function called isValid") can match a top-level function named like an English word.
+- **Security** (2 medium, 3 low):
+  - medium: integer-valued doubles such as `1e300` were expanded to their 301 digits four times per result (about 1.1 s of CPU per tick, every chunk). Exact digits are now built only below 2^64, where the overflow bugs they exist for live (test: 31,000 of them compared in all modes under 500 ms);
+  - medium: retained inputs (`tested` and the fix stage's copies) reach about 860 MB for one attack at the DSL caps and 3 GB for four. The default `MAX_CONCURRENT_ATTACKS` is now 2, and the README states about 1 GB per concurrent attack. Keeping digests instead of inputs is the structural fix, left for after the hackathon;
+  - low (accepted): the sandbox's seccomp filter does not deny `unshare(CLONE_NEWUSER)` (network stays denied; container defaults apply); Tavily searches are outside the model spend cap (2 per attack at most, under the per-IP limits); upstream error text (300 characters) and the sandbox host reach clients.
+- **UI and tests:** below once in.
+
 ## Round 23 (2026-10-28, `9a9c561`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean.
