@@ -1,13 +1,15 @@
 AUDITED_COMMIT: d5e09fa
 OPEN_CRITICAL: 0
 OPEN_HIGH: 0
-CLEAN_AUDITS_IN_A_ROW: 0  # round 34 found 2 core mediums (open, documented); not two clean rounds in a row
+CLEAN_AUDITS_IN_A_ROW: 0  # round 34's 2 core mediums are fixed in 0d4def7; awaiting two clean rounds on the fix
 
 # Re-audit log (Counterexample)
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
 ## Round 34 (2026-10-29, `d5e09fa`, 4 parallel Sonnet audits; core and security completed, UI and judge stopped by the account's 5-hour usage limit before reporting; the limit reset at 15:30Z, after the 15:00Z submission deadline)
+
+**Update (2026-10-29, fix on `0d4def7`, bench regenerated on `b5e1b18`):** both core mediums are fixed — the run stage now judges each window in doubling sub-batches, so an all-timeout family is confirmed after a few inputs and a family whose oracle fails on its opening sub-batch is skipped; regression tests added; the built-in demos and the benchmark verdicts/costs/load are unchanged (only timings and hard-tier strings vary). A fresh audit on the fix is needed to count clean rounds.
 
 Not clean: core found 2 NEW mediums (OPEN at the deadline). Security was clean.
 - **Security** (0 findings): the round 32-33 sandbox hardening holds — fork/vfork/non-thread clone, legacy AIO, sockets, namespaces, mounts and inotify denied; threads and normal runs work; single-process memory bounded; no cross-run harm; route, guard, share links, compare CPU and 118 commits of history all held.
