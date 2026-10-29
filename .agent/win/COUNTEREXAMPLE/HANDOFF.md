@@ -1,5 +1,10 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 21:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 38 done:
+- The account's 5-hour usage limit stopped the round-38 core auditor around 18:40Z; it reset at 20:40Z and the session resumed at 21:38Z (about 3 idle hours). Round-38 UI fixes were pushed as af35a1e.
+- Round 38: judge and security CLEAN; UI 2 mediums (routing step column, Markdown totals) fixed; core 1 medium fixed — the oracle probe-skip no longer drops the ordered small-scope/examples families (a model oracle crashing on [] used to drop all of small-scope and miss a bug). Regression test mutation-checked; benchmark unaffected (no bench family ever had a small-scope/examples oracle skip).
+- Counter: round 38 NOT clean. Need rounds 39 and 40 clean, then re-stamp, gate, PR #2, final status. Freeze 2026-10-30 10:00Z.
+
 STATE 2026-10-29 18:30 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 37 done:
 - Round 37 (audited e6a0cdd): core CLEAN, security CLEAN (both thorough, with live probes). UI found one real wrong-data gap — the headline minimal-counterexample input could render the unshrunk original — now pinned; and the trace-event + example rows were extracted into pure unit-tested components (src/app/trace-view.tsx), closing the recurring "AttackUI is e2e-only" class. Judge found the churny test-count figure stale again; fixed by making summary figures robust (WIN-CHECKLIST "over 600 tests"; "more than 35 rounds … 150 issues" in SUBMISSION/break-it). 621 tests, full checks green.
 - Two-consecutive-clean counter: round 37 NOT clean (UI + judge). Still need two clean rounds in a row. Core and security have now been clean three rounds running; UI/judge findings are shrinking and increasingly structural/robustness fixes. Next: round 38 (and 39).
