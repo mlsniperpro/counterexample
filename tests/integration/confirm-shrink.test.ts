@@ -290,7 +290,9 @@ describe("a solution that keeps state between calls", () => {
     const r = await attack({ problem: bs.problem, solution: correct, research: "off" }, deps(fx));
     expect(r.counterexample?.orderDependent).toBeUndefined();
     expect(r.message).not.toMatch(/keeps state between calls/);
-    expect(r.trace.some((e) => /fail again in the original order/.test(e.msg))).toBe(false);
+    expect(r.trace.some((e) => /keeps state between calls, so the failure is deterministic/.test(e.msg))).toBe(false);
+    // The trace says it is the oracle that answers differently in order, not only that the mismatches were flaky.
+    expect(r.trace.some((e) => e.kind === "warn" && /the oracle answers them differently after earlier calls than alone/.test(e.msg))).toBe(true);
     expect(r.trace.some((e) => /did not reproduce on a re-run/.test(e.msg))).toBe(true);
   });
 

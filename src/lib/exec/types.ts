@@ -15,7 +15,13 @@ export type RunRequest = {
 
 export type RunOutcome =
   | { ok: true; out: unknown; ms: number }
-  | { ok: false; error: "timeout" | "runtime" | "compile" | "internal"; message: string };
+  | {
+      ok: false;
+      error: "timeout" | "runtime" | "compile" | "internal";
+      message: string;
+      /** Set only by the result parser, for a result never read because the run's earlier results used its total budget (output text cannot forge it). */
+      unread?: true;
+    };
 
 export type RunResult = {
   outcomes: RunOutcome[];

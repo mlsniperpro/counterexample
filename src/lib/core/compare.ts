@@ -39,6 +39,10 @@ export function parseExact(text: string): unknown {
   let last = 0;
   const n = text.length;
   const digit = (c: number) => c >= 48 && c <= 57;
+  // Open brackets, and the last character outside strings and whitespace: a number where an object key belongs is
+  // left alone, so JSON.parse refuses it as it would have.
+  const open: number[] = [];
+  let prev = 0;
   for (let i = 0; i < n; i++) {
     const c = text.charCodeAt(i);
     if (c === 34) {
@@ -48,9 +52,17 @@ export function parseExact(text: string): unknown {
         if (d === 92) i++;
         else if (d === 34) break;
       }
+      prev = 34;
       continue;
     }
-    if (c !== 45 && !digit(c)) continue;
+    if (c === 91 || c === 123) open.push(c);
+    else if (c === 93 || c === 125) open.pop();
+    if (c !== 45 && !digit(c)) {
+      if (c !== 32 && c !== 9 && c !== 10 && c !== 13) prev = c;
+      continue;
+    }
+    const atKey = prev === 123 || (prev === 44 && open[open.length - 1] === 123);
+    prev = 48;
     // One whole number token: -?digits(.digits)?([eE][+-]?digits)?
     let j = c === 45 ? i + 1 : i;
     const intStart = j;
@@ -68,7 +80,7 @@ export function parseExact(text: string): unknown {
       while (j < n && digit(text.charCodeAt(j))) j++;
     }
     // 16 digits is the shortest unsafe integer; a leading zero is left for JSON.parse to refuse.
-    if (integer && intEnd - intStart >= 16 && text.charCodeAt(intStart) !== 48) {
+    if (integer && !atKey && intEnd - intStart >= 16 && text.charCodeAt(intStart) !== 48) {
       const literal = text.slice(i, j);
       if (!Number.isSafeInteger(Number(literal))) {
         parts.push(text.slice(last, i), JSON.stringify(BIG + literal));

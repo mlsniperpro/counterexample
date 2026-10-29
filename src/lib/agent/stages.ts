@@ -5,6 +5,7 @@ import { shrink } from "../core/shrink";
 import { smallScope, smallScopeInputs } from "../core/smallscope";
 import { argsConform, type TypeSpec } from "../core/spec";
 import { AppError, AttackCancelled, BudgetExceeded, errorMessage, ModelOutputError, UpstreamError } from "../errors";
+import type { RunOutcome } from "../exec/types";
 import type { Solution } from "../problems/types";
 import { researchPlan } from "../research/plan";
 import type { ResearchFact } from "../research/tavily";
@@ -285,7 +286,10 @@ export async function confirmHits(ctx: AttackContext, found: Hit[], chunk?: unkn
     if (confirmed.length) result = [...confirmed, ...sorted.slice(at + CONFIRM_HITS)];
   }
   if (!result.length && chunk && dropped.length) {
-    const ordered = await orderDependentHit(ctx, sorted, chunk);
+    const { hit: ordered, unstable } = await orderDependentHit(ctx, sorted, chunk);
+    if (unstable) {
+      ctx.tracer.emit("run", "warn", `${unstable} mismatch(es) fail again in the original order, but the oracle answers them differently after earlier calls than alone (it may keep state between calls), so they are not blamed on the solution`);
+    }
     if (ordered) {
       ctx.tracer.emit("run", "info", `${dropped.length} mismatch(es) pass when run alone but fail again in the original order: the solution keeps state between calls, so the failure is deterministic`, {
         inputs: dropped.slice(0, 10),
@@ -315,29 +319,34 @@ export function ranBefore(chunk: unknown[][], x: unknown[], batches = byValues(c
 /**
  * Re-runs `chunk` in order as the run did; the smallest hit that fails again, after at least one earlier input (with
  * the inputs it took to fail), or undefined. The oracle can keep state between calls too (a module-level memo), so
- * the solution is blamed only when the oracle gives the same answer in order as it does alone.
+ * the solution is blamed only when the oracle gives the same answer in order as it does alone; `unstable` counts the
+ * hits that failed again only with an oracle that did not.
  */
-async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<Hit | undefined> {
+async function orderDependentHit(ctx: AttackContext, sorted: Hit[], chunk: unknown[][]): Promise<{ hit?: Hit; unstable: number }> {
   // The chunk's batches, once: per hit, they cost a pass over every value in the chunk.
   const batches = byValues(chunk, JUDGE_BATCH_VALUES);
   const again = await ctx.judge.compare("run", ctx.input.solution, chunk);
+  // The oracle's in-order answers, one run per batch, shared by every hit in it.
+  const inOrder = new Map<unknown[][], RunOutcome[]>();
+  let unstable = 0;
   for (const h of sorted) {
     const j = again[chunk.indexOf(h.args)];
     const before = ranBefore(chunk, h.args, batches);
-    if (before.length > 0 && j && j.status === "mismatch" && (await oracleStable(ctx, before, h.args))) {
-      return { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } };
+    if (before.length === 0 || !j || j.status !== "mismatch") continue;
+    const batch = batches.find((b) => b.includes(h.args)) as unknown[][];
+    if (!inOrder.has(batch)) inOrder.set(batch, await ctx.judge.exec("run", "oracle", ctx.judge.oracle(), batch));
+    if (await oracleStable(ctx, inOrder.get(batch)?.[before.length], h.args)) {
+      return { hit: { ...h, j, confirmed: true, orderDependent: { precedingInputs: before.length, sequence: [...before, h.args] } }, unstable };
     }
+    unstable++;
   }
-  return undefined;
+  return { unstable };
 }
 
-/** Whether the oracle answers `x` the same after `before` (in one process, as in the run) as it does alone. */
-async function oracleStable(ctx: AttackContext, before: unknown[][], x: unknown[]): Promise<boolean> {
-  const oracle = ctx.judge.oracle();
-  const [inOrder, alone] = await Promise.all([ctx.judge.exec("run", "oracle", oracle, [...before, x]), ctx.judge.exec("run", "oracle", oracle, [x])]);
-  const a = inOrder[before.length];
-  const b = alone[0];
-  return !!a?.ok && !!b?.ok && outputsEqual(a.out, b.out, ctx.input.problem.compare);
+/** Whether the oracle's answer to `x` after the earlier inputs (`inOrder`) is the one it gives alone. */
+async function oracleStable(ctx: AttackContext, inOrder: RunOutcome | undefined, x: unknown[]): Promise<boolean> {
+  const [alone] = await ctx.judge.exec("run", "oracle", ctx.judge.oracle(), [x]);
+  return !!inOrder?.ok && !!alone?.ok && outputsEqual(inOrder.out, alone.out, ctx.input.problem.compare);
 }
 
 async function inputsFor(ctx: AttackContext, f: Family, tested: unknown[][], salt: string): Promise<Generated> {

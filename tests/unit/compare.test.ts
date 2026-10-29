@@ -210,7 +210,9 @@ describe("parseExact", () => {
   });
 
   it("refuses what JSON.parse refuses, and keeps the record's float timing a number", () => {
-    for (const bad of ["01234567890123456789", "[12345678901234567890", "{1}", "9007199254740993 x", ""]) expect(() => parseExact(bad)).toThrow();
+    for (const bad of ["01234567890123456789", "[12345678901234567890", "{1}", "9007199254740993 x", "", "{1234567890123456789:1}", '{"a":1, -1234567890123456789:2}', '[{"a":[1]},{9007199254740993:[1]}]']) expect(() => parseExact(bad)).toThrow();
+    // A big integer after a comma in a list, or as a value after a key, is still a value.
+    expect(parseExact('{"a":[1,9007199254740993],"b":9007199254740993}')).toEqual(JSON.parse('{"a":[1,9007199254740993],"b":9007199254740993}', exactReviver));
     expect(parseExact('{"ok":true,"out":[90071992547409930],"ms":0.12345678901234567}')).toEqual({ ok: true, out: ["\u0000int:90071992547409930"], ms: 0.12345678901234567 });
   });
 

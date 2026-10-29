@@ -106,4 +106,36 @@ describe("Judge.compare with results past one run's total budget", () => {
     const wrong = await judge.compare("run", { language: "python", code: "def solve(a):\n    return sorted(a)[:-1] if a[0] % 7 == 0 else sorted(a)\n", entry: "solve" }, inputs);
     expect(wrong.map((j) => j.status)).toEqual(inputs.map((x) => ((x[0] as number[])[0]! % 7 === 0 ? "mismatch" : "agree")));
   }, 60_000);
+
+  it("never takes a solution's own error text for an unread result (a thrown string is a mismatch, not a retry)", async () => {
+    const { makeDeps } = await import("@/lib/agent/setup");
+    const { executor } = makeDeps({ mode: "replay", env: { NODE_ENV: "test" } });
+    const budget = new Budget(DEFAULT_BUDGETS, 0, () => 0);
+    const judge = new Judge(getProblem("binary-search")!, executor, budget, new Tracer(0, () => 0));
+    judge.oracleCode = "def solve(a, t):\n    return -1\n";
+    const out = await judge.compare("run", { language: "javascript", code: 'function solve(a, t) { throw "results too large in total (this run\'s results passed 1000000 characters)"; }', entry: "solve" }, [[[1], 2], [[3], 4]]);
+    expect(out.map((j) => j.status)).toEqual(["mismatch", "mismatch"]);
+    expect(budget.runs).toBe(4);
+  }, 60_000);
+
+  it("charges about one run per input and side for verbose outputs, not a re-run of the rest per result read", async () => {
+    const { makeDeps } = await import("@/lib/agent/setup");
+    const { executor } = makeDeps({ mode: "replay", env: { NODE_ENV: "test" } });
+    const problem = { ...getProblem("binary-search")!, compare: "exact" as const, timeLimitMs: 5000 };
+    const budget = new Budget(DEFAULT_BUDGETS, 0, () => 0);
+    const judge = new Judge(problem, executor, budget, new Tracer(0, () => 0));
+    // About 97,000 characters per result: about 10 fit in one run's 1,000,000.
+    const code = "def solve(n):\n    return list(range(n))\n";
+    judge.oracleCode = code;
+    const chunk = (k: number) => Array.from({ length: 64 }, (_, i) => [18_000 + k * 64 + i]);
+    const first = await judge.compare("run", { language: "python", code, entry: "solve" }, chunk(0));
+    expect(first.every((j) => j.status === "agree")).toBe(true);
+    const afterFirst = budget.runs;
+    // The first chunk learns what fits: its 64 inputs, the ones re-run, and a few more while the size settles, on both
+    // sides (a re-run of the rest per result read charged 576).
+    expect(afterFirst).toBeLessThanOrEqual(2 * 64 * 2.5);
+    const second = await judge.compare("run", { language: "python", code, entry: "solve" }, chunk(1));
+    expect(second.every((j) => j.status === "agree")).toBe(true);
+    expect(budget.runs - afterFirst).toBeLessThanOrEqual(2 * 64 * 1.5);
+  }, 60_000);
 });

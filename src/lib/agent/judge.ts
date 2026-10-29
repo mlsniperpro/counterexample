@@ -40,6 +40,13 @@ export function byValues(inputs: unknown[][], limit: number): unknown[][][] {
 /** Runs programs in the sandbox (charging the run budget) and compares a target against the oracle. */
 export class Judge {
   oracleCode = "";
+  /**
+   * Most inputs sent in one run since a run's results passed their total budget (Infinity before that): the inputs
+   * after the last result read are judged again in fresh runs, and later batches are cut to what fitted, so verbose
+   * outputs cost about one run per input instead of a re-run of the rest per result read. It doubles after every
+   * batch of that size that fits, so smaller outputs later win back larger batches.
+   */
+  private perRun = Infinity;
 
   constructor(
     private readonly problem: Problem,
@@ -83,7 +90,13 @@ export class Judge {
    */
   async compare(stage: Stage, target: Solution, inputs: unknown[][], who: "solution" | "fix" = "solution"): Promise<Judgement[]> {
     const out: Judgement[] = [];
-    for (const batch of byValues(inputs, JUDGE_BATCH_VALUES)) for (const j of await this.compareBatch(stage, target, batch, who)) out.push(j);
+    for (const batch of byValues(inputs, JUDGE_BATCH_VALUES)) {
+      for (let at = 0; at < batch.length; ) {
+        const piece = batch.slice(at, at + this.perRun);
+        at += piece.length;
+        for (const j of await this.compareBatch(stage, target, piece, who)) out.push(j);
+      }
+    }
     return out;
   }
 
@@ -92,10 +105,15 @@ export class Judge {
     const [sol, ora] = await Promise.all([this.exec(stage, who, target, inputs), this.exec(stage, "oracle", this.oracle(), inputs)]);
     if (sol.length < inputs.length || ora.length < inputs.length) throw new ExecutorError(`executor returned ${sol.length}/${ora.length} outcomes for ${inputs.length} inputs`);
     // A result refused only because the run's earlier results used its total budget says nothing about either program:
-    // those inputs are judged again in fresh runs (each run reads at least its first result, so this ends; it charges
-    // the run budget like any run). Counting them as oracle failures called a correct solution's large outputs unjudgeable.
+    // those inputs are judged again in fresh runs, at most as many per run as fitted here (each run reads at least its
+    // first result, so this ends; it charges the run budget like any run). Counting them as oracle failures called a
+    // correct solution's large outputs unjudgeable.
     const retry = inputs.flatMap((_, i) => (refusedForTotal(sol[i] as RunOutcome) || refusedForTotal(ora[i] as RunOutcome) ? [i] : []));
-    const again = retry.length ? await this.compareBatch(stage, target, retry.map((i) => inputs[i] as unknown[]), who) : [];
+    // A run always reads its first result, so a refusal there means something else went wrong: no retry, no loop.
+    if (retry[0] === 0) retry.length = 0;
+    if (retry.length) this.perRun = Math.max(1, retry[0] as number);
+    else if (inputs.length >= this.perRun) this.perRun *= 2;
+    const again = retry.length ? await this.compare(stage, target, retry.map((i) => inputs[i] as unknown[]), who) : [];
     const retried = new Map(retry.map((i, k) => [i, again[k] as Judgement]));
     const out: Judgement[] = [];
     for (let i = 0; i < inputs.length; i++) {

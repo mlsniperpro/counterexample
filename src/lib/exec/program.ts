@@ -104,7 +104,7 @@ export const MAX_RESULTS_TOTAL_CHARS = 1_000_000;
 export const TOTAL_BUDGET_REFUSAL = "results too large in total";
 
 /** True for a result refused for the run's total budget alone: it was never read, and a fresh run can read it. */
-export const refusedForTotal = (o: RunOutcome): boolean => !o.ok && o.error === "runtime" && o.message.startsWith(TOTAL_BUDGET_REFUSAL);
+export const refusedForTotal = (o: RunOutcome): boolean => !o.ok && o.unread === true;
 
 /** Deepest nesting of arrays and objects in a result; deeper values would overflow the stack when compared or shown. */
 export const MAX_RESULT_DEPTH = 256;
@@ -179,7 +179,7 @@ export function parseLines(stdout: string, maxRecords = Infinity): RunOutcome[] 
       continue;
     }
     if (accepted + text.length > MAX_RESULTS_TOTAL_CHARS) {
-      refuse(`${TOTAL_BUDGET_REFUSAL} (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)`);
+      if (complete) out.push({ ok: false, error: "runtime", message: `${TOTAL_BUDGET_REFUSAL} (this run's results passed ${MAX_RESULTS_TOTAL_CHARS} characters)`, unread: true });
       continue;
     }
     accepted += text.length;
