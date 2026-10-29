@@ -1,11 +1,22 @@
-AUDITED_COMMIT: PENDING
+AUDITED_COMMIT: d5e09fa
 OPEN_CRITICAL: 0
 OPEN_HIGH: 0
-CLEAN_AUDITS_IN_A_ROW: 0
+CLEAN_AUDITS_IN_A_ROW: 0  # round 34 found 2 core mediums (open, documented); not two clean rounds in a row
 
 # Re-audit log (Counterexample)
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
+
+## Round 34 (2026-10-29, `d5e09fa`, 4 parallel Sonnet audits; core and security completed, UI and judge stopped by the account's 5-hour usage limit before reporting; the limit reset at 15:30Z, after the 15:00Z submission deadline)
+
+Not clean: core found 2 NEW mediums (OPEN at the deadline). Security was clean.
+- **Security** (0 findings): the round 32-33 sandbox hardening holds — fork/vfork/non-thread clone, legacy AIO, sockets, namespaces, mounts and inotify denied; threads and normal runs work; single-process memory bounded; no cross-run harm; route, guard, share links, compare CPU and 118 commits of history all held.
+- **Core** (2 medium, OPEN; 1 low recorded): both are wrong-verdict risks in the hard-tier hang-detection feature when a live model generates an all-worst-case family (the shipped benchmark families mix sizes and are unaffected):
+  1. a run-stage chunk of 64 inputs is judged in full before any hit is examined, so 64 timing-out inputs cost 64 x the time limit and the attack ends `budget_exhausted` instead of reporting the counterexample (at the 1,000 ms limit a pasted statement gets, 64 s > the 50 s wall clock);
+  2. a brute-force oracle too slow on one large family stalls the whole attack, so later families never run and a bug is missed (same chunk-granularity root cause).
+  - **Not fixed before the deadline (documented in break-it.md).** The sound fix — judging the run stage in doubling sub-batches (4,8,16,32,64) and probing each family's oracle on its first few inputs — changes `inputsTested`/`runs` on every bug solution, which rewrites the benchmark figures the README, fixture, SUBMISSION and VIDEO all cite. Landing that, regenerating the benchmark and fully re-verifying it could not be done safely within the submission time box; a rushed half-fix that left the benchmark inconsistent would be worse. The findings are recorded with reproductions and a fix plan instead.
+  - low (recorded): the smallscope property test does not scale its timeout with FC_NUM_RUNS (a test-infra limit, not a product defect).
+- **UI and judge:** did not report (usage limit). Round 33's UI and judge were clean apart from the test gaps and doc lows fixed in `d5e09fa`.
 
 ## Round 33 (2026-10-29, `0a20cea`, 4 parallel Sonnet audits; findings verified by the main session)
 

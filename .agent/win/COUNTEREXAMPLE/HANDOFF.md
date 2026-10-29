@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 15:57 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — POST-DEADLINE:
+- The 15:00Z submission deadline has passed. The account's 5-hour usage limit was hit about 12:50Z and reset 15:30Z, so round 34's UI and judge auditors could not finish and no further rounds were possible before the deadline; the session sat idle through it.
+- HEAD is `d5e09fa`. Round 34: security clean; core found 2 OPEN mediums in the hard-tier hang-detection feature (a worst-case-only family can exhaust the wall clock before the hit is reported; a too-slow brute-force oracle stalls the attack). Both are documented in break-it.md and reaudit.md with reproductions and a fix plan; the sound fix rewrites the benchmark figures and could not be landed and re-verified safely in the time box.
+- break-it.md written (TESTED_COMMIT d5e09fa); reaudit header set (AUDITED_COMMIT d5e09fa, OPEN_CRITICAL 0, OPEN_HIGH 0, CLEAN_AUDITS_IN_A_ROW 0). The gate FAILS on clean-audits-in-a-row (never reached two consecutive fully-clean rounds) and reflects the 2 open mediums.
+- Final status posted on PR #1 per the goal's deadline branch (date -u past 15:00Z). Hourly heartbeat left in place.
+
 STATE 2026-10-29 12:30 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — FREEZE CANDIDATE:
 - Round 33 fully fixed in this push: README defines "minimal" (locally minimal under the reductions); sandbox denies legacy AIO (io_setup family) and sets `ulimit -c 0`; UI tests for the diff direction, the one-mismatch fix summary and the full-fix view's keyboard access; `.stats` wraps huge numbers; the trace source link is pinned to a new tab; two stale doc notes fixed. lint, typecheck, 611/611 tests, build, e2e; image rebuilt and verified (both languages, threads, fork/AIO denied, core limit 0, preflight, bench). Security and judge round 33 were clean.
 - Evidence so far: screenshots retaken, FC_NUM_RUNS=5000 all 378 property tests pass (the exit-1 is the vitest-worker onTaskUpdate flake under load). Still to run on the frozen commit: soak, fresh-clone README run, a full bench confirmation.
