@@ -1,5 +1,10 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 12:30 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — FREEZE CANDIDATE:
+- Round 33 fully fixed in this push: README defines "minimal" (locally minimal under the reductions); sandbox denies legacy AIO (io_setup family) and sets `ulimit -c 0`; UI tests for the diff direction, the one-mismatch fix summary and the full-fix view's keyboard access; `.stats` wraps huge numbers; the trace source link is pinned to a new tab; two stale doc notes fixed. lint, typecheck, 611/611 tests, build, e2e; image rebuilt and verified (both languages, threads, fork/AIO denied, core limit 0, preflight, bench). Security and judge round 33 were clean.
+- Evidence so far: screenshots retaken, FC_NUM_RUNS=5000 all 378 property tests pass (the exit-1 is the vitest-worker onTaskUpdate flake under load). Still to run on the frozen commit: soak, fresh-clone README run, a full bench confirmation.
+- Endgame: it is ~12:30, deadline 15:00. Run the remaining evidence on this commit, write break-it.md (TESTED_COMMIT = this), and either reach two clean rounds (34, 35) for GATE: PASS or post an honest final status on PR #1 before 15:00Z with the gate output and the open state.
+
 STATE 2026-10-29 11:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 32 security fix pushed: the sandbox denies fork/vfork and clone without CLONE_THREAD (a run is one process; threads work). lint, typecheck, 606/606 tests, build, e2e; image rebuilt and verified (both languages, threads, fork denied, attack denied, preflight, bench). Core was clean. Evidence done so far: screenshots retaken, FC 5000 (one test generator tightened for the per-pair float rule).
 - Next: round 33 on this HEAD (and re-audit UI/judge, which were mid-run in round 32). Two clean rounds needed. It is late against the 13:30/15:00 plan; if two clean rounds are not reached, run soak + fresh clone, then post the final status on PR #1 before 15:00Z with the open state stated plainly. break-it.md, the reaudit header and the gate come last.

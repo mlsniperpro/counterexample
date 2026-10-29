@@ -109,7 +109,7 @@ th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line
 th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 16px; }
 .stats > div { background: var(--code-bg); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; }
-.stats b { font-size: 1.1rem; }
+.stats b { font-size: 1.1rem; overflow-wrap: anywhere; }
 .stats span { color: var(--muted); font-size: 0.78rem; }
 .foot { color: var(--muted); font-size: 0.82rem; text-align: center; margin-top: 24px; }
 .share-err { margin: 0 0 16px; }

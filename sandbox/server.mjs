@@ -92,7 +92,7 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * shmget, semget, msgget, every POSIX message-queue call (mq_open, mq_unlink,
  * mq_timedsend, mq_timedreceive, mq_notify, mq_getsetattr: a queue can also be
  * created with a plain open() under /dev/mqueue, so send and receive are denied
- * too), io_uring_{setup,enter,register}, unshare, setns, mount, pivot_root and
+ * too), io_uring_{setup,enter,register}, the legacy AIO calls (io_setup etc.: one run could fill the host-global aio-nr and starve other containers), unshare, setns, mount, pivot_root and
  * chroot (a user namespace with its own tmpfs holds memory the run's limit does
  * not count, wherever the runtime's own seccomp profile is missing), and fork,
  * vfork and any clone that does not set CLONE_THREAD (a run is then one process,
@@ -104,8 +104,8 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * below, not the flat list.
  */
 const DENIED_SYSCALLS = {
-  x64: { audit: 0xc000003e, x32: true, clone: 56, nrs: [57, 58, 41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161] },
-  arm64: { audit: 0xc00000b7, x32: false, clone: 220, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51] },
+  x64: { audit: 0xc000003e, x32: true, clone: 56, nrs: [57, 58, 41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161, 206, 207, 208, 209, 210] },
+  arm64: { audit: 0xc00000b7, x32: false, clone: 220, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51, 0, 1, 2, 3, 4] },
 };
 
 /**
@@ -271,7 +271,7 @@ export async function runSubmission(job) {
     }
     const asKb = lang.id === 71 ? memMb * 1024 : Math.ceil(NODE_AS_BASE_MB + memMb * 1.25) * 1024;
     // The OOM killer, if the container's own limit is ever reached, takes run processes before the server.
-    const limits = `ulimit -t ${cpu}; ulimit -f ${MAX_FILE_KB}; ulimit -n ${MAX_FDS}; ${uid !== undefined ? `ulimit -u ${MAX_PROCS}; ` : ""}echo 1000 2>/dev/null >/proc/self/oom_score_adj; `;
+    const limits = `ulimit -t ${cpu}; ulimit -f ${MAX_FILE_KB}; ulimit -n ${MAX_FDS}; ulimit -c 0; ${uid !== undefined ? `ulimit -u ${MAX_PROCS}; ` : ""}echo 1000 2>/dev/null >/proc/self/oom_score_adj; `;
     const launch = `exec python3 -I -c "$1" ${asKb} ${job.allowNetwork ? 0 : 1}`;
     const cmd = lang.id === 71 ? `${limits}${launch} python3 -I "$0"` : `${limits}${launch} node --max-old-space-size=${memMb} --stack-size=4000 --disable-wasm-trap-handler "$0"`;
     const child = spawn("bash", ["--noprofile", "--norc", "-c", cmd, file, LAUNCHER], {

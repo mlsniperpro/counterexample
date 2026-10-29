@@ -19,6 +19,9 @@ describe("ReportView markup", () => {
     const html = render(fullReport({ solution: { language: "python", code: "def solve(a, t):\n    return -1\n", entry: "solve" } }));
     expect(html).toMatch(/<div class="dl del"><span class="sign" aria-hidden="true">-<\/span><span class="sr-only">removed: <\/span>/);
     expect(html).toMatch(/<div class="dl add"><span class="sign" aria-hidden="true">\+<\/span><span class="sr-only">added: <\/span>/);
+    // The removed line is the submitted code and the added line is the fix, not the other way round.
+    expect(html).toContain('<div class="dl del"><span class="sign" aria-hidden="true">-</span><span class="sr-only">removed: </span>    return -1</div>');
+    expect(html).toContain('<div class="dl add"><span class="sign" aria-hidden="true">+</span><span class="sr-only">added: </span>    return 0</div>');
     // Unchanged lines carry no label.
     expect(html).toContain('<div class="dl same"><span class="sign" aria-hidden="true"> </span>def solve(a, t):</div>');
   });
@@ -220,7 +223,7 @@ describe("ReportView puts every field in its own place (distinct values)", () =>
     research: { queries: ["q"], facts: [{ fact: "Sorted ascending.", url: "https://example.com/d" }], influencedFamilies: ["two-digit-starts"] },
     stages: [
       { stage: "oracle", purpose: "oracle", role: "reasoning", model: "nvidia/ultra", why: "Correctness first", calls: 2, promptTokens: 300, completionTokens: 45, costUsd: 0.00042, latencyMs: 20, simulated: false },
-      { stage: "generators", purpose: "generators", role: "fast", model: "nvidia/super", why: "Cheap and fast", calls: 1, promptTokens: 100, completionTokens: 10, costUsd: null, latencyMs: 10, simulated: false },
+      { stage: "attack", purpose: "generators", role: "fast", model: "nvidia/super", why: "Cheap and fast", calls: 1, promptTokens: 100, completionTokens: 10, costUsd: null, latencyMs: 10, simulated: false },
     ],
     stats: { modelCalls: 8, runs: 4567, inputsTested: 123, wallMs: 1, timeToFirstCounterexampleMs: 2500, costUsd: 0.075, unpricedCalls: 2, simulatedModelMs: 0 },
   });
@@ -252,5 +255,15 @@ describe("ReportView puts every field in its own place (distinct values)", () =>
 
   it("names the one shaped generator family (the line is shown for a single family too)", () => {
     expect(html).toContain("Shaped generator families: two-digit-starts");
+  });
+});
+
+describe("ReportView region names tell a shared report from the reader's own", () => {
+  it("prefixes a shared report's region names, and leaves the reader's own report's names plain", () => {
+    const own = render(fullReport(), {});
+    expect(own).toContain('aria-label="Attack families table"');
+    expect(own).not.toContain("Shared report:");
+    const sharedHtml = renderToStaticMarkup(createElement(ReportView, { r: fullReport(), onCopy: () => {} }));
+    expect(sharedHtml).toContain('aria-label="Shared report: attack families table"');
   });
 });

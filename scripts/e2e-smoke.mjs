@@ -230,6 +230,8 @@ async function main() {
   check((await page.locator("ul.examples li").count()) > 0, "the problem's examples are listed");
   // Every research fact is cited, in the live trace and in the report, with a link to its https source.
   const traceSources = await page.locator(".trace .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+  const traceTargets = await page.locator(".trace .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("target") ?? ""));
+  check(traceTargets.length > 0 && traceTargets.every((t) => t === "_blank"), `each research source opens in a new tab, not the running one (${traceTargets.join(", ")})`);
   const reportSources = await page.locator(".result .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
   check(traceSources.length > 0 && traceSources.every((h) => h.startsWith("https://")), `the trace cites each research fact's source (${traceSources.join(", ")})`);
   check(reportSources.length > 0 && reportSources.every((h) => h.startsWith("https://")), `the report cites each research fact's source (${reportSources.join(", ")})`);
@@ -747,6 +749,12 @@ async function main() {
       await attackButton(p).click();
       await p.locator("h2.verdict").waitFor({ timeout: 90_000 });
       eq(await axeViolations(p), "", `axe violations on the report (${where})`);
+      // The full-fix view is its own state (a focusable region); axe it and check its tab stop and name.
+      await p.getByRole("button", { name: "Show full fix" }).click();
+      const fixPre = p.locator("pre.code-out").first();
+      eq(await fixPre.evaluate((el) => [el.tabIndex, el.getAttribute("role"), el.getAttribute("aria-label")].join("|")), "0|region|Proposed fix", `the full-fix view is a named tab stop (${where})`);
+      eq(await axeViolations(p), "", `axe violations with the full fix shown (${where})`);
+      await p.getByRole("button", { name: "Show changes only" }).click();
       await p.getByRole("button", { name: "Share link" }).click();
       await p.locator("input.share-link").waitFor({ timeout: 15_000 });
       const linkRatio = await borderRatio(p.locator("input.share-link"));

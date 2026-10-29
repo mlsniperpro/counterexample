@@ -9,6 +9,8 @@ describe("fixSummary (how the re-attack of a fix went)", () => {
   it("says 'still fails' and counts only judged inputs, with the unjudged ones named", () => {
     expect(fixSummary(fix({ reattackMismatches: 2, reattackUnjudged: 3 }))).toBe("still fails on 2 of 7 judged inputs (3 more the oracle could not judge)");
     expect(fixSummary(fix({ reattackMismatches: 2 }))).toBe("still fails on 2 of 10 judged inputs");
+    // The common case: the re-attack stops at the first failure, so one mismatch is reported, not treated as "incomplete".
+    expect(fixSummary(fix({ reattackMismatches: 1 }))).toBe("still fails on 1 of 10 judged inputs");
   });
 
   it("says 'incomplete' for a fix that did not fail but was not verified", () => {

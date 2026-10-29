@@ -27,6 +27,7 @@ Per server:
 
 Container flags (defence in depth; the filter above does not depend on them):
 - `--memory 2g` and `--pids-limit 512` bound the whole container, the backstop behind the per-run limits;
+  Keep concurrent runs within the container memory: roughly `(--memory - 0.5 GB) / (memory_limit + 64 MB)`. At `--memory 2g` and the 256 MB default that is about 6; `MAX_CONCURRENT_ATTACKS` on the app and the server's own `maxConcurrent` (the CPU count by default) should not exceed it, or several memory-heavy runs at once can reach the container limit;
 - `--read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m`: bounded, RAM-backed temp dirs that the server itself uses (run uids cannot write them);
 - `--cap-drop ALL` plus the six capabilities the server needs: `CHOWN DAC_OVERRIDE FOWNER SETUID SETGID KILL`; `--security-opt no-new-privileges`;
 - `--network none` would deny the container all network, but it also disables port publishing: with `--network none -p 2390:2358` the port is not published (`docker port` prints nothing, `curl` cannot connect; checked on Docker 29.9.2). So it is not usable for a sandbox you call over HTTP; the per-run filter is what blocks the network.
@@ -36,7 +37,7 @@ Without root (`pnpm sandbox`), runs share the server's uid: the network filter, 
 Verified in the build session (Docker 29.9.2):
 - `docker build -t counterexample-sandbox sandbox/` succeeded.
 - `docker run --read-only --tmpfs /tmp -e SANDBOX_TOKEN=… counterexample-sandbox`, then `pnpm preflight` passed `config: sandbox`, `judge0: languages` and `judge0: run`.
-- `pnpm bench --only binary-search` against the container gave all 12 expected verdicts.
+- `pnpm bench --only binary-search` against the container gives the right verdict for every solution in all four benchmark configurations.
 - Security fixes (2026-10-25, Docker 29.9.2, kernel 6.18): with both a plain `docker run -p 2390:2358 -e SANDBOX_TOKEN=…` and the hardened flags below, submissions that connect to `169.254.169.254:80`, `172.17.0.1:2358`, `example.com:80` and `127.0.0.1:2358` all got `EACCES`; writes to `/tmp`, `/dev/shm`, `/var/tmp` and the run directory were denied; a Node `Buffer` bomb at `memory_limit` 64 MB stopped at 64 MB; a 20-child fork bomb was killed with `memory limit 64 MB exceeded`; `/health` reported `"network":"blocked","sharedDirs":"locked"`.
 
 ## Deploy as a Nebius Serverless AI endpoint (owner, needs Nebius AI Cloud credentials)

@@ -9,7 +9,7 @@ Legend:
 
 ## Judging criteria
 
-- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 605 tests when counted on 2026-10-29 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
+- [x] **Built well:** typed, budgeted, cancellable stages (`src/lib/agent/`). Every external input is schema-validated, errors are typed, and network calls have timeouts, retries with backoff and an idempotency key. Evidence: 611 tests when counted on 2026-10-29 (`pnpm test`), lint with 0 warnings, strict TypeScript, `next build` passes.
 - [x] **Uses Token Factory and Nemotron by design:** Ultra writes the oracle and the explanation, Super writes the generators and research summaries. There is an Ultra-only baseline and a per-step cost and latency panel. Evidence: `src/lib/agent/model-call.ts`, `tests/e2e/agent-replay.test.ts` (routing assertions), `bench/results/fixture.md`.
 - [P] **Live Token Factory run:** proven over real HTTP against fake Token Factory and Tavily servers plus the real sandbox (`tests/integration/live-wiring.test.ts`: full attack, a 429 retried, a custom statement through the API). `pnpm preflight` is ready. Needs `NEBIUS_API_KEY` and `TAVILY_API_KEY` (BLOCKED.md); Token Factory itself was reachable from the build session from 2026-10-27.
 - [x] **Creativity:**
@@ -230,3 +230,4 @@ Legend:
 - [x] Round 30 (audit of `e17f6d6`; details in `reaudit.md`): float comparison decided from the oracle's answers (a non-integer switches an exact problem to float mode, with a trace note); exact mode's rounding gap 1e-12 relative; float-literal check on kept examples only; deep answers are model-output errors.
 - [x] Round 31 (audit of `68d1c6a`; details in `reaudit.md`): float answers compared per pair (1e-6 when either side is not an integer; integers exact), no order-dependent switch; tests for research citations, the full fix view and every stat tile.
 - [x] Round 32 (audit of `6cafaa3`; UI test gaps pinned in a later push; details in `reaudit.md`): the sandbox denies fork/vfork and clone without CLONE_THREAD, so a run is one process bounded by one RLIMIT_AS (threads still work); comparison tolerance and the integer-valued-float limit documented.
+- [x] Round 33 (audit of `0a20cea`; details in `reaudit.md`): "minimal" defined precisely (locally minimal under the reductions); sandbox denies legacy AIO and sets `ulimit -c 0`; tests for the diff direction, the one-mismatch fix summary and the full-fix view's keyboard access; a crafted link no longer scrolls sideways.
