@@ -386,7 +386,7 @@ WIND DOWN (2026-10-25 ~14:20 UTC, owner request): the lease is released; the wor
 - Push rule (owner, replaces the old 45-minute spacing): Push when a substantial task is complete and green (a set of findings fixed and tested, a feature slice working, a soak or break-it pass recorded, a gate run); no timer. Every push is a meaningful, squashed commit set: never empty, format-only or "wip" commits; exactly one PR (#1). PR #1: subscribing to activity failed, so check it manually.
 - Container: `docker run -d -p 2358:2358 -e SANDBOX_TOKEN=x --read-only --tmpfs /tmp:size=64m --tmpfs /dev/shm:size=1m counterexample-sandbox`. Start `dockerd` first, then `DOCKER_BUILDKIT=0 docker build -t counterexample-sandbox sandbox/`.
 
-## Earlier hand-off (2026-10-24, previous session)
+## Earlier hand-off (2026-10-24, previous session — historical; its deadline, freeze and PR rules are superseded by the STATE entries at the top)
 Written 2026-10-24 ~23:00 UTC by session_01UsWurhxjKnsfg5iDpVasE9 for a successor that has only this repo.
 
 ## Goal, deadline, PR
