@@ -82,7 +82,7 @@ Mode: **fixture** (replayed hand-written stand-ins for model answers; token coun
 | False alarms (of 16 correct) | 0 | 0 | 0 | 0 |
 | Fixes verified by re-attack | 38 of 38 | 38 of 38 | 30 of 30 | 27 of 27 |
 | Bugs first found by a model-designed family | 13 | 13 | 0 | 0 |
-| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.5 s run to run, more on a loaded machine) | 5.4 s | 11.3 s | 2.8 s | 3.0 s |
+| Median time to first counterexample (execution plus simulated model latency; varies by about ±0.5 s run to run, more on a loaded machine) | 5.6 s | 11.4 s | 2.7 s | 2.6 s |
 | Model cost per solution | $0.0016 | $0.0032 | $0.0008 | $0.0008 |
 | Model cost, all 54 solutions | $0.0882 | $0.1725 | $0.0433 | $0.0419 |
 | Runs ending in error / budget / bad oracle | 0 | 0 | 0 | 0 |
