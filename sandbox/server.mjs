@@ -86,7 +86,8 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
 
 /**
  * Syscalls a run may not make, by Node's process.arch: socket (all network,
- * loopback and AF_UNIX included; socketpair stays allowed), memfd_create,
+ * loopback and AF_UNIX included), socketpair (its kernel send buffers are memory
+ * no run's RSS counts: 120 filled pairs held about 900 MB), memfd_create,
  * shmget, semget, msgget, every POSIX message-queue call (mq_open, mq_unlink,
  * mq_timedsend, mq_timedreceive, mq_notify, mq_getsetattr: a queue can also be
  * created with a plain open() under /dev/mqueue, so send and receive are denied
@@ -97,8 +98,8 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * would need argument filtering and threads use clone).
  */
 const DENIED_SYSCALLS = {
-  x64: { audit: 0xc000003e, x32: true, nrs: [41, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161] },
-  arm64: { audit: 0xc00000b7, x32: false, nrs: [198, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51] },
+  x64: { audit: 0xc000003e, x32: true, nrs: [41, 53, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161] },
+  arm64: { audit: 0xc00000b7, x32: false, nrs: [198, 199, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51] },
 };
 
 /**
