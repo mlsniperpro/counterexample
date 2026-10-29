@@ -191,19 +191,19 @@ describe("sandbox isolation", () => {
     expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
   });
 
-  it("denies new namespaces, mounts, chroot and socketpair, so a run cannot hold memory its RSS does not show", async () => {
-    // unshare, setns, mount, pivot_root, chroot and socketpair, by number; the filter says EACCES (13) before the kernel can.
+  it("denies new namespaces, mounts, chroot, socketpair and inotify, so a run cannot hold memory its RSS does not show", async () => {
+    // unshare, setns, mount, pivot_root, chroot, socketpair, inotify_init1 and inotify_add_watch, by number; the filter says EACCES (13) before the kernel can.
     const py = [
       "import ctypes, errno, platform",
       "libc = ctypes.CDLL(None, use_errno=True)",
-      "nrs = {'x86_64': [272, 308, 165, 155, 161, 53], 'aarch64': [97, 268, 40, 41, 51, 199]}[platform.machine()]",
+      "nrs = {'x86_64': [272, 308, 165, 155, 161, 53, 294, 254], 'aarch64': [97, 268, 40, 41, 51, 199, 26, 27]}[platform.machine()]",
       "for nr in nrs:",
       "    r = libc.syscall(nr, 0, 0, 0, 0, 0)",
       "    print(nr, 'denied' if r == -1 and ctypes.get_errno() == errno.EACCES else 'allowed')",
     ].join("\n");
     const p = await runSubmission({ ...job, ...isolatedJob, language_id: 71, source: py });
     const lines = unb64(p.stdout).trim().split("\n");
-    expect(lines).toHaveLength(6);
+    expect(lines).toHaveLength(8);
     expect(lines.every((l) => l.endsWith(" denied"))).toBe(true);
   });
 
