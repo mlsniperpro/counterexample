@@ -175,7 +175,7 @@ export default function ReportView({ r, onCopy, onShare, shareNote, shareNoteKey
           </tbody>
         </table>
       </div>
-      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: no model ran. A hand-written stand-in answered each step, so the model column names the model that step uses live; token counts are estimated from text length and latency is simulated (the time to first counterexample includes it).</p>}
+      {r.stages.some((s) => s.simulated) && <p className="muted small">* Replay mode: no model ran. A hand-written stand-in answered each step, so the model column names the model that step uses live; token counts are estimated from text length and latency is simulated{r.stats.timeToFirstCounterexampleMs !== null ? " (the time to first counterexample includes it)" : ""}.</p>}
 
       <div className="stats">
         <div>

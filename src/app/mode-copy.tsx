@@ -37,3 +37,9 @@ export function HeroText({ mode }: { mode: UIMode | null }) {
 export function researchHeading(setupResearch: string): string {
   return setupResearch === "replay" ? "Research (hand-written stand-in for Tavily)" : "Research (Tavily)";
 }
+
+/** What "Research the web" does, said under the checkbox: replay mode runs no web search. */
+export function researchHint(mode: UIMode | null): string {
+  if (mode === "replay") return "In replay mode no web search runs: research shows hand-written stand-in results for the built-in problems, in place of Tavily's.";
+  return "Research searches the web (Tavily) for the problem's official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources.";
+}

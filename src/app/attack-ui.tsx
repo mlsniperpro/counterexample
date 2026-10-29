@@ -8,11 +8,11 @@ import { attackRun } from "./attack-run";
 import { fmtArgs, ms, toMarkdown, VERDICT } from "./format";
 import { splitCode } from "./inline-code";
 import ReportView from "./report-view";
-import { MODE_LABEL, HeroText, type UIMode } from "./mode-copy";
+import { MODE_LABEL, HeroText, researchHint, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
-import { echoesCancel, echoesStart, ignoreHeldEnter } from "./keys";
+import { echoesCancel, echoesStart, ignoreHeldEnter, nearBottom } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
 
@@ -101,9 +101,18 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const lastRun = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
   const traceEnd = useRef<HTMLDivElement | null>(null);
+  // Follow new events only while the reader is at the bottom: someone who scrolled up to read stays where they are.
+  const followTrace = useRef(true);
+  // Where the last automatic scroll left the trace: its own scroll event can arrive after more events have rendered.
+  const autoTop = useRef(0);
   useEffect(() => {
     const el = traceEnd.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    // A new run starts at the bottom again.
+    if (events.length === 0) followTrace.current = true;
+    if (el && followTrace.current) {
+      el.scrollTop = el.scrollHeight;
+      autoTop.current = el.scrollTop;
+    }
   }, [events]);
 
   /** Drop a share fragment from the address bar once the page shows something else. */
@@ -290,7 +299,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           </>
         ) : (
           <>
-            <textarea className="statement-in" rows={5} placeholder="Paste the problem statement, with constraints and examples." value={statement} onChange={(e) => setStatement(e.target.value)} />
+            <textarea className="statement-in" rows={5} aria-label="Problem statement" placeholder="Paste the problem statement, with constraints and examples." value={statement} onChange={(e) => setStatement(e.target.value)} />
             {mode === "replay" && <p className="warn">Custom problems need live mode (NEBIUS_API_KEY on the server). Replay mode covers the five built-ins.</p>}
           </>
         )}
@@ -312,7 +321,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
         </div>
         {/* Shown, not left in a tooltip, so touch and keyboard users read it too. */}
         <p className="small muted" id="research-hint">
-          Research searches the web for the problem&apos;s official constraints and for the documentation of risky APIs your code calls (default sort order, 32-bit bitwise operators, rounding), even if the statement cites no sources.
+          {researchHint(mode)}
         </p>
         <textarea className="code" spellCheck={false} rows={14} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Solution code" />
         <div className="go-row">
@@ -355,7 +364,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
               </button>
             </div>
             {/* The scroller is the wrapper, not the list: a region role on the <ol> would orphan its items. */}
-            <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events">
+            <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events" onScroll={(e) => (followTrace.current = e.currentTarget.scrollTop >= autoTop.current - 1 || nearBottom(e.currentTarget))}>
               <ol>
                 {events.map((e) => (
                   <li key={e.seq} className={`ev ${e.kind}`}>

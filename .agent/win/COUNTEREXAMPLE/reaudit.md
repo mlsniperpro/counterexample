@@ -7,6 +7,33 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 26 (2026-10-29, `657c696`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (security 1 medium, UI 6 medium; core and judge clean under the criterion). Fixed in `da03f2a` (core and security) and the next push (UI). A full bench on the fixed judge gave the fixture's verdicts.
+- **Security** (1 medium, 2 low; the hardened sandbox image with the documented flags and with seccomp unconfined; the new denylist holds and Python and Node threads, subprocesses and workers still run):
+  - medium: round 25's re-run of unread results re-ran the rest of a 64-input chunk once per result read, so verbose outputs (about 97,000 characters each) charged 576 runs for a chunk instead of 128. The judge now cuts later runs to as many inputs as fitted and grows them back after runs that fit: at most 320 for the first such chunk and 192 after (test with real processes);
+  - low, fixed: `parseExact` accepted an unquoted integer of 16+ digits as an object key; it now leaves it for JSON.parse to refuse (also found by core; tests);
+  - low (accepted): a stateful solution's order-dependent check costs a few hundred runs, inside the run budget.
+- **Core** (7 low, none medium; full bench verdicts identical, FC_NUM_RUNS=1000 on two seeds, 600,000 texts through `parseExact` against the reviver, 3,000 random judge batches with correct placement):
+  - low, fixed: the retry keyed on the message text, so a JavaScript solution that threw that text was retried until the wall clock. The parser now sets a flag that output cannot forge, and a refusal of a run's first result is never retried (test);
+  - low, fixed: an oracle that answers differently in order was reported as flaky execution and cost one in-order oracle run per hit. One in-order run per batch is shared, and the trace names the oracle (test);
+  - low, fixed in docs: the README says unread results are judged again in fresh runs, and that state is blamed only when the oracle answers the same in order as alone (and that the original process split holds unless results were too large for one run);
+  - low (accepted): `oracleStable` reads no results past a run's total budget (the hit is dropped, conservatively); a JavaScript `Math.pow(2, 70)` is unequal to a Python oracle's `2.0 ** 70` in exact mode (related to the accepted 2^64 item).
+- **Judge** (5 low, none medium; fresh clone with 597 tests, 12 e2e steps, full bench verdicts and costs identical, every README and VIDEO number reproduced, the Docker sandbox with the documented flags, sponsor docs match, soak 164 attacks with 0 unsound):
+  - low (final step): WIN-CHECKLIST cites `break-it.md`, which is written at the final commit with the gate;
+  - low (decision recorded): BRIEF says "Don't run `next build` locally". Read as the owner's machine: this cloud container runs it for the browser e2e and the gate's checks, and the required pre-push checks (lint, typecheck, test) run before every push;
+  - low (final step): `bench/results/soak.md` and the README soak table predate the hard tier; both are regenerated at the final commit with `pnpm soak`;
+  - low (final step): FC_NUM_RUNS=5000 passed every test but a vitest worker timed out under four auditors' load; it is rerun on a quiet machine at the final commit.
+- **UI and tests** (6 medium, 4 low; axe in 60 built-in states plus 14 synthetic verdicts and the 404 page with zero violations, 21 hostile links, keyboard traversal, 82 mutants):
+  - medium: the statement box's only visible label was its placeholder, at 4.1:1. Placeholders use the muted colour now (5.3:1 light, 7.5:1 dark), the box has an accessible name, and the e2e runs axe on "Your own" and checks both;
+  - medium: text fields, the language select and the share link had borders of 1.3:1 (WCAG 1.4.11). They use a field colour of 4.0:1 and 4.5:1 now;
+  - medium: the research option's new explanation said it searches the web in replay mode, where no search runs. It depends on the mode now (unit test, and the e2e checks the replay text);
+  - medium: the 404 page's link was untested; the e2e follows it home;
+  - medium: Attack's disabled state during a run was untested (a second click on its left half would start a second run); the e2e clicks there mid-run and counts one request;
+  - medium: the unit test of section headings accepted a missing one; it now pins the exact ordered list, and each form of the counterexample heading;
+  - low, fixed: the trace stops following new events once the reader scrolls up, and follows again at the bottom or on a new run; the footnote's "(the time to first counterexample includes it)" shows only with a counterexample; a nonzero cost below $0.000005 shows as "<$0.00001";
+  - low (accepted): ten more wiring and label mutants survive (examples' outputs, backtick spans, the trace button's disabled state, a group name, the footer link, the client timeout constant), of kinds accepted in earlier rounds.
+
 ## Round 25 (2026-10-29, `8281d1f`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (judge 1 medium, core 2 medium, UI 4 medium, security 1 medium). The judge, core and UI fixes are in `1b66231` and `f0f9e8d`; the security fixes follow. A full bench on `f0f9e8d` gave the same verdicts as the fixture.

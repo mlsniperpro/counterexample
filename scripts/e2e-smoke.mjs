@@ -354,6 +354,19 @@ async function main() {
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator(".note", { hasText: "Attack cancelled" }).count(), 0, "cancel notes after a double-click on Attack's right edge");
   eq(attacks.length - edgeFrom, 1, "attacks started by a double-click on Attack's right edge");
+  // A second click in Attack's centre while the run goes on (left of where Cancel appears): the button is disabled, no second run.
+  pace.lineDelayMs = 300;
+  const centreFrom = attacks.length;
+  await attackButton(page).click();
+  await page.waitForTimeout(700);
+  // While it runs the button reads "Attacking…".
+  const go = page.locator("button.go");
+  check((await go.innerText()) === "Attacking…" && (await go.isDisabled()), "Attack is disabled while a run goes on");
+  const centre = await go.boundingBox();
+  await page.mouse.click(centre.x + centre.width * 0.25, centre.y + centre.height / 2);
+  pace.lineDelayMs = 0;
+  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
+  eq(attacks.length - centreFrom, 1, "attacks started by a second click on Attack's left half during a run");
   // Cancelling from the keyboard, then a quick second Enter that lands on Attack as focus returns: no new run.
   pace.lineDelayMs = 300;
   const keyCancelFrom = attacks.length;
@@ -460,8 +473,12 @@ async function main() {
   eq(JSON.stringify([bodies[1]?.problemId, bodies[1]?.routing, bodies[1]?.research, bodies[1]?.language]), JSON.stringify(["isqrt", "ultra-only", "auto", otherLanguage]), "request body with Ultra ticked and the language changed");
   await page.getByLabel("Ultra for everything (baseline)").uncheck();
   check((await page.getByLabel("Research the web (Tavily)").getAttribute("aria-describedby")) === "research-hint" && (await page.locator("#research-hint").isVisible()), "the research option's explanation is shown and tied to its checkbox");
+  eq(await page.locator("#research-hint").innerText(), "In replay mode no web search runs: research shows hand-written stand-in results for the built-in problems, in place of Tavily's.", "the research option's explanation in replay mode");
   await page.getByLabel("Research the web (Tavily)").check();
   await page.getByRole("button", { name: "Your own", exact: true }).click();
+  check((await page.getByRole("textbox", { name: "Problem statement" }).count()) === 1, "the statement box has a name of its own");
+  const [phColor, mutedColor] = await page.locator("textarea.statement-in").evaluate((el) => [getComputedStyle(el, "::placeholder").color, getComputedStyle(document.querySelector(".sub")).color]);
+  eq(phColor, mutedColor, "the statement placeholder's colour (the muted text colour, 5.3:1 and 7.5:1)");
   await page.locator("textarea.statement-in").fill("Return x + 1.");
   await page.locator("textarea.code").fill("def solve(x):\n    return x + 1\n");
   await attackButton(page).click();
@@ -713,6 +730,13 @@ async function main() {
       eq(missing.status(), 404, "an unknown address's status");
       check((await p.title()).startsWith("404"), "the 404 page's title says 404");
       eq(await axeViolations(p), "", `axe violations on the 404 page (${where})`);
+      await p.getByRole("link", { name: "Go to Counterexample" }).click();
+      await attackButton(p).waitFor({ timeout: 15_000 });
+      eq(new URL(p.url()).pathname, "/", `the 404 page's link leads home (${where})`);
+      // "Your own" (the statement box and the replay warning) and its error alert.
+      await p.getByRole("button", { name: "Your own", exact: true }).click();
+      await p.locator("textarea.statement-in").waitFor();
+      eq(await axeViolations(p), "", `axe violations on "Your own" (${where})`);
       await a11y.close();
     }
   }

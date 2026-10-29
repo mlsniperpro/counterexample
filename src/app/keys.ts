@@ -26,3 +26,8 @@ export const TAP_ECHO_MS = 300;
 export function echoesStart(e: { detail: number }, msSinceStart: number): boolean {
   return e.detail === 1 ? msSinceStart < TAP_ECHO_MS : msSinceStart < ECHO_MS;
 }
+
+/** Whether a scroller is at (or within 24 px of) its bottom, so new content should keep it there. */
+export function nearBottom(el: { scrollHeight: number; scrollTop: number; clientHeight: number }): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+}

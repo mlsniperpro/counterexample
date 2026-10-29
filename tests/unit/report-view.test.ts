@@ -178,9 +178,25 @@ describe("ReportView for every verdict", () => {
   });
 
   it("makes each report section a heading, so screen readers can jump between them", () => {
-    const headings = [...render().matchAll(/<h3 class="label">(.*?)<\/h3>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
-    expect(headings).toEqual(expect.arrayContaining(["Why it fails", "Attack families", "Why Ultra here, Super there"]));
-    expect(headings.some((h) => h.startsWith("Proposed fix"))).toBe(true);
-    expect(headings.length).toBeGreaterThanOrEqual(5);
+    const headings = (r: ReturnType<typeof fullReport>) => [...render(r).matchAll(/<h3 class="label">(.*?)<\/h3>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
+    expect(headings(fullReport())).toEqual([
+      "Minimal counterexample",
+      "Why it fails",
+      "Proposed fix · re-attacked on 10 judged inputs: 0 failures",
+      "Research (Tavily)",
+      "Attack families",
+      "Why Ultra here, Super there",
+    ]);
+    // The counterexample's heading is a heading in its other forms too.
+    const cx = fullReport().counterexample!;
+    expect(headings(fullReport({ counterexample: { ...cx, orderDependent: { precedingInputs: 2, sequence: [[1], [2], cx.args] } } }))[0]).toMatch(/^Counterexample \(fails only when run after 2 earlier input/);
+    expect(headings(fullReport({ counterexample: { ...cx, shrinkExhausted: true } }))[0]).toBe("Counterexample (shrinking stopped early, may not be minimal)");
+  });
+
+  it("says the time to first counterexample includes simulated latency only when there is one", () => {
+    const stage = { ...fullReport().stages[0]!, simulated: true };
+    const stats = fullReport().stats;
+    expect(render(fullReport({ stages: [stage] }))).toContain("(the time to first counterexample includes it).");
+    expect(render(fullReport({ stages: [stage], stats: { ...stats, timeToFirstCounterexampleMs: null } }))).toContain("latency is simulated.</p>");
   });
 });

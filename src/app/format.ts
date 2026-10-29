@@ -36,7 +36,8 @@ export function ellipsize(s: string, max: number): string {
 export const ms = (x: number) => (Math.round(x) >= 1000 ? `${(x / 1000).toFixed(1)} s` : `${Math.round(x)} ms`);
 
 /** Dollars, with more digits for tiny amounts; null means the model had no known price. */
-export const usd = (x: number | null) => (x === null ? "unpriced" : `$${x < 0.01 ? x.toFixed(5) : x.toFixed(3)}`);
+/** Dollars; a cost too small for 5 decimals is "<$0.00001", never a misleading $0.00000. */
+export const usd = (x: number | null) => (x === null ? "unpriced" : x > 0 && x < 0.000005 ? "<$0.00001" : `$${x < 0.01 ? x.toFixed(5) : x.toFixed(3)}`);
 
 export const VERDICT: Record<Report["verdict"], string> = {
   counterexample: "Broken: minimal counterexample found",

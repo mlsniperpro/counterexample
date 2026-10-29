@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter, TAP_ECHO_MS } from "@/app/keys";
+import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter, nearBottom, TAP_ECHO_MS } from "@/app/keys";
 
 describe("ignoreHeldEnter", () => {
   const press = (key: string, repeat: boolean) => {
@@ -42,5 +42,14 @@ describe("echoesCancel / echoesStart (a repeated activation, not a new one)", ()
     }
     expect(echoesStart({ detail: 1 }, 100)).toBe(true);
     expect(echoesStart({ detail: 1 }, TAP_ECHO_MS)).toBe(false);
+  });
+});
+
+describe("nearBottom", () => {
+  it("follows the trace only within 24 px of its bottom", () => {
+    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 800 })).toBe(true);
+    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 777 })).toBe(true);
+    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 776 })).toBe(false);
+    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 0 })).toBe(false);
   });
 });

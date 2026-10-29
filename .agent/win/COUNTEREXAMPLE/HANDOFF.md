@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 05:50 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 26 is fully fixed and pushed (core and security in `da03f2a`, UI in this push): lint, typecheck, 602/602 tests, build, e2e (12 steps); a full bench on `da03f2a`'s judge gave the fixture's verdicts. The worker restarted around 02:30 and lost about 3 hours.
+- Next: round 27 (4 Sonnet auditors) on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z (the goal's time limit), with the open rounds stated plainly.
+
 STATE 2026-10-29 01:46 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 25 is fully fixed and pushed (security in this push): lint, typecheck, 597/597 tests, build, e2e (12 steps); a full bench on `f0f9e8d` gave the fixture's verdicts. Details in reaudit.md.
 - Next: round 26 (4 Sonnet auditors) on this HEAD. Two clean rounds in a row are needed; then the final evidence (soak, bench, screenshots with the research hint, FC 5000, fresh clone, Docker sandbox rebuilt for the new seccomp list), break-it.md, the reaudit header, the gate, the PR body and the final status comment.
