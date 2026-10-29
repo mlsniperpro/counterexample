@@ -432,31 +432,6 @@ async function main() {
 
   step = "the form sends what it shows, and the report's tools work";
   const bodies = [];
-  // Mid-run, a reader who scrolls up stays where they are, scrolling down short of the bottom does not re-follow, and End does.
-  pace.lineDelayMs = 150;
-  await attackButton(page).click();
-  const trace = page.locator(".trace-scroll");
-  await page.waitForFunction(() => {
-    const el = document.querySelector(".trace-scroll");
-    return el && el.scrollHeight - el.clientHeight > 300;
-  }, null, { timeout: 60_000 });
-  await trace.hover();
-  await page.mouse.wheel(0, -100_000);
-  await page.waitForTimeout(1500);
-  eq(await trace.evaluate((el) => el.scrollTop), 0, "the trace stays at the top where the reader scrolled, as events arrive");
-  const half = await trace.evaluate((el) => {
-    el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2);
-    return el.scrollTop;
-  });
-  await page.waitForTimeout(1200);
-  eq(await trace.evaluate((el) => el.scrollTop), half, "the trace stays where the reader scrolled down to, short of the bottom");
-  await trace.focus();
-  await page.keyboard.press("End");
-  await page.waitForTimeout(1200);
-  const behind = await trace.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
-  check(behind <= 2, `after End the trace follows the newest event again (${behind} px short)`);
-  pace.lineDelayMs = 0;
-  await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await page.route("**/api/attack", (route) => {
     bodies.push(route.request().postDataJSON());
     return route.continue();
@@ -712,6 +687,7 @@ async function main() {
     await p.reload();
     await p.getByText("Server mode unknown (status check failed)").waitFor({ timeout: 15_000 });
     eq(await p.getByText("Live: Nebius Token Factory").count(), 0, "live badges after a failed status check");
+    check((await p.locator("#research-hint").innerText()).startsWith("On a live server with a Tavily key,"), "the research explanation claims no search after a failed status check");
     await p.close();
   }
   ok(step);
@@ -722,7 +698,10 @@ async function main() {
     loc.evaluate((el) => {
       const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
       const lum = (c) => rgb(c).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
-      const a = lum(getComputedStyle(el).borderTopColor);
+      const style = getComputedStyle(el);
+      // A border that is not drawn has no contrast, whatever its colour.
+      if (parseFloat(style.borderTopWidth) < 1 || style.borderTopStyle === "none" || style.borderTopStyle === "hidden") return 0;
+      const a = lum(style.borderTopColor);
       const b = lum(getComputedStyle(el.closest(".card")).backgroundColor);
       return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     });

@@ -42,6 +42,25 @@ describe("parseUnderstanding (live-mode statement to typed spec)", () => {
     expect((await run({ ...avg, compare: "unordered" })).problem.compare).toBe("unordered");
   });
 
+  it("compares as floats when every example answer is whole but the answer is a float: written 2.0, a float return type, or a tolerance", async () => {
+    const mean = { ...spec, returns: "the mean", examples: [{ args: [1, 3], output: 2 }] };
+    const parse = (text: string, statement = "Return the mean of a and b.") => parseUnderstanding(text, statement, { code: "def add(a, b): return (a + b) / 2", language: "python" });
+    const fenced = (o: unknown) => "```json\n" + JSON.stringify(o) + "\n```";
+    // Written as a float literal (JSON.stringify would write 2, so the text is edited).
+    const written = await parse(fenced(mean).replace('"output":2', '"output":2.0'));
+    expect(written.problem.compare).toBe("float");
+    expect(written.note).toMatch(/^The examples write their outputs as floats, so outputs are compared as floats/);
+    const typed = await parse(fenced({ ...mean, returns: "float: the arithmetic mean" }));
+    expect(typed.problem.compare).toBe("float");
+    expect(typed.note).toMatch(/The return type is a float/);
+    const tolerant = await parse(fenced(mean), "Return the mean. Answers within 1e-5 of the true value are accepted.");
+    expect(tolerant.problem.compare).toBe("float");
+    expect(tolerant.note).toMatch(/The statement accepts answers within a tolerance/);
+    // A whole answer with none of these stays exact; float mode would still compare small integers exactly.
+    expect((await parse(fenced(mean))).problem.compare).toBe("exact");
+    expect(outputsEqual(3, 4, "float")).toBe(false);
+  });
+
   it("refuses a problem whose inputs hold more than the per-input value limit across all their parameters", async () => {
     const big = { kind: "array", of: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 10 } }, len: { min: 0, max: 10_000 } };
     await expect(run({ ...spec, params: Array.from({ length: 3 }, (_, i) => ({ name: `a${i}`, type: big })), examples: [{ args: [[], [], []], output: 3 }] })).rejects.toThrow(/across its arguments \(limit 200000\)/);

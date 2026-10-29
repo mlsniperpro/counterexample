@@ -1,5 +1,9 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-29 07:00 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
+- Round 28 is fixed (security in `b5d1ca5`, core and UI in this push): lint, typecheck, 602/602 tests, build, e2e (12 steps); the sandbox image is rebuilt with `socketpair` denied and passes preflight and bench problems. The trace-follow feature was removed (decision in reaudit.md round 28).
+- Next: round 29 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z.
+
 STATE 2026-10-29 06:25 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active):
 - Round 27 is fixed in this push (UI: trace following by direction, e2e for following and field-border contrast): lint, typecheck, 605/605 tests, build, e2e (12 steps); both auditor mutants now fail the e2e. Core, security and judge were clean in round 27.
 - Next: round 28 on this HEAD. Two clean rounds in a row are needed. If they are not in by about 13:30Z, run the final evidence anyway and post the final status on PR #1 before 15:00Z, with the open rounds stated plainly.

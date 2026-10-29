@@ -12,7 +12,7 @@ import { MODE_LABEL, HeroText, researchHint, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
 import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
-import { echoesCancel, echoesStart, followAfterScroll, ignoreHeldEnter, type TraceFollow } from "./keys";
+import { echoesCancel, echoesStart, ignoreHeldEnter } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
 import { researchFacts } from "./stream";
 
@@ -101,23 +101,10 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
   const lastRun = useRef(0);
   useEffect(() => () => abort.current?.abort(), []);
   const traceEnd = useRef<HTMLDivElement | null>(null);
-  // Follow new events only while the reader is at the bottom: someone who scrolled up to read stays where they are.
-  const traceFollow = useRef<TraceFollow>({ follow: true, lastTop: 0, autoTop: 0, prevMax: 0 });
-  const traceMax = useRef(0);
+  // The trace shows the newest event as it arrives (the whole trace stays readable afterwards, and downloadable).
   useEffect(() => {
     const el = traceEnd.current;
-    const t = traceFollow.current;
-    // A new run starts at the bottom again.
-    if (events.length === 0) t.follow = true;
-    if (!el) return;
-    // The bottom one render ago: an event can render between the reader's End key and its scroll event.
-    t.prevMax = traceMax.current;
-    traceMax.current = el.scrollHeight - el.clientHeight;
-    if (t.follow) {
-      el.scrollTop = el.scrollHeight;
-      t.autoTop = el.scrollTop;
-      t.lastTop = el.scrollTop;
-    }
+    if (el) el.scrollTop = el.scrollHeight;
   }, [events]);
 
   /** Drop a share fragment from the address bar once the page shows something else. */
@@ -369,7 +356,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
               </button>
             </div>
             {/* The scroller is the wrapper, not the list: a region role on the <ol> would orphan its items. */}
-            <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events" onScroll={(e) => (traceFollow.current = followAfterScroll(traceFollow.current, e.currentTarget))}>
+            <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events">
               <ol>
                 {events.map((e) => (
                   <li key={e.seq} className={`ev ${e.kind}`}>

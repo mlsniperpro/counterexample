@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ECHO_MS, echoesCancel, echoesStart, followAfterScroll, ignoreHeldEnter, nearBottom, TAP_ECHO_MS } from "@/app/keys";
+import { ECHO_MS, echoesCancel, echoesStart, ignoreHeldEnter, TAP_ECHO_MS } from "@/app/keys";
 
 describe("ignoreHeldEnter", () => {
   const press = (key: string, repeat: boolean) => {
@@ -45,37 +45,3 @@ describe("echoesCancel / echoesStart (a repeated activation, not a new one)", ()
   });
 });
 
-describe("nearBottom", () => {
-  it("follows the trace only within 24 px of its bottom", () => {
-    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 800 })).toBe(true);
-    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 777 })).toBe(true);
-    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 776 })).toBe(false);
-    expect(nearBottom({ scrollHeight: 1000, clientHeight: 200, scrollTop: 0 })).toBe(false);
-  });
-});
-
-describe("followAfterScroll", () => {
-  // A trace 200 px high whose content has grown to 2000 px; the last automatic scroll left it at 1000.
-  const at = (scrollTop: number, scrollHeight = 2000) => ({ scrollTop, scrollHeight, clientHeight: 200 });
-  const following = { follow: true, lastTop: 1000, autoTop: 1000, prevMax: 1000 };
-
-  it("ignores its own automatic scroll", () => {
-    expect(followAfterScroll(following, at(1000)).follow).toBe(true);
-  });
-
-  it("stops following on any scroll up, and stays stopped when the reader scrolls back down short of the bottom", () => {
-    const up = followAfterScroll(following, at(960));
-    expect(up.follow).toBe(false);
-    // Events kept arriving: the bottom is now 1800. Scrolling down past the old automatic position is not the bottom.
-    const down = followAfterScroll({ ...up, prevMax: 1700 }, at(1400));
-    expect(down.follow).toBe(false);
-    expect(down.lastTop).toBe(1400);
-  });
-
-  it("follows again at the bottom, or at the bottom as it was one render ago (End, then an event)", () => {
-    const stopped = { follow: false, lastTop: 400, autoTop: 1000, prevMax: 1700 };
-    expect(followAfterScroll(stopped, at(1790)).follow).toBe(true);
-    expect(followAfterScroll(stopped, at(1700, 2100)).follow).toBe(true);
-    expect(followAfterScroll(stopped, at(1690, 2100)).follow).toBe(false);
-  });
-});

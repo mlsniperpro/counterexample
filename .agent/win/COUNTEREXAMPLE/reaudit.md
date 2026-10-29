@@ -7,6 +7,21 @@ CLEAN_AUDITS_IN_A_ROW: 0
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 28 (2026-10-29, `f158efa`, 4 parallel Sonnet audits; findings verified by the main session)
+
+Not clean (security 1 medium, core 1 medium, UI 3 medium). The judge was clean. Fixed in `b5d1ca5` (security) and the next push.
+- **Security** (1 medium; the hardened sandbox with the documented flags, the route in-process against it, the guard read in full, share-link decode and render bounds, no secrets in 104 commits):
+  - medium: AF_UNIX `socketpair` buffers are kernel memory charged to the container but to no run's RSS, so one run held about 900 MB under a 256 MB limit and three runs pushed the container into its OOM killer, killing another user's run. The seccomp filter now denies `socketpair` (Python and Node start without it); a test checks EACCES, the image was rebuilt and runs both languages (preflight and two bench problems against it), and docs/NEBIUS-SANDBOX.md says what it rules out (asyncio, child_process).
+- **Core** (1 medium, 4 low; full bench verdicts identical, the README table reproduced, 3,000 random specs, end-to-end probes of stdin, `sys.exit`, huge prints, BigInt, stateful solutions and a mid-shrink wall clock):
+  - medium: a model's spec that left `compare` out made a float problem whose examples all have whole answers (a mean, "2.0") compare exactly, so a correct solution that sums in another order was reported broken. The understand stage now compares as floats when an example output is written as a float (2.0, 2500.00000), when the return type says float or double, or when the statement gives a tolerance (1e-5, "absolute or relative error"); float mode still compares integers below 2^50 exactly. Tests for each, with the note that says why;
+  - low (accepted): "judged inputs" counts an input each time a family repeats it in a tiny domain; a timeout counterexample at the time limit can fail its final re-check and fall back to the unshrunk input (the README now says 5 of 8 hard-tier ones were seen not minimal on a loaded machine); a wall clock that ends mid-shrink reports the unshrunk input; a module that hangs at import time is reported as a timeout on the first input.
+- **Judge** (2 low; fresh clone with 605 tests, 12 e2e steps, full bench verdicts, costs and load line identical, README and VIDEO figures, constants and sponsor docs all match): low, fixed: the hard-tier "not minimal" range (5 of 8 on a loaded machine) and the JSON-mode wording in FEEDBACK and FRICTION.
+- **UI and tests** (3 medium, 3 low; trace scrolling by wheel, keys, touch, zoom and resize; axe in 64 states with zero violations):
+  - medium: a resize or rotation clamps the trace's scroll position, which the direction-based logic read as the reader scrolling up, so the trace stopped following for good; medium: nothing tested the follow reset between runs. **Decision:** the stop-following behaviour came from a round-26 low and has produced two rounds of mediums, so it is removed: the trace shows the newest event as it arrives, as before round 26. The full trace stays readable after the run and is downloadable as `trace.jsonl`. The round-26 low ("the trace forces itself to the bottom during a run") is accepted;
+  - medium: the e2e border check read only the colour, so a border of width 0 passed. It now counts a border that is not drawn as 0:1; the width-0 mutant fails the e2e;
+  - low, fixed: the research explanation now says live mode needs `TAVILY_API_KEY` (without it no search runs and the report says so), and an unknown mode says what each case does; the e2e checks the text after a failed status check;
+  - low (accepted): boundary-tolerance mutants of the removed follow logic (moot now).
+
 ## Round 27 (2026-10-29, `5cd3d06`, 4 parallel Sonnet audits; findings verified by the main session)
 
 Not clean (UI 3 medium). Core, security and judge were clean under the criterion. Fixed in the next push.
