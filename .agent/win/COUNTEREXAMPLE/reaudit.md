@@ -7,6 +7,14 @@ CLEAN_AUDITS_IN_A_ROW: 0  # every round from 35 on had at least one medium (all 
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 41 (2026-10-29/30, `b32a1fd`, 4 parallel Sonnet/high audits; all four reported)
+
+Not clean: core, security and judge/docs CLEAN; UI found 4 medium test gaps (no shipped wrong-data or a11y bug), fixed in the next push.
+- **Core** CLEAN: the round-40 shrink time box verified (checked before every non-empty batch, stops with the best-so-far and honest "may not be minimal"; an injected clock through the real attack never produced a wrong claim); on the real sandbox all 16 correct bench solutions gave no_counterexample, the 5 demos shrank to their expected minimal input with verified fixes. Lows: confirmHits re-runs every hang alone; the box reserves nothing explicit for explain/re-attack (a hang attack can end "fix not verified in time", honestly); the box is checked only between batches; and the time-box trace warning fired even when shrinking finished — **that last one fixed** (it now fires only when the box cut shrinking short). The rest accepted.
+- **Security** CLEAN (sandbox byte-identical to round 36; the time box adds no attack surface; route, guards, SSRF, share links and secrets held).
+- **UI and tests** (4 medium test gaps; ~1,400 applied mutants): `toMarkdown` was never run on a report without a counterexample, explanation or fix (a guard mutant pasted "undefined" or threw on "Survived the attack"); the share-link defaults for links made before `shrinkExhausted`/`reattackUnjudged` existed; AttackUI's `HeroText` mode wiring (replay could claim a live model); AttackUI's `ProblemBrief` wiring (every chip could show the first problem's brief). **Fixed:** a Markdown test for a counterexample-free report; a share test that decodes a legacy link and checks the defaults; the e2e checks the replay hero text and that the shown statement and examples match the server's catalog for the first problem and after picking Integer square root. The unit fixes were mutation-checked. Lows accepted (FixView with a null diff, the route's PUBLIC_BUDGETS constant pinned only by value, a share clamp boundary, contrived fixture coincidences).
+- **Judge/docs** CLEAN (full reconciliation incl. replaying all built-ins and VIDEO figures); one low fixed (HANDOFF's 2026-10-24 section marked historical).
+
 ## Round 40 (2026-10-29, `3e1b90b`, 4 parallel Sonnet/high audits; all four reported)
 
 Not clean: security and judge/docs CLEAN; UI found 3 mediums (fixed in `fc09689`) and core 1 medium (fixed in the next push).

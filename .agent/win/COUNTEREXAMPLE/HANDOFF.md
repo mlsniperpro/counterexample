@@ -1,5 +1,8 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-30 00:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 41 done:
+- Round 41: core, security and judge CLEAN; UI 4 medium test gaps fixed in cff4db9 (plus a cosmetic shrink-warning fix). Full checks green. Counter 0; need rounds 42 and 43 clean. Freeze 2026-10-30 10:00Z.
+
 STATE 2026-10-29 23:40 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 40 done:
 - Round 40: security and judge CLEAN. UI 3 mediums (diff minimality, route routing passthrough, AttackUI statement/examples) fixed in fc09689. Core 1 medium: on the real sandbox, shrinking a hang could run the 50 s wall clock out and lose its progress (no explanation or fix). Fixed: shrink time-boxed to half the remaining wall clock, keeps best-so-far; hang candidates go two at a time. Tests mutation-checked.
 - Benchmark regenerated on the fix: verdicts, costs and runs unchanged; medians 5.5/11.3/2.5/2.5 s; Judge0 median 56.5; hard-tier "not minimal" now 2 of 8 (word-break bug-c now shrinks fully). README, SUBMISSION, WIN-CHECKLIST, FEEDBACK, FRICTION synced.
