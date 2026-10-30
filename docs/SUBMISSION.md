@@ -33,10 +33,10 @@ A coding agent that breaks your code before your interviewer does: Nemotron writ
 - Thumbnail: `docs/screenshots/devpost-thumbnail-1200x800.png` (3:2, 1200 x 800: the verdict, the minimal counterexample, the fix diff and the live trace). Devpost crops thumbnails to 3:2, so do not use the tall phone screenshots for it.
 - Gallery, in order: `docs/screenshots/devpost-thumbnail-1200x800.png`, `docs/architecture.svg` (export to PNG), then the phone screenshots `docs/screenshots/390-1-form.png`, `390-2-report.png` and `390-3-shared-link.png`. The form screenshot (390 x 1,697) can go up as it is; the report and shared-link screenshots are full pages (390 x 6,161 and 390 x 5,482), so crop them to the part worth seeing (the counterexample card; the shared banner) before uploading.
 
-## Video demo link (Owner)
+## Video demo link
 
 ```
-https://www.youtube.com/watch?v=OWNER_TO_ADD
+https://www.youtube.com/watch?v=9LY415XaNDQ
 ```
 
 ## Try it out links
