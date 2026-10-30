@@ -7,6 +7,14 @@ CLEAN_AUDITS_IN_A_ROW: 0  # every round from 35 on had at least one medium (all 
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
 
+## Round 43 (2026-10-30, `bae0b9f`, 4 parallel Sonnet/high audits, ~25-minute time box each; all four reported)
+
+Not clean by a hair: core, security and judge/docs CLEAN; UI found 1 medium and 1 borderline medium test gap (no shipped wrong-data or a11y bug), fixed in the next push.
+- **Core** CLEAN: the round-42 prefetch fuzzed against a strictly sequential copy (400 random cases mixing ok/slow/hang/crash/flaky/reject/compile inputs: 0 differences in outcomes, errors or the compile fill; `processes` always equals runChunk calls; no unhandled rejection; at most 3 in flight), and matched sequential exactly against the real sandbox. Lows: on a slot-starved sandbox the up-to-2 discarded prefetches still hold run slots (wall clock only; the docs now say "at most 2 wasted submissions" instead of "exactly what they did sequentially"); one attack can queue up to 6 submissions (bounded by the sandbox queue's 503 + retry); a rejected prefetch can be reused at chunk size 1 (already retried 3 times).
+- **Security** CLEAN: the prefetch adds load but every bound holds (3 in flight per run, about 6 per attack, the sandbox's slots and 503 queue, the deadline abort reaching every in-flight fetch, no unhandled rejection).
+- **UI and tests** (125 applied mutants): `lineDiff` had no whitespace-only test, so a `.trim()` comparison mutant showed an indentation-only fix (the classic return dedented out of a loop) as an empty diff; and the replay-mode "Custom problems need live mode" notice was asserted nowhere. **Fixed:** a diff test for indentation-only changes (mutation-checked) and an e2e assertion of the notice after picking "Your own". Lows accepted (the 75 s client-timeout text, single-fact research fixtures, zero-tested family rows, the reattackUnjudged==1 boundary, equivalent and past-cap mutants).
+- **Judge/docs** CLEAN; two wording lows fixed (public vs library budgets in the README, "many commits ahead").
+
 ## Round 42 (2026-10-30, `03def0d`/`ba26bd1`, 4 parallel Sonnet/high audits; core and UI were cut off by the 5-hour usage limit around 01:00Z and resumed at 07:47Z)
 
 Not clean: judge/docs and security CLEAN; core found 2 mediums and UI 1 borderline medium, all fixed in the next push.

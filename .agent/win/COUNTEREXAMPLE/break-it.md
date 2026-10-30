@@ -1,8 +1,8 @@
 # break-it.md (COUNTEREXAMPLE)
 
-TESTED_COMMIT: 87f2b50
+TESTED_COMMIT: 12d61c0
 
-What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, over 600 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `87f2b50`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
+What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, over 600 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `12d61c0`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
 
 ## Adversarial testing performed
 
