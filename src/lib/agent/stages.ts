@@ -20,6 +20,14 @@ import { parseUnderstanding } from "./understand";
 
 /** Inputs per sandbox batch in the run stage: small enough to stop early on a hit or a hang. */
 export const RUN_CHUNK = 64;
+/**
+ * Probe size for an unproven family in the run stage: its first window is judged as this many inputs, then the rest of
+ * the window; once a window runs clean the family is judged a whole RUN_CHUNK window per call. So a solution that times
+ * out on every input of a worst-case family, or a brute-force oracle too slow for that family's sizes, surfaces after the
+ * probe instead of after a whole 64-input chunk (64 x the time limit), without probing every window — which would
+ * multiply executor submissions and, on a remote executor, risk the wall clock on a correct solution.
+ */
+export const RUN_FIRST_CHUNK = 4;
 const MUTANTS = 300;
 const SMALL_SCOPE = 300;
 const BASELINE = 100;
@@ -393,20 +401,61 @@ export async function runStage(ctx: AttackContext, plan: Family[]): Promise<{ hi
     const room = Math.max(0, Math.floor(ctx.budget.remainingRuns() / 2) - ctx.limits.maxShrinkEvals - CONFIRM_HITS - 1);
     const batch = inputs.slice(0, room);
     if (batch.length < inputs.length) truncated = true;
-    for (let at = 0; at < batch.length && !hits.length; at += RUN_CHUNK) {
-      const chunk = batch.slice(at, at + RUN_CHUNK);
-      const judged = await ctx.judge.compare("run", solution, chunk);
-      tested.push(...chunk);
-      st.tested += chunk.length;
-      ctx.inputsTested += chunk.length;
-      st.oracleSkipped += judged.filter((j) => j.status === "oracle_error").length;
-      const found = judged.flatMap((j, i) => (j.status === "mismatch" ? [{ args: chunk[i] as unknown[], j, family: f.name, confirmed: false }] : []));
-      if (!found.length) continue;
-      const kept = await confirmHits(ctx, found, chunk);
-      st.mismatches += kept.length;
-      if (kept.length) {
-        hits = kept;
-        ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
+    // Until a family has shown it runs fast with a working oracle, its first window is judged as a probe of
+    // RUN_FIRST_CHUNK inputs and then the rest of the window, so two pathological cases bail out after the probe instead
+    // of after a full 64 x the time limit: a family whose inputs all time out (acted on at once) and one whose oracle
+    // fails on the whole probe (skipped). Once a window has run clean (no timeout, not skipped) the family is known to
+    // run fast, so the rest of it is judged a whole window per call. Probing every window would otherwise turn each
+    // 64-input window into two executor submissions, and on a remote executor (the only kind production allows) those
+    // extra round trips can themselves exhaust the wall clock and fail a correct solution. Fast inputs still run the
+    // whole window before the hits are confirmed, so the smallest hit across the window is chosen and the demos are
+    // unchanged.
+    let skipFamily = false;
+    let fastFamily = false;
+    for (let at = 0; at < batch.length && !hits.length && !skipFamily; at += RUN_CHUNK) {
+      const window = batch.slice(at, at + RUN_CHUNK);
+      const found: Hit[] = [];
+      let ran = 0;
+      let sawTimeout = false;
+      const probe = Math.min(RUN_FIRST_CHUNK, window.length);
+      const sizes = fastFamily ? [window.length] : window.length > probe ? [probe, window.length - probe] : [probe];
+      for (const size of sizes) {
+        if (sawTimeout || skipFamily) break;
+        const part = window.slice(ran, ran + size);
+        const judged = await ctx.judge.compare("run", solution, part);
+        tested.push(...part);
+        st.tested += part.length;
+        ctx.inputsTested += part.length;
+        ran += part.length;
+        const skipped = judged.filter((j) => j.status === "oracle_error").length;
+        st.oracleSkipped += skipped;
+        for (let i = 0; i < part.length; i++) {
+          const j = judged[i]!;
+          if (j.status === "mismatch") found.push({ args: part[i] as unknown[], j, family: f.name, confirmed: false });
+        }
+        // This sub-batch timed out or crashed in the solution: those are the hits, and each further input would cost
+        // another full time limit, so stop the window now and confirm what we have.
+        if (found.some((h) => h.j.got.startsWith("timeout"))) sawTimeout = true;
+        // The oracle judged none of this sub-batch (a brute-force oracle too slow for this family's sizes) and no hit yet:
+        // the rest of the family is the same shape and would only burn the wall clock, so skip it. If no family is ever
+        // judged, the end-of-run check still reports oracle_unreliable. Only for families whose inputs are drawn
+        // independently: small-scope is enumerated shortest-first (its first inputs all share an empty first argument)
+        // and the examples are few and fixed, so an oracle that fails only on an empty input must not drop them.
+        else if (skipped === part.length && found.length === 0 && f.source !== "exhaustive" && f.source !== "examples") {
+          ctx.tracer.emit("run", "warn", `${f.name}: the oracle could not judge any of the first ${st.tested} input(s) (it failed or timed out on them), so the rest of this family is skipped`);
+          skipFamily = true;
+        }
+      }
+      // The solution ran a full window fast enough and the oracle worked: judge any later windows of this family whole,
+      // one submission each, instead of re-paying the probe on every window.
+      if (!sawTimeout && !skipFamily) fastFamily = true;
+      if (found.length) {
+        const kept = await confirmHits(ctx, found, window.slice(0, ran));
+        st.mismatches += kept.length;
+        if (kept.length) {
+          hits = kept;
+          ctx.ttfc = ctx.clock() - ctx.t0 + ctx.models.simulatedMs;
+        }
       }
     }
     ctx.tracer.emit("run", st.mismatches ? "counterexample" : "info", `${f.name}: ${st.tested} inputs, ${st.mismatches} mismatch(es)`, {
@@ -444,14 +493,22 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
   ctx.report.verdict = "counterexample";
   ctx.report.message = "Found a counterexample (not yet shrunk).";
   const specs = specsOf(ctx);
+  // Shrinking may use at most half of the wall clock left when it starts, then keeps the smallest failing input found
+  // so far: on a remote sandbox a hanging candidate costs a full time limit, and an unbounded shrink used to run the
+  // attack out of time with the unshrunk input and no explanation, fix or re-attack.
+  const shrinkUntil = ctx.budget.elapsed() + (ctx.budget.limits.wallClockMs - ctx.budget.elapsed()) / 2;
+  const hang = first.j.got.startsWith("timeout");
   const shrunk = await shrink(first.args, {
     isValid: (a) => argsConform(a, specs),
     stillFails: async (batch) => (await ctx.judge.compare("shrink", ctx.input.solution, batch)).map((j) => j.status === "mismatch"),
     maxEvals: ctx.limits.maxShrinkEvals,
     signal: ctx.signal,
-    // Small batches: only the first still-failing candidate matters, and each hanging candidate costs a full time limit.
-    batchSize: 16,
+    shouldStop: () => ctx.budget.elapsed() > shrinkUntil,
+    // Small batches: only the first still-failing candidate matters. For a hang, every candidate that still hangs costs
+    // a full time limit (more in a shared-limit sandbox submission), so it is tried two at a time.
+    batchSize: hang ? 2 : 16,
   });
+  if (shrunk.exhausted && ctx.budget.elapsed() > shrinkUntil) ctx.tracer.emit("shrink", "warn", "Shrinking used its share of the time budget; keeping the smallest failing input found so far");
   // Re-judge the result to report expected vs got for it; if it does not fail again, keep the confirmed original.
   const [final] = shrunk.steps ? await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]) : [first.j];
   const reproduced = final?.status === "mismatch";

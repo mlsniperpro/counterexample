@@ -15,6 +15,18 @@ describe("lineDiff", () => {
         expect(d.filter((l) => l.op !== "del").map((l) => l.text).join("\n")).toBe(b.replace(/\n$/, ""));
         // LCS is symmetric in length, so "same" counts agree both ways.
         expect(lineDiff(b, a)!.filter((l) => l.op === "same").length).toBe(d.filter((l) => l.op === "same").length);
+        // And the diff is minimal: its "same" lines are a LONGEST common subsequence, checked against an independent
+        // LCS length (a valid but non-minimal diff would inflate the "N changed lines" the report shows).
+        const xa = a.replace(/\n$/, "").split("\n");
+        const ya = b.replace(/\n$/, "").split("\n");
+        const memo = new Map<string, number>();
+        const ref = (i: number, j: number): number => {
+          if (i === xa.length || j === ya.length) return 0;
+          const k = `${i},${j}`;
+          if (!memo.has(k)) memo.set(k, xa[i] === ya[j] ? ref(i + 1, j + 1) + 1 : Math.max(ref(i + 1, j), ref(i, j + 1)));
+          return memo.get(k)!;
+        };
+        expect(d.filter((l) => l.op === "same").length).toBe(ref(0, 0));
       }),
     );
   });
@@ -27,6 +39,19 @@ describe("lineDiff", () => {
       { op: "add", text: "    while lo <= hi:" },
     ]);
     expect(lineDiff(before, before)!.every((l) => l.op === "same")).toBe(true);
+  });
+
+  it("shows an indentation-only change as a change (a return dedented out of a loop is the whole fix)", () => {
+    const before = "def solve(a):\n    for x in a:\n        return x\n";
+    const after = "def solve(a):\n    for x in a:\n        pass\n    return x\n".replace("        pass\n", "");
+    expect(lineDiff("a\n    b\n", "a\nb\n")!.filter((l) => l.op !== "same")).toEqual([
+      { op: "del", text: "    b" },
+      { op: "add", text: "b" },
+    ]);
+    expect(lineDiff(before, after)!.filter((l) => l.op !== "same")).toEqual([
+      { op: "del", text: "        return x" },
+      { op: "add", text: "    return x" },
+    ]);
   });
 
   it("treats CRLF pasted code like LF", () => {

@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { cpuClock } from "../helpers";
 import { describe, expect, it, vi } from "vitest";
-import { buildProgram, MAX_RESULT_CHARS, MAX_RESULT_DEPTH, MAX_RESULTS_TOTAL_CHARS, parseLines, reachedReady, runWithRestarts } from "@/lib/exec/program";
+import { buildProgram, MAX_RESULT_CHARS, MAX_RESULT_DEPTH, MAX_RESULTS_TOTAL_CHARS, parseLines, PREFETCH_CHUNKS, reachedReady, runWithRestarts } from "@/lib/exec/program";
 import type { ChunkResult, RunOutcome } from "@/lib/exec/types";
 import { outputsEqual, showValue } from "@/lib/core/compare";
 import { chunkLimit } from "@/lib/exec/judge0";
@@ -178,6 +178,32 @@ describe("runWithRestarts with a time limit shared by the chunk (Judge0)", () =>
     // Fixed chunks of 16 (the behaviour before): 111 submissions and 831008 ms, each hang costing a full shared chunk plus a solo run.
     expect(r.submissions).toBe(60);
     expect(r.simulatedMs).toBe(86_008);
+  });
+
+  it("runs a clean run's later chunks concurrently, with the same outcomes in order and no extra submissions", async () => {
+    // Each chunk is a remote round trip: after a chunk comes back clean, the next few go out together, so a correct
+    // solution's window is not five serial sandbox starts. Outcomes are identical to running them one after another.
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let submissions = 0;
+    const runChunk = async (chunk: unknown[][]): Promise<ChunkResult> => {
+      submissions++;
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return { lines: (chunk as number[][]).map(([i]) => ({ ok: true, out: i, ms: 1 })), end: "ok", message: "" };
+    };
+    const inputs = Array.from({ length: 64 }, (_, i) => [i]);
+    const r = await runWithRestarts(inputs, runChunk, 14, 1000);
+    expect(r.outcomes.map((o) => (o.ok ? o.out : null))).toEqual(inputs.map(([i]) => i));
+    expect(submissions).toBe(5); // ceil(64 / 14): nothing wasted on a clean run
+    expect(r.processes).toBe(5);
+    expect(maxInFlight).toBe(PREFETCH_CHUNKS);
+    // The local executor (no shared limit) still runs one chunk at a time.
+    inFlight = maxInFlight = submissions = 0;
+    await runWithRestarts(inputs, runChunk, 14);
+    expect(maxInFlight).toBe(1);
   });
 
   it("without the flag keeps the cheaper blame-and-restart (per-input watchdogs, e.g. the local executor)", async () => {

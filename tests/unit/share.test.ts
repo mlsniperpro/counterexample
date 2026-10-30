@@ -41,6 +41,40 @@ describe("share links (report in the URL fragment)", () => {
     expect(await decodeReport(enc.fragment)).toEqual(JSON.parse(JSON.stringify(r)));
   });
 
+  it("round-trips reports of every shape: no counterexample, an unreliable oracle, and a research failure", async () => {
+    // A shared link must say what the report said: a survived run has no counterexample, fix, explanation or time to
+    // first counterexample, and a failed search keeps its error (or the viewer would read "found no facts").
+    const r = await realReport();
+    const base = { ...r, counterexample: undefined, fix: undefined, explanation: undefined };
+    const shapes = [
+      { ...base, verdict: "no_counterexample" as const, stats: { ...r.stats, timeToFirstCounterexampleMs: null }, stages: r.stages.map((s) => ({ ...s, costUsd: null })) },
+      { ...base, verdict: "oracle_unreliable" as const, research: undefined },
+      { ...r, research: { queries: ["q"], facts: [], influencedFamilies: [], error: "no research client configured (set TAVILY_API_KEY)" } },
+    ];
+    for (const shape of shapes) {
+      const enc = await encodeReport(shape as never);
+      if (!enc.ok) throw new Error(`expected a link for ${shape.verdict}`);
+      expect(await decodeReport(enc.fragment)).toEqual(JSON.parse(JSON.stringify(toShared(shape as never))));
+    }
+    const failed = await decodeReport(((await encodeReport(shapes[2] as never)) as { fragment: string }).fragment);
+    expect(failed.research?.error).toBe("no research client configured (set TAVILY_API_KEY)");
+  });
+
+  it("reads a link made before shrinkExhausted and reattackUnjudged existed with their safe defaults", async () => {
+    // Old links lack both fields. They must decode as a counterexample that was shrunk to the end (not "stopped early")
+    // and a re-attack with nothing unjudged, or an old link would say something its report never said.
+    const old = JSON.parse(JSON.stringify(toShared(await realReport())));
+    expect(old.counterexample.shrinkExhausted).toBe(false);
+    expect(old.fix.reattackUnjudged).toBe(0);
+    delete old.counterexample.shrinkExhausted;
+    delete old.fix.reattackUnjudged;
+    const stream = new Blob([JSON.stringify(old)]).stream().pipeThrough(new CompressionStream("deflate"));
+    const fragment = SHARE_PREFIX + toBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+    const decoded = await decodeReport(fragment);
+    expect(decoded.counterexample?.shrinkExhausted).toBe(false);
+    expect(decoded.fix?.reattackUnjudged).toBe(0);
+  });
+
   it("round-trips any text in the report (unicode, quotes, newlines)", async () => {
     const r = await realReport();
     await fc.assert(

@@ -6,7 +6,7 @@ Facts checked against the repo at the commit that last changed this file. The nu
 
 ## Before you submit (owner)
 
-- [ ] PR #1 is merged into `main` (or `counterexample` is the default branch): `main` alone has no README, code or `LICENSE`, and the repo link opens the default branch.
+- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is many commits ahead (the fixes from audit rounds 34 onward, including the `ptrace` denial and the regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
 - [ ] The repo `mlsniperpro/counterexample` is public (MIT `LICENSE` at the top).
 - [ ] The demo video is on YouTube, public, and at most 3 minutes (script: `docs/VIDEO.md`).
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
@@ -98,7 +98,7 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
   - Network calls have timeouts, bounded retries with backoff and idempotency keys.
   - Each attack has budgets for model calls, sandbox runs and wall clock.
   - Per-IP rate limits and a daily spend cap protect the public demo.
-- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and 500+ tests:
+- **Next.js and TypeScript** (strict) for the UI and the streaming API, a deterministic **replay provider** so the whole agent runs in tests and for judges without keys, and over 600 tests:
   - unit tests;
   - fast-check property tests;
   - integration tests;
@@ -110,14 +110,14 @@ Paste a problem and a solution (your interview answer, or code an AI wrote) and 
 - **False alarms are worse than misses.** A correct binary search looked broken under a loaded sandbox. We now confirm every mismatch alone in a fresh process before claiming it. A failure that only appears after earlier calls is reported as "order-dependent" (the solution keeps state), never as flaky.
 - **Judge0 has one time limit per submission.** We size batches so every input keeps its full limit inside the 15 s CPU cap, and blame a timeout on an input only after it times out alone.
 - **Exact answers.** Integers past 2^53 lose digits in JavaScript, so an overflow in the last digit would go unnoticed. We compare them by their exact digits.
-- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (33 rounds by 29 October) found and fixed more than 150 issues.
+- **Hostile inputs.** Pasted code and model-written specs can try to freeze a server. Every generator, shrinker and parser step is bounded, and repeated hostile audits (more than 35 rounds by 29 October) found and fixed more than 150 issues.
 - **No keys in the build environment.** The build sandbox had no Token Factory or Tavily key (and at first no network route to Token Factory), so we built a replay provider and recorded every friction point in `docs/FRICTION.md`.
 
 ## Accomplishments that we're proud of
 
 - **38 of 38 known bugs found, 0 false alarms on 16 correct solutions**, across 13 problems in Python and JavaScript, with every fix verified by re-attack (replay mode: hand-written stand-ins for the model answers, real execution).
 - **Where the models matter, measured honestly.** On 8 "hard tier" bugs that only show at worst-case sizes or on specific structure (exponential backtracking, overflow on a long chain), the model-designed families find 8 of 8. Both ablations find 0 of 8: one without model families, and one with examples plus 1,000 random inputs. We wrote those stand-in families knowing the bug classes, and say so; the live run measures whether Super writes them itself.
-- **Routing costs about half.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts at third-party list prices of $1/$3 and $0.30/$0.90 per million tokens, which the owner checks against the Token Factory console) with the same results. Its time to the first counterexample is shorter too (median 5.4 s against 11.3 s), but in replay mode that latency is simulated from each model's decode speed, so only the live benchmark can confirm it.
+- **Routing costs about half.** Routed Ultra + Super costs about half as much as Ultra everywhere ($0.0882 against $0.1725 for all 54 solutions, estimated from replayed token counts at third-party list prices of $1/$3 and $0.30/$0.90 per million tokens, which the owner checks against the Token Factory console) with the same results. Its time to the first counterexample is shorter too (median 5.5 s against 11.3 s), but in replay mode that latency is simulated from each model's decode speed, so only the live benchmark can confirm it.
 - Counterexamples a person can read: `solve([0], 0)`, `solve(2147483647)`, `solve("baab")`.
 
 ## What we learned

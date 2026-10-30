@@ -215,6 +215,9 @@ export function parseLines(stdout: string, maxRecords = Infinity): RunOutcome[] 
  * time is over the limit, though the chunk as a whole finished in time, is a
  * timeout too, once it is over the limit alone as well.
  */
+/** Chunks of one run in flight at once on a shared-limit sandbox (the sandbox queues past its own concurrency). */
+export const PREFETCH_CHUNKS = 3;
+
 export async function runWithRestarts(
   inputs: unknown[][],
   runChunk: (chunk: unknown[][]) => Promise<ChunkResult>,
@@ -225,15 +228,36 @@ export async function runWithRestarts(
   const outcomes: RunOutcome[] = [];
   let processes = 0;
   let chunkSize = maxChunk;
+  // With a shared-limit remote sandbox (Judge0), each chunk is its own submission and round trip: once a chunk has
+  // come back clean, run the next few same-size chunks concurrently and use their results in order. Inputs are
+  // independent, so the outcomes are the same as running them one after another. The first chunk that ends early
+  // (a hang or a crash) turns this off for the rest of the run, so hanging inputs never cost more than they did run
+  // one at a time; at most PREFETCH_CHUNKS - 1 prefetches launched before that are wasted.
+  let ahead = 1;
+  const canPrefetch = sharedTimeLimit && Number.isFinite(maxChunk);
+  const pending = new Map<string, Promise<ChunkResult>>();
+  const fetchChunk = (from: number, size: number): Promise<ChunkResult> => {
+    const key = `${from}:${size}`;
+    let p = pending.get(key);
+    if (!p) {
+      p = runChunk(inputs.slice(from, from + size));
+      p.catch(() => {}); // awaited (and rethrown) when its turn comes, or dropped when a restart makes it obsolete
+      processes++;
+      pending.set(key, p);
+    }
+    return p;
+  };
   while (outcomes.length < inputs.length) {
     const start = outcomes.length;
     const chunk = inputs.slice(start, Math.min(inputs.length, start + chunkSize));
-    const res = await runChunk(chunk);
-    processes++;
+    for (let a = 1, from = start + chunk.length; a < Math.max(1, ahead) && from < inputs.length; a++, from += chunkSize) fetchChunk(from, Math.min(chunkSize, inputs.length - from));
+    const res = await fetchChunk(start, chunk.length);
+    pending.delete(`${start}:${chunk.length}`);
     if (res.end === "compile") {
       while (outcomes.length < inputs.length) outcomes.push({ ok: false, error: "compile", message: res.message });
       break;
     }
+    if (canPrefetch) ahead = res.end === "ok" && res.lines.length >= chunk.length && ahead !== 0 ? PREFETCH_CHUNKS : 0;
     for (const [i, line] of res.lines.slice(0, chunk.length).entries()) {
       outcomes.push(sharedTimeLimit && line.ok && line.ms > perInputLimitMs ? await confirmSlow(chunk[i] as unknown[], chunk.length, line) : line);
     }

@@ -1,12 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { showValue } from "@/lib/core/compare";
 import type { Example } from "@/lib/problems/types";
 import { decodeReport, encodeReport, fragmentBudget, toShared } from "@/lib/share";
 import { attackRun } from "./attack-run";
-import { fmtArgs, ms, toMarkdown, VERDICT } from "./format";
-import { splitCode } from "./inline-code";
+import { toMarkdown, VERDICT } from "./format";
 import ReportView from "./report-view";
 import { MODE_LABEL, HeroText, researchHint, type UIMode } from "./mode-copy";
 import { buildAttackBody } from "./request";
@@ -14,7 +13,7 @@ import { CANCELLED, focusIsIdle, initialRun, runReducer } from "./run-state";
 import { saveFile } from "./save-file";
 import { echoesCancel, echoesStart, ignoreHeldEnter } from "./keys";
 import { initialShare, shareReducer } from "./share-state";
-import { researchFacts } from "./stream";
+import { ProblemBrief, TraceEventLine } from "./trace-view";
 
 export type UIProblem = { id: string; title: string; statement: string; examples: Example[]; language: "python" | "javascript"; code: string };
 
@@ -275,20 +274,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
           </button>
         </div>
         {current ? (
-          <>
-            <p className="statement">
-              {splitCode(current.statement).map((p, i) => (p.code ? <code key={i}>{p.text}</code> : <Fragment key={i}>{p.text}</Fragment>))}
-            </p>
-            <ul className="examples">
-              {current.examples.map((e, i) => (
-                <li key={i}>
-                  <code>
-                    solve({fmtArgs(e.args)}) → {JSON.stringify(e.output)}
-                  </code>
-                </li>
-              ))}
-            </ul>
-          </>
+          <ProblemBrief statement={current.statement} examples={current.examples} />
         ) : (
           <>
             <textarea className="statement-in" rows={5} aria-label="Problem statement" placeholder="Paste the problem statement, with constraints and examples." value={statement} onChange={(e) => setStatement(e.target.value)} />
@@ -359,24 +345,7 @@ export default function AttackUI({ problems }: { problems: UIProblem[] }) {
             <div className="trace-scroll" ref={traceEnd} tabIndex={0} role="region" aria-label="Live trace events">
               <ol>
                 {events.map((e) => (
-                  <li key={e.seq} className={`ev ${e.kind}`}>
-                    <span className="t">{ms(e.t)}</span>
-                    <span className="st">{e.stage}</span>
-                    <span className="msg">{e.msg}</span>
-                    {e.kind === "model_call" && e.data && <span className="why">{String(e.data.why)}</span>}
-                    {e.kind === "research" && researchFacts(e.data).length > 0 && (
-                      <ul className="facts">
-                        {researchFacts(e.data).map((f, i) => (
-                          <li key={i}>
-                            {f.fact}{" "}
-                            <a href={f.url} target="_blank" rel="noreferrer">
-                              source
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
+                  <TraceEventLine key={e.seq} e={e} />
                 ))}
               </ol>
             </div>

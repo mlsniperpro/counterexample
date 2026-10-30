@@ -10,6 +10,7 @@ import type { ModelProvider, ModelRequest } from "@/lib/models/types";
 import type { Problem } from "@/lib/problems/types";
 import { extractJson } from "@/lib/agent/parse";
 import { isCompileFailure } from "@/lib/agent/stages";
+import { smallScopeInputs } from "@/lib/core/smallscope";
 
 const env = { NODE_ENV: "test" };
 const builtIn = (id: string) => BUILT_INS.find((b) => b.problem.id === id)!;
@@ -247,6 +248,136 @@ describe("agent failure paths (replay mode)", () => {
     expect(r.counterexample?.got).toMatch(/^timeout/);
     expect(r.counterexample?.args[1]).toBe(0);
   });
+
+  it("reports the counterexample for a family whose inputs all time out, instead of exhausting the wall clock (round 34)", async () => {
+    // A correct sum that hangs once the array is long. A model family of only-long inputs (every one times out) used to
+    // cost 64 x the time limit per chunk, so the attack ended budget_exhausted before the hit was examined. The run
+    // stage now probes the first window (a few inputs) before judging the rest, so the timeout is found and confirmed early.
+    const problem: Problem = {
+      id: "hang-family",
+      title: "Sum (hangs when long)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 60 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 120,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "hang-family": {
+        oracle: "```python\ndef solve(xs):\n    return sum(xs)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":0,"max":9},"len":{"min":40,"max":60}}]}]}',
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    if len(xs) >= 25:\n        while True:\n            pass\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, { ...deps(fx), budgets: { maxShrinkEvals: 40 } });
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.got).toMatch(/^timeout/);
+    // The sub-batching stops the all-timing-out family after a few inputs, instead of running its full 300.
+    const long = r.families.find((f) => f.name === "long")!;
+    expect(long.tested).toBeLessThan(20);
+    expect(long.mismatches).toBeGreaterThan(0);
+  }, 90_000);
+
+  it("skips a family whose oracle times out on every input, instead of stalling the attack (round 34)", async () => {
+    // An exponential brute-force oracle times out on long arrays. A family of only-long inputs used to be judged in full
+    // (64 x the oracle time limit per chunk), stalling the attack. The run stage now skips a family once its oracle has
+    // failed on a whole opening sub-batch, so the correct solution still gets a verdict within budget.
+    const problem: Problem = {
+      id: "slow-oracle",
+      title: "Sum (slow oracle)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 30 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 120,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "slow-oracle": {
+        // 2^n recursion: fast on the 3-element example, times out on the 22-to-24-element family.
+        oracle: "```python\ndef solve(xs):\n    def f(i):\n        if i >= len(xs):\n            return 0\n        a = f(i + 1)\n        b = f(i + 1)\n        return xs[i] + a + (b - b)\n    return f(0)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":1,"max":9},"len":{"min":22,"max":24}}]}]}',
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, deps(fx));
+    // The correct solution is not blamed, and the attack does not run out of budget.
+    expect(r.verdict).not.toBe("budget_exhausted");
+    expect(["no_counterexample", "oracle_unreliable"]).toContain(r.verdict);
+    expect(r.trace.some((e) => e.kind === "warn" && /the oracle could not judge any of the first .* input\(s\).*rest of this family is skipped/.test(e.msg))).toBe(true);
+    // The long family was abandoned after its opening sub-batch, not judged in full.
+    const long = r.families.find((f) => f.name === "long")!;
+    expect(long.tested).toBeLessThan(20);
+  }, 90_000);
+
+  it("keeps the small-scope family when the oracle fails only on its empty first inputs (round 38)", async () => {
+    // Small-scope enumerates shortest-first, so its first inputs all share an empty array. An oracle that crashes on []
+    // (nums[0]) fails the whole opening probe; the probe-skip rule used to drop the entire family there and miss a bug
+    // that only small-scope reaches. Ordered families are never skipped now: only the [] inputs go unjudged.
+    const params: Problem["params"] = [
+      { name: "nums", type: { kind: "array", of: { kind: "int", min: -5, max: 5 }, len: { min: 0, max: 6 } } },
+      { name: "k", type: { kind: "int", min: 0, max: 1000000 } },
+    ];
+    const trig = smallScopeInputs(params.map((p) => p.type), 300)[150] as [number[], number];
+    const problem: Problem = {
+      id: "empty-crash",
+      title: "Weighted sum",
+      statement: "Return sum(nums) * k.",
+      params,
+      returns: "sum(nums) * k",
+      examples: [{ args: [[1, 2], 3], output: 9 }, { args: [[4], 2], output: 8 }],
+      compare: "exact",
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "empty-crash": {
+        oracle: "```python\ndef solve(nums, k):\n    first = nums[0]\n    return (sum(nums) - first + first) * k\n```",
+        generators: '{"families":[]}',
+      },
+    };
+    const solution = { language: "python" as const, entry: "solve", code: `def solve(nums, k):\n    r = sum(nums) * k\n    if nums == ${JSON.stringify(trig[0])} and k == ${trig[1]}:\n        r += 1\n    return r\n` };
+    const r = await attack({ problem, solution, research: "off" }, deps(fx));
+    expect(r.verdict).toBe("counterexample");
+    const small = r.families.find((f) => f.name === "small-scope")!;
+    expect(small.tested).toBeGreaterThan(100);
+    expect(small.mismatches).toBeGreaterThan(0);
+    expect(r.trace.some((e) => e.kind === "warn" && /small-scope: the oracle could not judge/.test(e.msg))).toBe(false);
+  }, 90_000);
+
+  it("time-boxes shrinking a hang, so the attack still explains and fixes it within the wall clock (round 40)", async () => {
+    // Every candidate that still hangs costs a full time limit, so an unbounded shrink of a long hanging input used to
+    // run the whole wall clock out: the attack ended with the unshrunk input and no explanation or fix. Shrinking now
+    // gets at most half of the time left and keeps its progress, and the stages after it still run.
+    const problem: Problem = {
+      id: "hang-shrink",
+      title: "Sum (hangs when long)",
+      statement: "Return the sum of xs.",
+      params: [{ name: "xs", type: { kind: "array", of: { kind: "int", min: 0, max: 9 }, len: { min: 0, max: 60 } } }],
+      returns: "the sum",
+      examples: [{ args: [[1, 2, 3]], output: 6 }],
+      compare: "exact",
+      timeLimitMs: 300,
+      memoryLimitMb: 256,
+    };
+    const fx: ReplayFixtures = {
+      "hang-shrink": {
+        oracle: "```python\ndef solve(xs):\n    return sum(xs)\n```",
+        generators: '{"families":[{"name":"long","args":[{"kind":"array","of":{"kind":"int","min":0,"max":9},"len":{"min":55,"max":60}}]}]}',
+        explain: "EXPLANATION: The loop never ends on long arrays.\n```python\ndef solve(xs):\n    return sum(xs)\n```",
+      },
+    };
+    const solution = { language: "python" as const, code: "def solve(xs):\n    if len(xs) >= 25:\n        while True:\n            pass\n    return sum(xs)\n", entry: "solve" };
+    const r = await attack({ problem, solution, research: "off" }, { ...deps(fx), budgets: { wallClockMs: 20_000 } });
+    expect(r.verdict).toBe("counterexample");
+    expect(r.counterexample?.got).toMatch(/^timeout/);
+    expect(r.explanation).toBeDefined();
+    expect(r.fix).toBeDefined();
+    expect(r.trace.some((e) => e.stage === "shrink" && e.kind === "warn" && /share of the time budget/.test(e.msg))).toBe(true);
+  }, 90_000);
 
   it("cuts off a hanging model call at the wall-clock deadline", async () => {
     const hanging: ModelProvider = {

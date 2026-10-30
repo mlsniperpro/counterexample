@@ -123,6 +123,8 @@ describe("ReportView research section", () => {
     const base = fullReport();
     const failed = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [], error: "no research client configured (set TAVILY_API_KEY)" } });
     expect(failed).toContain("Research did not complete: no research client configured (set TAVILY_API_KEY)");
+    // A failed search is not also reported as one that found nothing.
+    expect(failed).not.toContain("The searches found no facts to use.");
     const empty = render({ ...base, research: { queries: ["q"], facts: [], influencedFamilies: [] } });
     expect(empty).toContain("The searches found no facts to use.");
   });
@@ -141,6 +143,14 @@ describe("ReportView content (each number and text in its place)", () => {
     expect(html).toMatch(/<span class="label">got<\/span>[^]{0,80}>-1</);
     expect(html).toContain("Because the loop stops early.");
     expect(html).toContain("in 3 steps, 9 candidate runs");
+  });
+
+  it("shows the shrunk counterexample input under the heading, not the unshrunk original", () => {
+    // The fixture's counterexample.args ([[0], 0]) differs from its original.args ([[3, 1, 2], 1]); the headline input
+    // must be the minimal (shrunk) args. A mutant rendering r.counterexample.original.args here would show the unshrunk
+    // input under "Minimal counterexample" and must fail.
+    expect(html).toContain('<code class="big">solve([0], 0)</code>');
+    expect(html).not.toContain("solve([3, 1, 2], 1)");
   });
 
   it("puts each count in its column: inputs attacked, tested per family, calls and tokens per stage, and why", () => {
@@ -240,6 +250,9 @@ describe("ReportView puts every field in its own place (distinct values)", () =>
   it("shows each model-routing cell, the per-step cost (not the run total) and the tokens sum", () => {
     expect(html).toMatch(/<td>oracle<div class="small muted">Correctness first<\/div><\/td><td><code>ultra<\/code><\/td><td>2<\/td><td>345<\/td><td>\$0.00042<\/td>/);
     expect(html).toMatch(/<td><code>super<\/code>.*?<\/td><td>1<\/td><td>110<\/td><td>unpriced<\/td>/);
+    // The step column is the step's purpose, not its stage: the generators row's stage ("attack") differs from its
+    // purpose ("generators"), so a mutant rendering s.stage here would show "attack" and must fail.
+    expect(html).toMatch(/<td>generators<div class="small muted">Cheap and fast<\/div><\/td><td><code>super<\/code>/);
     // The per-step cost is the step's own, not the run total ($0.075).
     expect(html).toContain("<td>$0.00042</td>");
     expect(html).not.toContain("<td>$0.075</td>");
@@ -265,5 +278,13 @@ describe("ReportView region names tell a shared report from the reader's own", (
     expect(own).not.toContain("Shared report:");
     const sharedHtml = renderToStaticMarkup(createElement(ReportView, { r: fullReport(), onCopy: () => {} }));
     expect(sharedHtml).toContain('aria-label="Shared report: attack families table"');
+  });
+
+  it("shows the Share link button on the reader's own report and never on a shared one", () => {
+    // The reader's own report gets onShare; a shared report is rendered without it (a link has nothing to re-share), so
+    // the button must not appear. Without this, dropping the `onShare &&` guard would render a dead button on shared reports.
+    expect(render(fullReport(), {})).toContain(">Share link<");
+    const sharedHtml = renderToStaticMarkup(createElement(ReportView, { r: fullReport(), onCopy: () => {} }));
+    expect(sharedHtml).not.toContain("Share link");
   });
 });

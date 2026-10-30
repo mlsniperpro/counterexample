@@ -94,7 +94,12 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * created with a plain open() under /dev/mqueue, so send and receive are denied
  * too), io_uring_{setup,enter,register}, the legacy AIO calls (io_setup etc.: one run could fill the host-global aio-nr and starve other containers), unshare, setns, mount, pivot_root and
  * chroot (a user namespace with its own tmpfs holds memory the run's limit does
- * not count, wherever the runtime's own seccomp profile is missing), and fork,
+ * not count, wherever the runtime's own seccomp profile is missing), ptrace
+ * (PTRACE_TRACEME makes the server the run's tracer; a tracee that then stops
+ * is reported to the server's waitpid as an exit, so the handle is dropped and
+ * the killed process becomes an unreapable zombie owned by the server, one per
+ * submission, until it exhausts the uid's NPROC or the container's pid limit
+ * and breaks the sandbox for everyone — no legitimate run traces anything), and fork,
  * vfork and any clone that does not set CLONE_THREAD (a run is then one process,
  * whose single RLIMIT_AS bounds its memory; without this, 64 forked children
  * could each reserve memory_limit and reach the whole container's memory before
@@ -104,8 +109,8 @@ const b64 = (s) => (s ? Buffer.from(s, "utf8").toString("base64") : null);
  * below, not the flat list.
  */
 const DENIED_SYSCALLS = {
-  x64: { audit: 0xc000003e, x32: true, clone: 56, nrs: [57, 58, 41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161, 206, 207, 208, 209, 210] },
-  arm64: { audit: 0xc00000b7, x32: false, clone: 220, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51, 0, 1, 2, 3, 4] },
+  x64: { audit: 0xc000003e, x32: true, clone: 56, nrs: [57, 58, 41, 53, 253, 254, 294, 319, 29, 64, 68, 240, 241, 242, 243, 244, 245, 425, 426, 427, 272, 308, 165, 155, 161, 206, 207, 208, 209, 210, 101] },
+  arm64: { audit: 0xc00000b7, x32: false, clone: 220, nrs: [198, 199, 26, 27, 279, 194, 190, 186, 180, 181, 182, 183, 184, 185, 425, 426, 427, 97, 268, 40, 41, 51, 0, 1, 2, 3, 4, 117] },
 };
 
 /**

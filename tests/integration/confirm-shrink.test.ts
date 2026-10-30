@@ -563,3 +563,30 @@ describe("the explanation and the fix in a report belong to the same attempt", (
   });
 });
 
+describe("the run stage keeps sandbox submissions bounded (round 35)", () => {
+  it("judges a proven-fast family a whole window at a time, so a correct solution is not drowned in round trips", async () => {
+    // The round-34 sub-batching must probe only the FIRST window of each family. If it re-probed every 64-input window,
+    // a correct solution would make several times as many executor submissions; on a remote executor (the only kind
+    // production allows) the extra serial round trips can exhaust the wall clock and wrongly report budget_exhausted on
+    // code that has no bug. Pin that submissions stay close to one per window by requiring a high average batch size.
+    const d = deps();
+    let runCalls = 0;
+    let inputsRun = 0;
+    const counting: Executor = {
+      name: d.executor.name,
+      label: d.executor.label,
+      async run(req: RunRequest) {
+        runCalls++;
+        inputsRun += req.inputs.length;
+        return d.executor.run(req);
+      },
+    };
+    const r = await attack({ problem: bs.problem, solution: correct, research: "off" }, { ...d, executor: counting });
+    expect(r.verdict).toBe("no_counterexample");
+    expect(runCalls).toBeGreaterThan(0);
+    // RUN_FIRST_CHUNK is the probe size; a per-window probe would drag the average well below RUN_CHUNK. Requiring an
+    // average comfortably above the probe size proves proven-fast families run whole windows, not repeated small probes.
+    expect(inputsRun / runCalls).toBeGreaterThan(RUN_CHUNK / 2);
+  }, 120_000);
+});
+

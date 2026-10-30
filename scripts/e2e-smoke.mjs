@@ -215,18 +215,49 @@ async function main() {
   step = "attack a built-in to a verdict";
   await page.goto(base);
   await page.getByText("Replay mode: hand-written stand-ins for model answers, real execution").waitFor({ timeout: 15_000 });
+  // The hero paragraph follows the server's mode: in replay it must not claim a live model ran.
+  check((await page.locator("p.sub").innerText()).startsWith("Replay mode: no model runs."), "the hero paragraph says replay mode runs no model");
+  // The picked problem's own statement and examples are shown (checked against the server's catalog, and again after a pick below).
+  const catalog = (await fetch(`${base}/api/problems`).then((r) => r.json())).problems;
+  const norm = (t) => t.replace(/`/g, "").replace(/\s+/g, " ").trim();
+  const showsProblem = async (prob, what) => {
+    await page.locator("p.statement").waitFor();
+    eq(norm(await page.locator("p.statement").innerText()), norm(prob.statement), `${what}: the statement shown`);
+    eq(await page.locator("ul.examples li").count(), prob.examples.length, `${what}: the examples shown`);
+  };
+  await showsProblem(catalog[0], "the first problem");
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator("h2.verdict").innerText(), "Broken: minimal counterexample found", "verdict");
   check(/^solve\(/.test(await page.locator(".cx code.big").innerText()), "the minimal counterexample is shown");
   check((await page.locator(".trace li.ev").count()) > 5, "the live trace has events");
+  // The trace is the headline artifact, so pin that each event's three spans show their own field
+  // (time formatted, stage label, message) and not a sibling field: a render that printed e.kind or
+  // e.stage in the message span, or the raw millisecond number instead of ms(e.t), must fail here.
+  const traceEvents = await page.locator(".trace li.ev").evaluateAll((lis) =>
+    lis.map((li) => ({
+      kind: li.className.replace(/^ev\s+/, "").trim(),
+      t: li.querySelector(".t")?.textContent?.trim() ?? "",
+      st: li.querySelector(".st")?.textContent?.trim() ?? "",
+      msg: li.querySelector(".msg")?.textContent?.trim() ?? "",
+    })),
+  );
+  check(traceEvents.length > 0 && traceEvents.every((e) => /^\d+(\.\d+)?\s(ms|s)$/.test(e.t)), "every trace event shows a formatted time (ms(e.t)), not a raw millisecond number");
+  check(traceEvents.every((e) => e.st.length > 0 && e.msg.length > 0), "every trace event shows a stage label and a message");
+  check(traceEvents.some((e) => e.msg !== e.st), "the trace message span shows e.msg, not the stage label");
+  check(traceEvents.some((e) => e.msg !== e.kind), "the trace message span shows e.msg, not the event kind");
+  check(traceEvents.some((e) => e.st !== e.kind), "the trace stage span shows e.stage, not the event kind");
   check((await page.locator("p.sr-only[role=status]").innerText()).startsWith("Broken"), "the verdict is announced");
   await attackButton(page).waitFor();
   eq(await page.locator("p.err[role=alert]").count(), 0, "no error alert after a clean run");
   const firstCx = await page.locator(".cx code.big").innerText();
   // The claims the page makes: the sandbox it ran in, why each model was chosen, and the problem's examples.
   check((await page.locator(".badges .badge").allInnerTexts()).some((t) => /local|judge0/i.test(t)), "the executor badge names where the code ran");
-  check((await page.locator(".trace .why").count()) > 0 && (await page.locator(".trace .why").first().innerText()).trim().length > 0, "model calls in the trace say why that model was chosen");
+  const firstWhy = (await page.locator(".trace .why").first().innerText()).trim();
+  check((await page.locator(".trace .why").count()) > 0 && firstWhy.length > 0, "model calls in the trace say why that model was chosen");
+  // The why span shows the routing rationale (a sentence), not the event's purpose (a single word) or its model id (has a
+  // slash): a mutant printing e.data.purpose or e.data.model in that span would fail one of these.
+  check(/\s/.test(firstWhy) && !firstWhy.includes("/"), `the trace why is the routing rationale, not the purpose or model id (${firstWhy.slice(0, 50)})`);
   check((await page.locator("ul.examples li").count()) > 0, "the problem's examples are listed");
   // Every research fact is cited, in the live trace and in the report, with a link to its https source.
   const traceSources = await page.locator(".trace .facts a").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
@@ -273,7 +304,13 @@ async function main() {
   step = "a second share link starts a fresh report view";
   await shared.locator(".shared").getByRole("button", { name: "Copy report" }).click();
   await shared.locator(".shared .result .live", { hasText: "Copied to the clipboard" }).waitFor();
-  check((await shared.evaluate(() => navigator.clipboard.readText())).startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
+  const sharedMd = await shared.evaluate(() => navigator.clipboard.readText());
+  check(sharedMd.startsWith("# Counterexample report: "), "Copy report on a shared report puts its Markdown on the clipboard");
+  // The banner names the problem by its title, not its id: cross-check it against the Markdown title line
+  // (both come from problem.title), so a render that printed shared.problem.id in the banner must fail.
+  const mdTitle = sharedMd.split("\n", 1)[0].replace("# Counterexample report: ", "").trim();
+  const bannerTitle = (await shared.locator(".shared > .row p b").innerText()).trim();
+  check(bannerTitle.length > 0 && bannerTitle === mdTitle, `the shared banner names the problem's title, not its id (banner="${bannerTitle}", title="${mdTitle}")`);
   await shared.locator(".shared").getByRole("button", { name: "Show full fix" }).click();
   await shared.locator(".shared").getByRole("button", { name: "Show changes only" }).waitFor();
   // The full view is the corrected solution, not the submitted code: the binary-search fix loops while lo <= hi.
@@ -281,6 +318,7 @@ async function main() {
   check(fullFix.includes("while lo <= hi") && !fullFix.includes("while lo < hi"), `"Show full fix" shows the fix (${fullFix.slice(0, 80)})`);
   // Make a second, different report and open its link in the same tab (a hash change, not a reload).
   await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  await showsProblem(catalog.find((p) => p.id === "isqrt"), "after picking Integer square root");
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await page.getByRole("button", { name: "Share link" }).click();
@@ -476,6 +514,10 @@ async function main() {
   check(jsonl.endsWith("\n"), "the trace download ends with a newline");
   const traced = jsonl.trim().split("\n").map((l) => JSON.parse(l));
   eq(traced.length, await page.locator(".trace li.ev").count(), "events in the trace download");
+  // Each downloaded line is the event itself (showValue(e)), not a projection: it carries the event's fields, and the
+  // first message matches what the trace shows on screen. A mutant writing e.msg, e.data or {seq} per line fails here.
+  check(traced.every((e) => e && typeof e.seq === "number" && typeof e.stage === "string" && typeof e.kind === "string" && typeof e.msg === "string"), "each downloaded trace line is the full event object (seq, stage, kind, msg)");
+  eq(traced[0].msg, (await page.locator(".trace li.ev .msg").first().innerText()).trim(), "the downloaded trace carries the same messages shown on screen");
   // Share puts the report's link in the address bar too.
   await page.getByRole("button", { name: "Share link" }).click();
   const linked = await page.waitForFunction(() => window.location.hash.startsWith("#r=1."), null, { timeout: 15_000 }).then(() => true, () => false);
@@ -503,6 +545,8 @@ async function main() {
   await page.getByLabel("Research the web (Tavily)").check();
   await page.getByRole("button", { name: "Your own", exact: true }).click();
   check((await page.getByRole("textbox", { name: "Problem statement" }).count()) === 1, "the statement box has a name of its own");
+  // In replay mode "Your own" says it needs live mode (a custom attack is refused there), and nothing claims otherwise.
+  eq(await page.locator("p.warn").innerText(), "Custom problems need live mode (NEBIUS_API_KEY on the server). Replay mode covers the five built-ins.", "the replay-mode notice for Your own");
   const [phColor, mutedColor] = await page.locator("textarea.statement-in").evaluate((el) => [getComputedStyle(el, "::placeholder").color, getComputedStyle(document.querySelector(".sub")).color]);
   eq(phColor, mutedColor, "the statement placeholder's colour (the muted text colour, 5.3:1 and 7.5:1)");
   await page.locator("textarea.statement-in").fill("Return x + 1.");
