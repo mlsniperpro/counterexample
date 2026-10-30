@@ -1,4 +1,4 @@
-AUDITED_COMMIT: d5e09fa
+AUDITED_COMMIT: d8840e8
 OPEN_CRITICAL: 0
 OPEN_HIGH: 0
 CLEAN_AUDITS_IN_A_ROW: 1  # round 44 (code d8840e8) fully clean; rounds 35-43 each had a medium (all fixed)
