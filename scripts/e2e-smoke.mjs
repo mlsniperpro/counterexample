@@ -545,6 +545,8 @@ async function main() {
   await page.getByLabel("Research the web (Tavily)").check();
   await page.getByRole("button", { name: "Your own", exact: true }).click();
   check((await page.getByRole("textbox", { name: "Problem statement" }).count()) === 1, "the statement box has a name of its own");
+  // In replay mode "Your own" says it needs live mode (a custom attack is refused there), and nothing claims otherwise.
+  eq(await page.locator("p.warn").innerText(), "Custom problems need live mode (NEBIUS_API_KEY on the server). Replay mode covers the five built-ins.", "the replay-mode notice for Your own");
   const [phColor, mutedColor] = await page.locator("textarea.statement-in").evaluate((el) => [getComputedStyle(el, "::placeholder").color, getComputedStyle(document.querySelector(".sub")).color]);
   eq(phColor, mutedColor, "the statement placeholder's colour (the muted text colour, 5.3:1 and 7.5:1)");
   await page.locator("textarea.statement-in").fill("Return x + 1.");

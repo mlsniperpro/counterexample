@@ -41,6 +41,19 @@ describe("lineDiff", () => {
     expect(lineDiff(before, before)!.every((l) => l.op === "same")).toBe(true);
   });
 
+  it("shows an indentation-only change as a change (a return dedented out of a loop is the whole fix)", () => {
+    const before = "def solve(a):\n    for x in a:\n        return x\n";
+    const after = "def solve(a):\n    for x in a:\n        pass\n    return x\n".replace("        pass\n", "");
+    expect(lineDiff("a\n    b\n", "a\nb\n")!.filter((l) => l.op !== "same")).toEqual([
+      { op: "del", text: "    b" },
+      { op: "add", text: "b" },
+    ]);
+    expect(lineDiff(before, after)!.filter((l) => l.op !== "same")).toEqual([
+      { op: "del", text: "        return x" },
+      { op: "add", text: "    return x" },
+    ]);
+  });
+
   it("treats CRLF pasted code like LF", () => {
     const lf = "a\nb\nc\n";
     expect(lineDiff(lf.replace(/\n/g, "\r\n"), lf.replace("b", "B"))!.filter((l) => l.op !== "same")).toEqual([
