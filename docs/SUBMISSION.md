@@ -6,7 +6,7 @@ Facts checked against the repo at the commit that last changed this file. The nu
 
 ## Before you submit (owner)
 
-- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is ahead (the fixes from audit rounds 34 onward, including the `ptrace` denial and the regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
+- [ ] `main` is current with `counterexample`: PR #1 is already merged (`d56dcf0`), so `main` has the README, code and `LICENSE`, but the branch is many commits ahead (the fixes from audit rounds 34 onward, including the `ptrace` denial and the regenerated benchmark). Merge PR #2 (`counterexample` -> `main`) or make `counterexample` the default branch so the repo link opens the current code.
 - [ ] The repo `mlsniperpro/counterexample` is public (MIT `LICENSE` at the top).
 - [ ] The demo video is on YouTube, public, and at most 3 minutes (script: `docs/VIDEO.md`).
 - [ ] The Vercel preview URL works (or leave "Try it out" as the repo only).
