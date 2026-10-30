@@ -41,6 +41,21 @@ describe("share links (report in the URL fragment)", () => {
     expect(await decodeReport(enc.fragment)).toEqual(JSON.parse(JSON.stringify(r)));
   });
 
+  it("reads a link made before shrinkExhausted and reattackUnjudged existed with their safe defaults", async () => {
+    // Old links lack both fields. They must decode as a counterexample that was shrunk to the end (not "stopped early")
+    // and a re-attack with nothing unjudged, or an old link would say something its report never said.
+    const old = JSON.parse(JSON.stringify(toShared(await realReport())));
+    expect(old.counterexample.shrinkExhausted).toBe(false);
+    expect(old.fix.reattackUnjudged).toBe(0);
+    delete old.counterexample.shrinkExhausted;
+    delete old.fix.reattackUnjudged;
+    const stream = new Blob([JSON.stringify(old)]).stream().pipeThrough(new CompressionStream("deflate"));
+    const fragment = SHARE_PREFIX + toBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+    const decoded = await decodeReport(fragment);
+    expect(decoded.counterexample?.shrinkExhausted).toBe(false);
+    expect(decoded.fix?.reattackUnjudged).toBe(0);
+  });
+
   it("round-trips any text in the report (unicode, quotes, newlines)", async () => {
     const r = await realReport();
     await fc.assert(

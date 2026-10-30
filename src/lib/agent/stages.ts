@@ -508,7 +508,7 @@ export async function shrinkStage(ctx: AttackContext, hits: Hit[]): Promise<Coun
     // a full time limit (more in a shared-limit sandbox submission), so it is tried two at a time.
     batchSize: hang ? 2 : 16,
   });
-  if (ctx.budget.elapsed() > shrinkUntil) ctx.tracer.emit("shrink", "warn", "Shrinking used its share of the time budget; keeping the smallest failing input found so far");
+  if (shrunk.exhausted && ctx.budget.elapsed() > shrinkUntil) ctx.tracer.emit("shrink", "warn", "Shrinking used its share of the time budget; keeping the smallest failing input found so far");
   // Re-judge the result to report expected vs got for it; if it does not fail again, keep the confirmed original.
   const [final] = shrunk.steps ? await ctx.judge.compare("shrink", ctx.input.solution, [shrunk.minimal]) : [first.j];
   const reproduced = final?.status === "mismatch";

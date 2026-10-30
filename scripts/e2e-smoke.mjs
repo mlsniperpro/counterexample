@@ -215,6 +215,17 @@ async function main() {
   step = "attack a built-in to a verdict";
   await page.goto(base);
   await page.getByText("Replay mode: hand-written stand-ins for model answers, real execution").waitFor({ timeout: 15_000 });
+  // The hero paragraph follows the server's mode: in replay it must not claim a live model ran.
+  check((await page.locator("p.sub").innerText()).startsWith("Replay mode: no model runs."), "the hero paragraph says replay mode runs no model");
+  // The picked problem's own statement and examples are shown (checked against the server's catalog, and again after a pick below).
+  const catalog = (await fetch(`${base}/api/problems`).then((r) => r.json())).problems;
+  const norm = (t) => t.replace(/`/g, "").replace(/\s+/g, " ").trim();
+  const showsProblem = async (prob, what) => {
+    await page.locator("p.statement").waitFor();
+    eq(norm(await page.locator("p.statement").innerText()), norm(prob.statement), `${what}: the statement shown`);
+    eq(await page.locator("ul.examples li").count(), prob.examples.length, `${what}: the examples shown`);
+  };
+  await showsProblem(catalog[0], "the first problem");
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   eq(await page.locator("h2.verdict").innerText(), "Broken: minimal counterexample found", "verdict");
@@ -307,6 +318,7 @@ async function main() {
   check(fullFix.includes("while lo <= hi") && !fullFix.includes("while lo < hi"), `"Show full fix" shows the fix (${fullFix.slice(0, 80)})`);
   // Make a second, different report and open its link in the same tab (a hash change, not a reload).
   await page.getByRole("button", { name: "Integer square root", exact: true }).click();
+  await showsProblem(catalog.find((p) => p.id === "isqrt"), "after picking Integer square root");
   await attackButton(page).click();
   await page.locator("h2.verdict").waitFor({ timeout: 90_000 });
   await page.getByRole("button", { name: "Share link" }).click();

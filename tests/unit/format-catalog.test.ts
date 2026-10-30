@@ -60,6 +60,28 @@ describe("UI formatting", () => {
   });
 });
 
+describe("toMarkdown without a counterexample", () => {
+  it("copies a report with no counterexample, explanation or fix without those sections or an 'undefined'", () => {
+    const r: ReportNoTrace = {
+      verdict: "no_counterexample",
+      message: "Survived the attack.",
+      problem: { id: "p", title: "P" },
+      solution: { language: "python", code: "x", entry: "solve" },
+      setup: { provider: "replay", executor: "Local", research: "none", routing: "routed", reasoningModel: "u", fastModel: "s" },
+      families: [],
+      stats: { modelCalls: 2, runs: 5, inputsTested: 3, wallMs: 1, timeToFirstCounterexampleMs: null, costUsd: 0.001, unpricedCalls: 0, simulatedModelMs: 0 },
+      stages: [],
+    };
+    const md = toMarkdown(r);
+    expect(md).toContain("**Verdict:** Survived the attack. Survived the attack.");
+    expect(md).not.toContain("## Why");
+    expect(md).not.toContain("## Fix");
+    expect(md).not.toContain("solve(");
+    expect(md).not.toContain("undefined");
+    expect(md).toContain("3 inputs, 5 sandbox runs, 2 model calls");
+  });
+});
+
 describe("problem catalog", () => {
   it("has 13 problems (10 base, 3 hard-tier) with unique ids and 5 built-in demos", () => {
     expect(new Set(PROBLEMS.map((p) => p.id)).size).toBe(13);
