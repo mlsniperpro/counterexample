@@ -1,8 +1,8 @@
 # break-it.md (COUNTEREXAMPLE)
 
-TESTED_COMMIT: cff4db9
+TESTED_COMMIT: 87f2b50
 
-What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, over 600 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `cff4db9`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
+What was done to try to break this entry, and the results. This is the attacker's-eye record that complements reaudit.md (the round-by-round audit log). The latest full run (lint, typecheck, over 600 tests, FC_NUM_RUNS=1000, bench, build, e2e) is on commit `87f2b50`; earlier rounds are on the commits named in reaudit.md. The timings come from a cloud container shared with up to four parallel audit subagents, so wall-clock figures are inflated.
 
 ## Adversarial testing performed
 
@@ -16,7 +16,7 @@ What was done to try to break this entry, and the results. This is the attacker'
 - **UI hostile inputs.** Crafted share links at every schema cap (huge numbers, deep nesting, bidi/zero-width/HTML text, `javascript:`/`data:` URLs, 9,000-line diffs) render without script execution, horizontal overflow or axe violations; `javascript:`/`data:` URLs are rejected. axe (wcag2a/aa, wcag21a/aa, wcag22aa, best-practice) is clean across every report state at 320/390/1280 px in light and dark.
 - **Secrets.** `git log -p --all` over the full history: no keys, tokens or committed `.env`; only placeholders.
 
-## Run-stage and shrink findings (rounds 34-40): fixed
+## Run-stage, shrink and executor findings (rounds 34-42): fixed
 
 These wrong-verdict and starvation risks in the run and shrink stages were found and **fixed**, with regression tests in `tests/integration/agent-failures.test.ts` and `tests/integration/confirm-shrink.test.ts`:
 
@@ -25,6 +25,8 @@ These wrong-verdict and starvation risks in the run and shrink stages were found
 3. **The fix for 1-2 must not multiply remote submissions** (round 35). The first version probed *every* 64-input window in doubling sub-batches, ~4.5x the executor submissions; on a remote executor the extra serial round trips could themselves exhaust the 50 s wall clock and wrongly fail a **correct** solution (`budget_exhausted`). Fixed: probe only the first window of a family; once a window runs clean, judge the rest of the family a whole window per call. Measured on `binary-search/correct`: 257 executor calls before the fix, 71 after (pre-feature baseline 57), with the inputs tested and `runs` identical to the baseline. A regression test requires the average batch size to stay above RUN_CHUNK/2, so re-probing every window cannot silently return.
 
 4. **Shrinking must not starve the attack** (round 40). On the production sandbox a candidate that still hangs costs a full time limit, and an unbounded shrink used to run the 50 s wall clock out, losing its progress: the attack ended with the unshrunk input and no explanation or fix. Shrinking is now time-boxed to half the wall clock left and keeps the smallest failing input found so far; a hang shrinks two candidates at a time. Verified: a hang under a 20 s wall clock is explained and fixed (the test fails without the change).
+
+5. **Remote round trips must not exhaust the clock** (round 42). Judge0 chunks of a window used to go out one after another, so on the production sandbox a correct solution with a 1000 ms limit ran out of the 50 s wall clock, and a solution hanging on ~10% of inputs lost its confirmed timeouts. Once a chunk comes back clean, the next 3 now run concurrently (results used in order; off after the first hang or crash). Measured on the real `sandbox/server.mjs`: the correct solution gets `no_counterexample` with every family judged in 28 s, and the hanging one is reported as a counterexample.
 
 **Sandbox (round 35): `ptrace` denied.** A Python run could call `ptrace(PTRACE_TRACEME)` then `SIGSTOP`; the server's `waitpid` reads the stop as an exit, so the SIGKILLed process becomes an unreapable zombie — one per submission — until the uid's NPROC or the container's pid limit is exhausted and runs break for everyone (the `/health` check still passes, so the container is not restarted). Reproduced locally against the real root-mode server. Fixed: `ptrace` (x64 101, arm64 117) is denied with EACCES; a regression test asserts it.
 

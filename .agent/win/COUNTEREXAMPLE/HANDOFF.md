@@ -1,5 +1,11 @@
 # HANDOFF (COUNTEREXAMPLE)
 
+STATE 2026-10-30 08:05 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 42 done, PR #2 open:
+- The 5-hour usage limit cut round 42's core and UI audits at ~01:00Z; the session sat idle until 07:47Z (~6.5 h lost).
+- PR #2 (counterexample -> main) is open: https://github.com/mlsniperpro/counterexample/pull/2. The owner merges it (or sets counterexample as default) and makes the repo public before submitting.
+- Round 42: judge and security CLEAN; core 2 mediums (production sandbox throughput: serial Judge0 chunks ran a correct 1000 ms attack and a 10%-hang attack out of the 50 s clock) fixed by running a window's chunks concurrently after a clean one (re-measured on the real sandbox: 28 s no_counterexample; the hang is reported); UI 1 borderline medium (share codec only tested with counterexample reports) fixed.
+- Counter 0. Next: round 43 and 44; freeze 10:00Z; final status on PR #2 by 11:00Z with the real gate output.
+
 STATE 2026-10-30 00:45 UTC (session_01MhqWcN2Xy12avz8LfXtVq9, lease active) — ROUND 41 done:
 - Round 41: core, security and judge CLEAN; UI 4 medium test gaps fixed in cff4db9 (plus a cosmetic shrink-warning fix). Full checks green. Counter 0; need rounds 42 and 43 clean. Freeze 2026-10-30 10:00Z.
 
