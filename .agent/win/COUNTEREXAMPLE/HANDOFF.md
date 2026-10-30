@@ -347,7 +347,7 @@ WIND DOWN (2026-10-25 ~14:20 UTC, owner request): the lease is released; the wor
   - the JS harness under a real Node v12.14.0: BigInt digits OK;
   - the sandbox bench: 12/12, quiet and under load.
 
-## Latest state (read first)
+## Round 6-7 state (2026-10-25, historical — the current state is the STATE entries at the top)
 - Round 6 is fully fixed and pushed. Commits: `3b0bf80` core, `5d4f6c6` UI and docs, `99ed3a2` security, `a0f7d69` bench results, `91aa3f5` handoff. The sandbox is hardened with a seccomp network deny, per-run memory and file limits and locked dirs. `/health` shows network blocked.
 - Round 7 (four audits of `91aa3f5`) is NOT clean:
   - Security audit: no findings.
