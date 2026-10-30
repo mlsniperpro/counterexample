@@ -1,11 +1,19 @@
 AUDITED_COMMIT: d5e09fa
 OPEN_CRITICAL: 0
 OPEN_HIGH: 0
-CLEAN_AUDITS_IN_A_ROW: 0  # every round from 35 on had at least one medium (all fixed); two consecutive fully-clean rounds still needed
+CLEAN_AUDITS_IN_A_ROW: 1  # round 44 (code d8840e8) fully clean; rounds 35-43 each had a medium (all fixed)
 
 # Re-audit log (Counterexample)
 
 Each audit is a full pass over the whole entry, as a strict judge and a hostile senior reviewer: correctness, security, robustness, performance, UX, docs-vs-code truth, and brief compliance. Tools: a manual read plus the `code-review` skill at high effort.
+
+## Round 44 (2026-10-30, `d8840e8`, 4 parallel Sonnet/high audits, ~25-minute time box each; all four reported) — CLEAN
+
+**Fully clean: no finding at medium or above in any dimension.** First clean round; code unchanged since (only `.md` files).
+- **Core** CLEAN: all of src/lib core re-read (stages, judge, run, budget, program incl. the prefetch, judge0, compare, shrink, spec, smallscope, families, mutate, parse, understand, research plan, model-call, http, api, route); a Python-vs-JS harness differential at 2^53-1, 2^31, negatives and 14-digit values introduced no false difference. Lows (accepted): an astral-character alphabet from a live model could make JS `s.length` differ from Python; Python recursion between the default limit and the harness's 100000 can segfault; the fix re-attack does not re-confirm its own mismatches (costs at most one extra fix attempt, never a false "verified"); a budget-cut `Promise.all` leaves the other side in flight (the accepted aborted-submissions note).
+- **Security** CLEAN: `pnpm audit --prod` no known vulnerabilities; sandbox unchanged since round 35 and `sandbox.test.ts` 22/22 as root; no secrets tracked; route, guards, Judge0 client, SSRF, share links, client rendering and a ReDoS re-read all held. Below bar: a hostile statement of rare characters could tokenize past the 32k-prompt reservation (the daily cap can be overshot once by under ~$1, then admits stop); the documented shared bucket without trusted proxy headers; share links are unsigned by design.
+- **UI and tests** CLEAN at the medium bar (~60 one-line mutants traced): every report, Markdown, trace, diff and share field pinned; AttackUI wiring covered by the e2e. Low (wording class): the language dropdown's visible option text is not asserted.
+- **Judge/docs** CLEAN: every figure, constant, command, path and replayed demo reconciled. Low fixed: HANDOFF's newest STATE entry now covers rounds 43 and 44.
 
 ## Round 43 (2026-10-30, `bae0b9f`, 4 parallel Sonnet/high audits, ~25-minute time box each; all four reported)
 
